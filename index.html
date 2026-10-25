@@ -15,7 +15,7 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v0.5</small></div>
+  <div class="logo">Cap Ouest <small>v0.6</small></div>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
     <button data-t="dash">Tableau de bord</button>
@@ -55,7 +55,14 @@
       <label><input type="checkbox" data-lyr="fuel" checked> ■ Pleins calculés (50 %)</label>
       <label><input type="checkbox" data-lyr="b" checked> ● Boondock</label>
       <label><input type="checkbox" data-lyr="c" checked> ● Campings / parcs</label>
-      <label style="color:var(--muted)"><input type="checkbox" disabled> Toutes stations diesel (à venir)</label>
+      <label><input type="checkbox" data-lyr="stations" checked> ⛽ Stations diesel</label>
+      <div class="legend">
+        <span><i style="background:#2e8b3d"></i>Facile</span>
+        <span><i style="background:#d4a106"></i>Faisable</span>
+        <span><i style="background:#e0661b"></i>Serré</span>
+        <span><i style="background:#8a8a86"></i>Cardlock</span>
+        <span>Filtre : page Carburant</span>
+      </div>
     </details>
 
     <div class="tools">
@@ -69,6 +76,7 @@
     <div class="hud">
       <span class="chip" id="routeStatus">Trajet : …</span>
       <span class="chip f" id="hudFuel">Pleins : …</span>
+      <span class="chip" id="hudSt">⛽ Stations : …</span>
     </div>
   </div>
 
@@ -176,6 +184,19 @@
         </div>
         <div class="scroll"><table id="fuelTable"></table></div>
         <div class="src">Position calculée sur le trajet ; la station précise sera choisie à proximité (étape suivante). Prix : moyenne provisoire 1,85 $ CA/L.</div>
+      </div>
+      <div class="box real mt">
+        <div class="row between" style="margin-bottom: 8px;">
+          <h2 style="margin:0">Stations diesel le long du trajet</h2>
+          <select class="inp" id="stMax" style="width:auto">
+            <option value="1">Faciles seulement</option>
+            <option value="2" selected>Faciles et faisables</option>
+            <option value="3">Toutes</option>
+          </select>
+        </div>
+        <div class="row" id="stCounts"></div>
+        <div class="mt" style="max-height: 420px; overflow-y: auto;"><table id="stTable"></table></div>
+        <div class="src">Source : OpenStreetMap, à 2 km ou moins du trajet. <b>Facile</b> : relais routier (Flying J, Pilot, Love's, TA, Petro…) ou station marquée poids lourds. <b>Faisable</b> : diesel, hors ville, en bordure du trajet. <b>Serré</b> : en ville ou à plus de 1 km du trajet. <b>Cardlock</b> : carte commerciale requise (Petro-Pass, etc.). <b>(diesel ?)</b> : grande bannière, mais le diesel n'est pas indiqué dans OpenStreetMap. Niveau automatique, à valider en vue satellite : touchez une ligne pour la voir sur la carte.</div>
       </div>
       <div class="box mt">
         <h3>Station « facile pour mon rig »</h3>
@@ -290,9 +311,16 @@
             <label class="lbl" for="syncEmail">Votre courriel</label>
             <div class="row">
               <input id="syncEmail" class="inp" type="email" placeholder="vous@exemple.com" autocomplete="email">
-              <button class="btn pri" id="syncSignIn">Recevoir le lien</button>
+              <button class="btn pri" id="syncSignIn">Recevoir le code</button>
             </div>
-            <div class="src">Un lien de connexion vous est envoyé par courriel. Ouvrez-le sur cet appareil. Aucun mot de passe.</div>
+            <div id="syncCodeRow" hidden>
+              <label class="lbl" for="syncCode">Code à 6 chiffres reçu par courriel</label>
+              <div class="row">
+                <input id="syncCode" class="inp" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="123456" style="letter-spacing: .2em; font-size: 18px;">
+                <button class="btn pri" id="syncVerify">Se connecter</button>
+              </div>
+            </div>
+            <div class="src">Un code vous est envoyé par courriel : tapez-le ici. Aucun mot de passe.</div>
           </div>
           <div id="syncSignedIn" hidden>
             <div class="field"><span>Connecté</span><b id="syncUser">—</b></div>

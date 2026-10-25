@@ -57,6 +57,14 @@ export async function signIn(email) {
   if (error) throw error;
 }
 
+// Code à 6 chiffres reçu par courriel : fonctionne aussi dans l'application installée,
+// où le lien du courriel s'ouvrirait plutôt dans le navigateur (stockage séparé).
+export async function verifyCode(email, code) {
+  if (!sb) throw new Error('Synchronisation indisponible.');
+  const { error } = await sb.auth.verifyOtp({ email, token: code, type: 'email' });
+  if (error) throw error;
+}
+
 export async function signOut() {
   if (sb) await sb.auth.signOut();
 }

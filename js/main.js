@@ -3,7 +3,8 @@ import { TARGET_ISO, FUEL, FUEL_KM, TYPE_LABEL, DEFAULT_VEHICLE } from './data.j
 import { trip, settings, saveTrip, saveSettings, resetTrip, newStep, exportTrip, importTrip } from './store.js';
 import { cachedOrEstimate, fetchMissing, providerOf, testOrs, clearRouteCache, PROVIDER_LABEL } from './routing.js';
 import { hav, pointsAlong, fmt, fmtH } from './geo.js';
-import { initSync, onStatus, onRemoteChange, signIn, signOut, syncNow } from './sync.js';
+import { LEVEL, stationsAlong, fetchMissingStations, stationProgress, clearStationCache } from './stations.js';
+import { initSync, onStatus, onRemoteChange, signIn, verifyCode, signOut, syncNow } from './sync.js';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -30,6 +31,7 @@ baseMaps[settings.baseMap] ? baseMaps[settings.baseMap].addTo(map) : baseMaps.pl
 
 const layers = {
   lines: L.layerGroup().addTo(map),
+  stations: L.layerGroup().addTo(map),
   fuel: L.layerGroup().addTo(map),
   ends: L.layerGroup().addTo(map),
   b: L.layerGroup().addTo(map),
@@ -39,6 +41,7 @@ const layers = {
 const markers = new Map();   // id d'étape → marqueur Leaflet
 let legs = [];               // legs[i] : tronçon de steps[i] à steps[i+1]
 let fuelPts = [];
+let stations = [];
 
 function markerIcon(s, n) {
   const cls = s.type === 'dest' ? 'mk dest' : 'mk ' + s.type;
@@ -118,7 +121,9 @@ function renderLines() {
   renderCalendar();
   renderKpis();
   renderFuelTable();
+  renderStations();
   renderStatus();
+  loadStations();
 }
 
 let linesQueued = false;
@@ -162,7 +167,87 @@ function renderStatus() {
   $('provName').textContent = PROVIDER_LABEL[p];
   const next = fuelPts[0];
   $('hudFuel').textContent = next ? `${fuelPts.length} pleins · 1er à ~${fmt(next.km)} km` : 'Aucun plein requis';
+  const sp = stationProgress(legs);
+  const easy = stations.filter(s => s.level === 1).length;
+  $('hudSt').textContent = sp.done < sp.total
+    ? `⛽ Stations… ${sp.done}/${sp.total} tronçons${stationErrors ? ` · ${stationErrors} en erreur` : ''}`
+    : `⛽ ${stations.filter(s => s.level).length} stations diesel · ${easy} faciles`;
 }
+
+// ---------- Stations diesel réelles (OpenStreetMap) ----------
+// Une seule recherche à la fois (le serveur public refuse les requêtes simultanées) ;
+// à la fin, on relance pour les tronçons modifiés entre-temps, ou dans 1 min après une erreur.
+let stationBusy = false, stationErrors = 0;
+async function loadStations() {
+  if (stationBusy || legs.some(l => l.pending)) return;   // attendre le trajet complet
+  const sp = stationProgress(legs);
+  if (sp.done === sp.total) return;
+  stationBusy = true;
+  stationErrors = 0;
+  const snapshot = legs.slice();
+  await fetchMissingStations(snapshot, {
+    onLeg: () => { renderStations(); renderStatus(); },
+    onError: (i, e) => { stationErrors++; console.warn('Stations, tronçon', i, e); renderStatus(); },
+    isStale: () => legs.length !== snapshot.length || legs.some((l, i) => l !== snapshot[i]),
+  });
+  stationBusy = false;
+  setTimeout(loadStations, stationErrors ? 60000 : 0);
+}
+
+const stationIcon = s => {
+  const size = s.level === 1 ? 20 : 12;
+  return L.divIcon({ className: '', html: `<div class="st" style="background:${LEVEL[s.level].color}">${s.level === 1 ? '⛽' : ''}</div>`,
+    iconSize: [size, size], iconAnchor: [size / 2, size / 2] });
+};
+
+function stationPopup(s) {
+  const lv = LEVEL[s.level];
+  const brand = s.b && s.b !== s.name ? ` · ${esc(s.b)}` : '';
+  return `<div class="pop">
+    <span class="chip" style="border-color:${lv.color};color:${lv.color}">${s.level ? 'Niveau ' + s.level + ' · ' : ''}${lv.label}</span>
+    <div><b>${esc(s.name)}</b>${brand}</div>
+    <div>km ~${fmt(s.km)} du départ · à ${s.off.toFixed(1).replace('.', ',')} km du trajet</div>
+    <div class="src">${s.why.map(esc).join(' · ')}${s.def ? ' · DEF à la pompe' : ''}</div>
+    <div class="row">
+      <button class="btn sm" onclick="viewStation('${s.id}')">Vue satellite ici</button>
+      <a class="btn sm" target="_blank" rel="noopener" href="https://www.google.com/maps/@${s.lat},${s.lng},150m/data=!3m1!1e3">Google Maps ↗</a>
+    </div>
+    <div class="src">Niveau automatique (OpenStreetMap) : vérifier l'entrée, l'auvent (12' 4") et la sortie.</div>
+  </div>`;
+}
+
+function renderStations() {
+  stations = stationsAlong(legs);
+  layers.stations.clearLayers();
+  // La carte suit le filtre de la page Carburant (faciles et faisables par défaut)
+  stations.filter(s => s.level <= +$('stMax').value).forEach(s => {
+    L.marker([s.lat, s.lng], { icon: stationIcon(s), title: s.name, zIndexOffset: s.level === 1 ? 500 : s.level === 2 ? 250 : 0 })
+      .bindPopup(() => stationPopup(s), { minWidth: 230 })
+      .addTo(layers.stations);
+  });
+  renderStationTable();
+}
+
+function renderStationTable() {
+  $('stCounts').innerHTML = [1, 2, 3, 0].map(l =>
+    `<span class="chip" style="border-color:${LEVEL[l].color};color:${LEVEL[l].color}">${LEVEL[l].label} : ${stations.filter(s => s.level === l).length}</span>`).join('');
+  const shown = stations.filter(s => s.level && s.level <= +$('stMax').value);
+  $('stTable').innerHTML = '<tr><th>Km</th><th>Station</th><th>Niveau</th><th>Écart</th></tr>' +
+    shown.map(s => `<tr onclick="viewStation('${s.id}')" style="cursor:pointer"><td>${fmt(s.km)}</td><td>${esc(s.name)}</td>
+      <td><span class="dot" style="background:${LEVEL[s.level].color}"></span>${LEVEL[s.level].label}${s.unsure ? ' <span title="Diesel non confirmé">(diesel ?)</span>' : ''}</td><td>${s.off.toFixed(1).replace('.', ',')} km</td></tr>`).join('');
+}
+$('stMax').onchange = renderStations;
+
+// Centre la carte sur la station, en vue satellite, pour juger l'entrée et la sortie
+window.viewStation = id => {
+  const s = stations.find(x => x.id === id);
+  if (!s) return;
+  openView('map');
+  if (!map.hasLayer(layers.stations)) { layers.stations.addTo(map); document.querySelector('[data-lyr=stations]').checked = true; }
+  if (settings.baseMap !== 'sat') document.querySelector('[name=base][value=sat]').click();
+  map.flyTo([s.lat, s.lng], 18, { duration: .8 });
+  setTimeout(() => layers.stations.eachLayer(m => { if (m.getLatLng().equals([s.lat, s.lng])) m.openPopup(); }), 900);
+};
 
 // ---------- Liste d'étapes ----------
 function renderList() {
@@ -455,7 +540,8 @@ $('importFile').onchange = async e => {
 };
 $('clearRoutes').onclick = () => {
   clearRouteCache();
-  $('dataMsg').textContent = 'Cache vidé. Recalcul du trajet…';
+  clearStationCache();
+  $('dataMsg').textContent = 'Cache vidé. Recalcul du trajet et des stations…';
   recompute();
 };
 
@@ -487,11 +573,28 @@ $('syncSignIn').onclick = async () => {
   $('syncMsg').textContent = 'Envoi…';
   try {
     await signIn(email);
-    $('syncMsg').textContent = `✔ Lien envoyé à ${email}. Ouvrez-le sur cet appareil (vérifiez les indésirables).`;
+    $('syncCodeRow').hidden = false;
+    $('syncCode').focus();
+    $('syncMsg').textContent = `✔ Code envoyé à ${email} (vérifiez les indésirables). Il est valide une heure.`;
   } catch (e) {
     $('syncMsg').textContent = `✖ ${e.message}`;
   }
 };
+$('syncVerify').onclick = async () => {
+  const email = $('syncEmail').value.trim();
+  const code = $('syncCode').value.replace(/\D/g, '');
+  if (code.length < 6) { $('syncMsg').textContent = 'Entrez le code à 6 chiffres.'; return; }
+  $('syncMsg').textContent = 'Vérification…';
+  try {
+    await verifyCode(email, code);
+    $('syncCode').value = '';
+    $('syncCodeRow').hidden = true;
+    $('syncMsg').textContent = '✔ Connecté.';
+  } catch (e) {
+    $('syncMsg').textContent = /expired|invalid/i.test(e.message) ? '✖ Code invalide ou expiré. Demandez un nouveau code.' : `✖ ${e.message}`;
+  }
+};
+$('syncCode').addEventListener('keydown', e => { if (e.key === 'Enter') $('syncVerify').click(); });
 $('syncNowBtn').onclick = () => syncNow();
 $('syncOut').onclick = () => { if (confirm('Se déconnecter ? L\'itinéraire reste sur cet appareil.')) signOut(); };
 

@@ -114,6 +114,9 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; }
 .mk { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); color: #fff; font: 700 11px system-ui; display: flex; align-items: center; justify-content: center; background: var(--ink); }
 .mk.b { background: var(--warn); } .mk.c { background: var(--ok); }
 .mk.dest { width: 32px; height: 32px; background: #fff; color: var(--ink); border: 3px solid var(--ink); }
+.st { width: 100%; height: 100%; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.4); font-size: 10px; display: flex; align-items: center; justify-content: center; }
+.legend { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 11px; color: var(--muted); padding-left: 22px; }
+.legend i, .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
 .fu { width: 14px; height: 14px; background: var(--accent); border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
 .pop b { font-size: 14px; }
 .pop input { width: 100%; padding: 4px 6px; margin: 4px 0; border: 1px solid var(--line); border-radius: 4px; font: inherit; }
