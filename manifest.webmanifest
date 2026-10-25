@@ -1,0 +1,14 @@
+{
+  "name": "Cap Ouest",
+  "short_name": "Cap Ouest",
+  "description": "Planification du voyage en fifth wheel : itinéraire, nuitées, carburant et équipement.",
+  "lang": "fr-CA",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f4f2",
+  "theme_color": "#222222",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

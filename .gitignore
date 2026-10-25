@@ -1,0 +1,9 @@
+# Clés et secrets : ne jamais publier
+.env
+*.key
+secrets*
+
+# Système
+.DS_Store
+Thumbs.db
+desktop.ini

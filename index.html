@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#222222">
+<title>Cap Ouest</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="css/app.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script type="module" src="js/main.js"></script>
+</head>
+<body>
+
+<header>
+  <div class="logo">Cap Ouest <small>v0.4</small></div>
+  <nav id="tabs">
+    <button data-t="map" class="on">🗺 Carte</button>
+    <button data-t="dash">Tableau de bord</button>
+    <button data-t="nuit">Nuitées</button>
+    <button data-t="fuel">Carburant</button>
+    <button data-t="equip">Équipement</button>
+    <button data-t="params">⚙ Paramètres</button>
+  </nav>
+  <div class="trip">Lévis → Yellowstone → … · juin → ~fév. (9 mois)</div>
+</header>
+
+<div class="stage" id="stage">
+
+  <!-- ============ ÉTAPES ============ -->
+  <aside class="steps">
+    <div class="row between" style="margin-bottom: 8px;">
+      <h2 style="margin:0">Étapes</h2>
+      <button class="btn pri" id="addBtn">+ Étape</button>
+    </div>
+    <div class="src" style="margin-bottom:8px">Glisser un point sur la carte pour le déplacer · ↑↓ pour réordonner</div>
+    <div id="stepList"></div>
+    <div class="step" style="border-style: dashed; color: var(--muted);"><div class="d">Phase 2 : Yellowstone → … (8 mois)<small>à planifier</small></div></div>
+    <button class="btn sm" id="resetBtn" style="margin-top:6px">Réinitialiser l'itinéraire</button>
+  </aside>
+
+  <!-- ============ CARTE (ancre) ============ -->
+  <div class="mapwrap">
+    <div id="map"></div>
+    <div class="hint" id="hint">Cliquez sur la carte pour placer la nouvelle étape · Échap pour annuler</div>
+
+    <details class="layers">
+      <summary><b>Calques</b></summary>
+      <label><input type="radio" name="base" value="plan" checked> Plan</label>
+      <label><input type="radio" name="base" value="sat"> Satellite</label>
+      <hr style="border:0; border-top:1px solid var(--fill); margin:4px 0">
+      <label><input type="checkbox" data-lyr="lines" checked> Trajet</label>
+      <label><input type="checkbox" data-lyr="fuel" checked> ■ Pleins calculés (50 %)</label>
+      <label><input type="checkbox" data-lyr="b" checked> ● Boondock</label>
+      <label><input type="checkbox" data-lyr="c" checked> ● Campings / parcs</label>
+      <label style="color:var(--muted)"><input type="checkbox" disabled> Toutes stations diesel (à venir)</label>
+    </details>
+
+    <div class="tools">
+      <button class="btn" id="toggleSteps" title="Afficher / masquer les étapes">☰</button>
+      <button class="btn" id="zin" title="Zoom avant">＋</button>
+      <button class="btn" id="zout" title="Zoom arrière">－</button>
+      <button class="btn" id="fit" title="Voir tout le trajet">⤢</button>
+      <button class="btn" id="locate" title="Ma position">◎</button>
+    </div>
+
+    <div class="hud">
+      <span class="chip" id="routeStatus">Trajet : …</span>
+      <span class="chip f" id="hudFuel">Pleins : …</span>
+    </div>
+  </div>
+
+  <div class="timeline">
+    <div class="row between">
+      <b>Calendrier → arrivée Yellowstone</b>
+      <div class="row"><span class="chip b">Boondock</span><span class="chip c">Camping / parc</span><span id="margin" class="chip"></span></div>
+    </div>
+    <div class="scroll" style="margin-top: 6px;"><div class="days" id="days"></div></div>
+  </div>
+
+  <!-- ============ TIROIR / PAGES ============ -->
+  <div class="drawer" id="drawer">
+    <div class="drawer-head">
+      <h1 id="drawerTitle">—</h1>
+      <button class="btn" data-open="map" id="drawerClose">✕ Retour à la carte</button>
+    </div>
+
+    <!-- TABLEAU DE BORD -->
+    <section id="dash" data-title="Tableau de bord">
+      <div class="grid kpis">
+        <div class="box real kpi"><b id="kKm">—</b><span>km Lévis → Yellowstone</span></div>
+        <div class="box real kpi"><b id="kHours">—</b><span>heures de conduite</span></div>
+        <div class="box real kpi"><b id="kDays">—</b><span>nuits avant Yellowstone</span></div>
+        <div class="box real kpi"><b id="kAvg">—</b><span>km / jour de route</span></div>
+        <div class="box real kpi"><b id="kL">—</b><span>diesel (phase 1)</span></div>
+        <div class="box real kpi"><b id="kCost">—</b><span>carburant (phase 1)</span></div>
+        <div class="box real kpi"><b id="kNights">—</b><span>nuits boondock / camping</span></div>
+      </div>
+      <div class="box mt">
+        <h2>Alertes</h2>
+        <div class="field"><span>⚠ Réservation Yellowstone (Fishing Bridge)</span><i>à faire</i></div>
+        <div class="field"><span>⚠ Parcs Roosevelt / Badlands</span><i>réserver ou 1er arrivé</i></div>
+        <div class="field"><span>ℹ Passage frontière North Portal</span><i>docs, propane, nourriture</i></div>
+        <div class="field"><span>ℹ Éviter US-14A / Beartooth</span><i>pentes &gt; 10 %</i></div>
+      </div>
+      <div class="note" id="dashNote"></div>
+    </section>
+
+    <!-- NUITÉES -->
+    <section id="nuit" data-title="Nuitées">
+      <div class="box">
+        <div class="row between" style="margin-bottom: 8px;">
+          <h2 style="margin:0">Nuits planifiées</h2>
+          <div class="row"><button class="btn">Suggérer selon la règle</button><button class="btn" data-open="map">Voir sur la carte</button></div>
+        </div>
+        <div class="grid auto">
+          <div class="box"><div class="row between"><b>Nuit 1 · 1 juin</b><span class="chip b">Boondock</span></div><div class="ph" style="height:56px;margin:6px 0">photo / mini-carte</div><small>Nom du site · source : iOverlander<br>Accès 35' : ✔ · Plat : ? · Gratuit</small></div>
+          <div class="box"><div class="row between"><b>Nuit 2 · 2 juin</b><span class="chip b">Boondock</span></div><div class="ph" style="height:56px;margin:6px 0">photo / mini-carte</div><small>Nom du site · source : Campendium<br>Accès 35' : ✔ · Plat : ✔ · Gratuit</small></div>
+          <div class="box"><div class="row between"><b>Nuit 3 · 3 juin</b><span class="chip c">Camping</span></div><div class="ph" style="height:56px;margin:6px 0">photo / mini-carte</div><small>Parc prov. ___ · 30 A · vidange<br>Statut : <b style="color:var(--warn)">À réserver</b> · ~45 $ CA</small></div>
+          <div class="box" style="border-color: var(--warn)"><div class="row between"><b>Nuit 4 · 4 juin</b><span class="chip">?</span></div><div class="ph" style="height:56px;margin:6px 0">Aucune option trouvée</div><small>3 sites dans un rayon de 30 km → [Choisir]</small></div>
+        </div>
+      </div>
+
+      <div class="grid auto mt">
+        <div class="box">
+          <h3>Règle de rythme · flexible</h3>
+          <div class="row">
+            <span class="chip b">B</span><span class="chip b">B</span><span class="chip c">C</span>
+            <span style="color:var(--muted)">à</span>
+            <span class="chip b">B</span><span class="chip b">B</span><span class="chip b">B</span><span class="chip c">C</span>
+          </div>
+          <div class="field" style="margin-top:8px"><span>Boondock consécutifs</span><i>2 à 3</i></div>
+          <div class="field"><span>Forcer un camping si</span><i>eau &lt; 25 % ou batt. &lt; 30 %</i></div>
+          <div class="field"><span>Préférence</span><i>Parcs nat./prov. › privé</i></div>
+          <div class="field"><span>Route par jour</span><i>300–400 km</i></div>
+        </div>
+        <div class="box">
+          <h3>Filtres boondock</h3>
+          <div class="field"><span>Accès gros rig (~55' total)</span><i>☑</i></div>
+          <div class="field"><span>Terrain plat</span><i>☑</i></div>
+          <div class="field"><span>Génératrice permise</span><i>☑ (pas de solaire)</i></div>
+          <div class="field"><span>Signal cell / Starlink</span><i>☐</i></div>
+          <div class="field"><span>Distance max de la route</span><i>15 km</i></div>
+        </div>
+        <div class="box">
+          <h3>Autonomie hors-réseau</h3>
+          <div class="field"><span>Eau propre 182 L</span><i>~3–4 j</i></div>
+          <div class="bar"><div style="width:70%"></div></div>
+          <div class="field"><span>Eaux grises 341 L</span><i>~6+ j</i></div>
+          <div class="field"><span>Eaux noires 170 L</span><i>~7+ j</i></div>
+          <div class="field"><span>Batteries 600 Ah lithium</span><i>~2–3 j sans recharge</i></div>
+          <div class="field"><span>Génératrice 30 A → MultiPlus</span><i>~7 h pour 20→100 %</i></div>
+          <div class="note">Facteur limitant : l'eau propre. Sans solaire, prévoir ~2–3 h de génératrice / jour en boondock.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CARBURANT -->
+    <section id="fuel" data-title="Carburant">
+      <div class="box real">
+        <h2>Paramètres</h2>
+        <div class="field"><span>Réservoir</span><b>189 L</b></div>
+        <div class="field"><span>Plein déclenché à</span><b>50 % (94 L)</b></div>
+        <div class="field"><span>Conso. en remorquage</span><i>32 L/100 km [à calibrer]</i></div>
+        <div class="field"><span>Autonomie avant seuil</span><b>~295 km</b></div>
+        <div class="field"><span>Pleins calculés sur le trajet</span><b id="kFuel">—</b></div>
+        <div style="margin: 22px 0 6px;"><div class="gauge"></div></div>
+        <button class="btn" style="margin-top:10px" disabled>+ Saisir un plein réel (à venir)</button>
+      </div>
+      <div class="box real mt">
+        <div class="row between" style="margin-bottom: 8px;">
+          <h2 style="margin:0">Pleins prévus</h2>
+          <button class="btn" data-open="map">Voir sur la carte</button>
+        </div>
+        <div class="scroll"><table id="fuelTable"></table></div>
+        <div class="src">Position calculée sur le trajet ; la station précise sera choisie à proximité (étape suivante). Prix : moyenne provisoire 1,85 $ CA/L.</div>
+      </div>
+      <div class="box mt">
+        <h3>Station « facile pour mon rig »</h3>
+        <div class="row">
+          <span class="chip">☑ Voies camions / diesel haut débit</span>
+          <span class="chip">☑ Pull-through</span>
+          <span class="chip">☑ Marquise ≥ 13'6" (rig 12'4")</span>
+          <span class="chip">☑ DEF à la pompe</span>
+          <span class="chip">☐ Vidange RV</span>
+          <span class="chip">☐ Propane</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ÉQUIPEMENT -->
+    <section id="equip" data-title="Équipement">
+      <div class="grid auto">
+        <div class="box real">
+          <h2>🛻 Camion</h2>
+          <div class="field"><span>Modèle</span><b>Ram 3500 2023</b></div>
+          <div class="field"><span>Moteur</span><b>Cummins 6.7 L diesel</b></div>
+          <div class="field"><span>Roues arrière</span><b>Simples (SRW)</b></div>
+          <div class="field"><span>Réservoir</span><b>189 L</b></div>
+          <div class="field"><span>Charge utile</span><i>__ lb (étiquette portière)</i></div>
+          <div class="note">En roues simples, la charge utile est souvent le facteur limitant : pivot chargé ~2 300–2 600 lb + passagers + équipement.</div>
+        </div>
+        <div class="box real">
+          <h2>🏕 Fifth wheel</h2>
+          <div class="field"><span>Modèle</span><b>Coachmen Chaparral 298RLS 2019</b></div>
+          <div class="field"><span>Longueur</span><b>~34'–35'</b></div>
+          <div class="field"><span>Hauteur</span><b>12' 4"</b></div>
+          <div class="field"><span>Poids sec / GVWR</span><b>~9 575 / 12 000 lb</b></div>
+          <div class="field"><span>Poids au pivot (sec)</span><b>~1 935 lb</b></div>
+          <div class="field"><span>Eau propre</span><b>48 gal · 182 L</b></div>
+          <div class="field"><span>Eaux grises</span><b>90 gal · 341 L</b></div>
+          <div class="field"><span>Eaux noires</span><b>45 gal · 170 L</b></div>
+          <div class="src">Specs des fiches concessionnaires 298RLS — à valider sur l'étiquette de la roulotte.</div>
+        </div>
+        <div class="box real">
+          <h2>⚡ Énergie</h2>
+          <div class="field"><span>Batteries</span><b>2 × 300 Ah lithium</b></div>
+          <div class="field"><span>Capacité</span><b>600 Ah · ~7,2 kWh</b></div>
+          <div class="field"><span>Onduleur-chargeur</span><b>Victron MultiPlus 12 V / 120 V · 70 A</b></div>
+          <div class="field"><span>Génératrice</span><b>30 A</b></div>
+          <div class="field"><span>Solaire</span><b>Aucun</b></div>
+          <div class="field"><span>Recharge 20 % → 100 %</span><i>~7 h de génératrice</i></div>
+        </div>
+        <div class="box real">
+          <h2>📏 Ensemble</h2>
+          <div class="field"><span>Longueur totale</span><i>~55'</i></div>
+          <div class="field"><span>Hauteur max</span><b>12' 4"</b></div>
+          <div class="field"><span>Poids combiné</span><i>à peser (CAT scale)</i></div>
+          <div class="note">Ces valeurs sont envoyées au calcul de trajet poids lourd (⚙ Paramètres).</div>
+        </div>
+      </div>
+      <div class="grid auto mt">
+        <div class="box">
+          <div class="row between"><h2 style="margin:0">Checklists</h2><button class="btn">+ Liste</button></div>
+          <div class="row" style="margin: 8px 0;"><span class="chip">Avant départ</span><span class="chip">Attelage</span><span class="chip">Dételage</span><span class="chip">Boondock</span><span class="chip">Frontière</span></div>
+          <div class="field"><span>☐ Pression pneus (camion + roulotte)</span></div>
+          <div class="field"><span>☐ King pin verrouillé · test tirage</span></div>
+          <div class="field"><span>☐ Lumières / freins</span></div>
+          <div class="field"><span>☐ Antenne / échelle / auvent rentrés</span></div>
+        </div>
+        <div class="box">
+          <div class="row between"><h2 style="margin:0">Entretien</h2><button class="btn">+ Entrée</button></div>
+          <table style="margin-top: 8px;">
+            <tr><th>Élément</th><th>Dernier</th><th>Prochain</th></tr>
+            <tr><td>Huile moteur</td><td>__ km</td><td>__ km</td></tr>
+            <tr><td>Huile génératrice</td><td>__ h</td><td>__ h</td></tr>
+            <tr><td>Roulements roulotte</td><td>__</td><td>__</td></tr>
+            <tr><td>Pneus roulotte (âge)</td><td>__</td><td>__</td></tr>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- PARAMÈTRES -->
+    <section id="params" data-title="Paramètres">
+      <div class="grid auto">
+        <div class="box real">
+          <h2>🛣 Calcul du trajet</h2>
+          <div class="field"><span>Moteur utilisé</span><b id="provName">—</b></div>
+          <label class="lbl" for="orsKey">Clé OpenRouteService (profil poids lourd)</label>
+          <div class="row">
+            <input id="orsKey" class="inp" type="password" placeholder="Coller la clé ici" autocomplete="off" spellcheck="false">
+            <button class="btn sm" id="orsShow" title="Afficher / masquer">👁</button>
+          </div>
+          <div class="row mt">
+            <button class="btn pri" id="orsSave">Enregistrer</button>
+            <button class="btn" id="orsTest">Tester</button>
+            <button class="btn" id="orsClear">Retirer</button>
+          </div>
+          <div class="src" id="orsMsg"></div>
+          <div class="src">La clé reste sur cet appareil, jamais dans le code publié. Sans clé : OSRM, profil auto, sans restrictions VR.</div>
+        </div>
+
+        <div class="box real">
+          <h2>📏 Gabarit pour le calcul poids lourd</h2>
+          <div class="field"><span>Hauteur (m)</span><input class="inp" type="number" step="0.01" data-veh="heightM"></div>
+          <div class="field"><span>Longueur totale (m)</span><input class="inp" type="number" step="0.1" data-veh="lengthM"></div>
+          <div class="field"><span>Largeur (m)</span><input class="inp" type="number" step="0.01" data-veh="widthM"></div>
+          <div class="field"><span>Poids combiné (t)</span><input class="inp" type="number" step="0.1" data-veh="weightT"></div>
+          <div class="src" id="vehImperial"></div>
+          <div class="src">Un changement recalcule les tronçons avec ORS.</div>
+        </div>
+
+        <div class="box">
+          <h2>🔄 Synchronisation tablette ↔ portable</h2>
+          <label class="lbl">URL du projet Supabase</label>
+          <input class="inp" disabled placeholder="https://xxxx.supabase.co">
+          <label class="lbl">Clé publique (anon)</label>
+          <input class="inp" disabled placeholder="eyJ…">
+          <div class="note">Prochaine étape : créer le projet Supabase (voir README).</div>
+        </div>
+
+        <div class="box real">
+          <h2>💾 Données</h2>
+          <div class="row">
+            <button class="btn" id="exportBtn">Exporter l'itinéraire</button>
+            <label class="btn">Importer… <input type="file" id="importFile" accept="application/json,.json" hidden></label>
+          </div>
+          <div class="row mt">
+            <button class="btn" id="clearRoutes">Vider le cache des trajets</button>
+          </div>
+          <div class="src" id="dataMsg"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+  <div class="grip" id="drawerGrip" title="Glisser pour élargir · double-clic : largeur par défaut"></div>
+  <div class="grip" id="stepsGrip" title="Glisser pour élargir · double-clic : largeur par défaut"></div>
+</div>
+</body>
+</html>
