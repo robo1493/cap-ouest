@@ -7,3 +7,7 @@ secrets*
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Données personnelles (iOverlander, documents de voyage) : jamais publiées
+Data/
+data/

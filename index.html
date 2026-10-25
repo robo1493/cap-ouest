@@ -15,12 +15,13 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v0.6</small></div>
+  <div class="logo">Cap Ouest <small>v0.7</small></div>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
     <button data-t="dash">Tableau de bord</button>
     <button data-t="nuit">Nuitées</button>
     <button data-t="fuel">Carburant</button>
+    <button data-t="decouv">🧭 Découvertes</button>
     <button data-t="equip">Équipement</button>
     <button data-t="params">⚙ Paramètres</button>
   </nav>
@@ -51,6 +52,13 @@
       <summary><b>Calques</b></summary>
       <label><input type="radio" name="base" value="plan" checked> Plan</label>
       <label><input type="radio" name="base" value="sat"> Satellite</label>
+      <label><input type="checkbox" id="publicLands"> 🏕 Terres publiques US (BLM, forêts nationales)</label>
+      <div class="legend" id="publicLegend" hidden>
+        <span><i style="background:#fee6a6"></i>BLM</span>
+        <span><i style="background:#c6e5b3"></i>Forêt nationale</span>
+        <span><i style="background:#d9c5e6"></i>Parc national</span>
+        <span>Camping libre souvent permis (BLM, forêts) : vérifier les règles locales</span>
+      </div>
       <hr style="border:0; border-top:1px solid var(--fill); margin:4px 0">
       <label><input type="checkbox" data-lyr="lines" checked> Trajet</label>
       <label><input type="checkbox" data-lyr="fuel" checked> ■ Pleins calculés (50 %)</label>
@@ -64,6 +72,14 @@
         <span><i style="background:#8a8a86"></i>Cardlock</span>
         <span>Filtre : page Carburant</span>
       </div>
+      <hr style="border:0; border-top:1px solid var(--fill); margin:4px 0">
+      <b style="font-size:12px">🧭 Découvertes</b>
+      <label><input type="checkbox" data-poi="trail" checked> 🥾 Sentiers et nature</label>
+      <label><input type="checkbox" data-poi="view" checked> 🏞 Points de vue et chutes</label>
+      <label><input type="checkbox" data-poi="museum" checked> 🏛 Musées</label>
+      <label><input type="checkbox" data-poi="history" checked> 📜 Histoire</label>
+      <label><input type="checkbox" id="poiCheck"> Inclure les accès rig à vérifier</label>
+      <label><input type="checkbox" data-lyr="guides" checked> 📘 Mes guides <span id="guidesCount" class="src"></span></label>
     </details>
 
     <div class="tools">
@@ -78,6 +94,7 @@
       <span class="chip" id="routeStatus">Trajet : …</span>
       <span class="chip f" id="hudFuel">Pleins : …</span>
       <span class="chip" id="hudSt">⛽ Stations : …</span>
+      <span class="chip" id="hudPoi">🧭 Découvertes : …</span>
     </div>
   </div>
 
@@ -213,6 +230,36 @@
     </section>
 
     <!-- ÉQUIPEMENT -->
+    <section id="decouv" data-title="Découvertes">
+      <div class="box real">
+        <div class="row between">
+          <select class="inp" id="dcStep" style="width:auto; max-width:100%"></select>
+          <div class="row"><button class="btn sm" id="dcPrev">← Étape précédente</button><button class="btn sm" id="dcNext">Étape suivante →</button></div>
+        </div>
+        <div class="src" id="dcInfo"></div>
+      </div>
+      <div class="grid auto mt">
+        <div class="box real" id="dcHistory"><h2>📜 Histoire</h2><div class="src">Choisissez une étape.</div></div>
+        <div class="box">
+          <h2>🍽 Restaurants reconnus</h2>
+          <div class="src">Les restaurants relevés dans vos guides (🍽) apparaissent dans « Mes guides » ci-dessous, avec leur spécialité. D'autres adresses viendront des prochains guides analysés.</div>
+        </div>
+      </div>
+      <div class="box real mt">
+        <h2>📘 Mes guides</h2>
+        <div id="dcGuides"></div>
+      </div>
+      <div class="box real mt">
+        <h2 id="dcAroundTitle">Autour de l'étape</h2>
+        <div id="dcAround"></div>
+      </div>
+      <div class="box real mt">
+        <h2>En route vers cette étape</h2>
+        <div id="dcRoute"></div>
+      </div>
+      <div class="src">Source : OpenStreetMap (lieux) et Wikipédia (histoire). « Accessible au rig » = stationnement grand véhicule à moins de 400 m, ou halte en bordure de route : à confirmer en vue satellite.</div>
+    </section>
+
     <section id="equip" data-title="Équipement">
       <div class="grid auto">
         <div class="box real">
@@ -343,6 +390,11 @@
           <div class="row mt">
             <button class="btn" id="clearRoutes">Vider le cache des trajets</button>
           </div>
+          <div class="row mt">
+            <label class="btn">📘 Importer mes lieux (guides)… <input type="file" id="placesFile" accept="application/json,.json" hidden></label>
+            <span class="src" id="placesInfo"></span>
+          </div>
+          <div class="src">Fichier privé <b>Data/mes-lieux.json</b> préparé à partir de vos guides : importé une fois, il se synchronise ensuite avec vos autres appareils.</div>
           <div class="src" id="dataMsg"></div>
         </div>
       </div>

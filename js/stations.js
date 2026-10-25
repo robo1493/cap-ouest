@@ -4,6 +4,7 @@
 // le classement est recalculé à l'affichage (on peut ajuster les règles sans tout retélécharger).
 
 import { hav } from './geo.js';
+import { overpass as runOverpass, boxes, project } from './overpass.js';
 
 const CACHE_KEY = 'capouest.stations.v1';
 const CACHE_MAX = 200;
@@ -11,7 +12,6 @@ const RADIUS_M = 2000;      // corridor de recherche autour du trajet
 const BOX_KM = 20;          // longueur de route par boîte de recherche
 const LEGS_PER_QUERY = 5;   // tronçons regroupés par requête
 const URBAN_KM = 1.2;       // 2 autres stations ou plus dans ce rayon = secteur urbain
-const ENDPOINTS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter'];
 
 export const LEVEL = {
   1: { label: 'Facile', color: '#2e8b3d', desc: 'Relais routier ou voie camion' },
@@ -41,41 +41,9 @@ const usable = leg => !leg.pending && leg.provider !== 'estimate' && leg.coords.
 
 export const cachedStations = leg => usable(leg) ? cache[keyFor(leg)] || null : null;
 
-// Le trajet découpé en petites boîtes (~BOX_KM de route chacune), élargies du rayon de recherche.
-// Une requête par boîtes est bien plus rapide pour le serveur qu'une recherche « autour d'une ligne ».
-function boxes(coords) {
-  const out = [], pad = RADIUS_M / 1000 / 111 + 0.005;
-  let box = null, acc = 0;
-  coords.forEach((p, i) => {
-    if (!box) box = [p[0], p[1], p[0], p[1]];
-    box = [Math.min(box[0], p[0]), Math.min(box[1], p[1]), Math.max(box[2], p[0]), Math.max(box[3], p[1])];
-    if (i) acc += hav(coords[i - 1], p);
-    if (acc >= BOX_KM || i === coords.length - 1) {
-      const padLng = pad / Math.cos(p[0] * Math.PI / 180);
-      out.push([box[0] - pad, box[1] - padLng, box[2] + pad, box[3] + padLng].map(v => v.toFixed(4)).join(','));
-      box = [p[0], p[1], p[0], p[1]]; acc = 0;
-    }
-  });
-  return out;
-}
-
-// Le serveur public met souvent ~40 s à répondre (file d'attente), peu importe la taille de la requête
 async function overpass(legs) {
-  const parts = legs.flatMap(l => boxes(l.coords)).map(b => `nwr["amenity"="fuel"](${b});`).join('');
-  const q = `[out:json][timeout:180];(${parts});out center tags;`;
-  let last;
-  // Serveur occupé (429, 502, 504) : on attend un peu et on réessaie, puis on passe au miroir
-  for (let attempt = 0; attempt < 3; attempt++) {
-    for (const url of ENDPOINTS) {
-      try {
-        const r = await fetch(url, { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: AbortSignal.timeout(200000) });
-        if (!r.ok) throw new Error(`Overpass HTTP ${r.status}`);
-        return (await r.json()).elements;
-      } catch (e) { last = e; }
-    }
-    await new Promise(r => setTimeout(r, 20000 * (attempt + 1)));
-  }
-  throw last;
+  const parts = legs.flatMap(l => boxes(l.coords, RADIUS_M / 1000, BOX_KM)).map(b => `nwr["amenity"="fuel"](${b});`).join('');
+  return runOverpass(`[out:json][timeout:180];(${parts});out center tags;`);
 }
 
 // On ne garde que les étiquettes utiles, en format compact
@@ -116,23 +84,6 @@ export async function fetchMissingStations(legs, { onLeg, onError, isStale }) {
     }
     await new Promise(r => setTimeout(r, 1500));
   }
-}
-
-// Distance au trajet et position (km depuis le début du tronçon), par projection sur chaque segment
-function project(p, coords) {
-  const kx = Math.cos(p.lat * Math.PI / 180) * 111.32, ky = 110.57;
-  let best = Infinity, bestAlong = 0, along = 0;
-  for (let i = 1; i < coords.length; i++) {
-    const a = coords[i - 1], b = coords[i];
-    const ax = (a[1] - p.lng) * kx, ay = (a[0] - p.lat) * ky;
-    const dx = (b[1] - a[1]) * kx, dy = (b[0] - a[0]) * ky;
-    const l2 = dx * dx + dy * dy, seg = Math.sqrt(l2);
-    const t = l2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / l2)) : 0;
-    const x = ax + t * dx, y = ay + t * dy, d = x * x + y * y;
-    if (d < best) { best = d; bestAlong = along + t * seg; }
-    along += seg;
-  }
-  return { off: Math.sqrt(best), along: bestAlong, total: along };
 }
 
 function classify(s, urban) {

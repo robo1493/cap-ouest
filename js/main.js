@@ -5,6 +5,10 @@ import { cachedOrEstimate, fetchMissing, providerOf, testOrs, clearRouteCache, P
 import { hav, pointsAlong, fmt, fmtH } from './geo.js';
 import { LEVEL, stationsAlong, fetchMissingStations, stationProgress, clearStationCache } from './stations.js';
 import { initSync, onStatus, onRemoteChange, signIn, verifyCode, signOut, syncNow } from './sync.js';
+import { CATS, poisAlong, fetchMissingPois, poiProgress, clearPoiCache, wikiLink, stopRadiusKm, leaveRigAt } from './pois.js';
+import { cityHistory } from './history.js';
+import { PLACE_CATS, DIFF, getPlaces, onPlacesChange, importPlaces } from './places.js';
+import { project } from './overpass.js';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -32,9 +36,16 @@ const baseMaps = {
 };
 baseMaps[settings.baseMap] ? baseMaps[settings.baseMap].addTo(map) : baseMaps.plan.addTo(map);
 
+// Terres publiques des États-Unis (service public du Bureau of Land Management) : où le camping
+// libre (« dispersed camping ») est généralement permis. Tuiles disponibles jusqu'au zoom 14.
+const publicLands = L.tileLayer('https://gis.blm.gov/arcgis/rest/services/lands/BLM_Natl_SMA_Cached_without_PriUnk/MapServer/tile/{z}/{y}/{x}',
+  { maxNativeZoom: 14, maxZoom: 19, opacity: 0.55, attribution: '© BLM' });
+
 const layers = {
   lines: L.layerGroup().addTo(map),
   stations: L.layerGroup().addTo(map),
+  pois: L.layerGroup().addTo(map),
+  guides: L.layerGroup().addTo(map),
   fuel: L.layerGroup().addTo(map),
   ends: L.layerGroup().addTo(map),
   b: L.layerGroup().addTo(map),
@@ -45,6 +56,7 @@ const markers = new Map();   // id d'étape → marqueur Leaflet
 let legs = [];               // legs[i] : tronçon de steps[i] à steps[i+1]
 let fuelPts = [];
 let stations = [];
+let pois = [];
 
 function markerIcon(s, n) {
   const cls = s.type === 'dest' ? 'mk dest' : 'mk ' + s.type;
@@ -65,9 +77,12 @@ function popupHtml(i) {
     ${canType ? `<div>Nuits ici : <b>${s.nights}</b>
       <button class="btn sm" onclick="act('nights', ${i}, -1)">−</button>
       <button class="btn sm" onclick="act('nights', ${i}, 1)">+</button></div>` : ''}
+    ${s.type !== 'start' ? `<label style="display:block;margin-top:4px"><input type="checkbox" ${leaveRigAt(s) ? 'checked' : ''} onchange="act('leaveRig', ${i}, this.checked)">
+      La fifth wheel peut rester sur place <span class="src">(découvertes à ${stopRadiusKm(s)} km)</span></label>` : ''}
     <div class="row">
       ${canType ? `<button class="btn sm" onclick="act('type', ${i})">→ ${s.type === 'b' ? 'Camping' : 'Boondock'}</button>` : ''}
       <button class="btn sm" onclick="act('nuit', ${i})">Nuitée →</button>
+      ${s.type !== 'start' ? `<button class="btn sm" onclick="openDiscover(${i})">🧭 Découvrir →</button>` : ''}
       ${canType ? `<button class="btn sm" onclick="act('del', ${i})">Supprimer</button>` : ''}
     </div>
   </div>`;
@@ -125,8 +140,10 @@ function renderLines() {
   renderKpis();
   renderFuelTable();
   renderStations();
+  renderPois();
   renderStatus();
   loadStations();
+  loadPois();
 }
 
 let linesQueued = false;
@@ -175,7 +192,246 @@ function renderStatus() {
   $('hudSt').textContent = sp.done < sp.total
     ? `⛽ Stations… ${sp.done}/${sp.total} tronçons${stationErrors ? ` · ${stationErrors} en erreur` : ''}`
     : `⛽ ${stations.filter(s => s.level).length} stations diesel · ${easy} faciles`;
+  const pp = poiProgress(legs);
+  $('hudPoi').textContent = pp.done < pp.total
+    ? `🧭 Découvertes… ${pp.done}/${pp.total} tronçons${poiErrors ? ` · ${poiErrors} en erreur` : ''}`
+    : `🧭 ${pois.filter(p => p.mode !== 'check').length} découvertes`;
 }
+
+// ---------- Découvertes : sentiers, points de vue, musées, histoire (OpenStreetMap) ----------
+// En pause : le serveur Overpass public n'arrive pas à répondre à ces requêtes (délais, 502).
+// Les lieux déjà en cache restent affichés ; à réactiver quand la recherche sera découpée autrement.
+const POI_OSM_ENABLED = false;
+$('hudPoi').hidden = !POI_OSM_ENABLED;
+let poiBusy = false, poiErrors = 0;
+async function loadPois() {
+  if (!POI_OSM_ENABLED) return;
+  if (poiBusy || legs.some(l => l.pending)) return;   // attendre le trajet complet
+  const pp = poiProgress(legs);
+  if (pp.done === pp.total) return;
+  poiBusy = true;
+  poiErrors = 0;
+  const snapshot = legs.slice();
+  await fetchMissingPois(snapshot, trip.steps, {
+    onLeg: () => { renderPois(); renderStatus(); },
+    onError: (i, e) => { poiErrors++; console.warn('Découvertes, tronçon', i, e); renderStatus(); },
+    isStale: () => legs.length !== snapshot.length || legs.some((l, i) => l !== snapshot[i]),
+  });
+  poiBusy = false;
+  setTimeout(loadPois, poiErrors ? 60000 : 0);
+}
+
+const POI_MODE = {
+  stop: 'Autour de l\'étape',
+  route: 'En route · accessible au rig',
+  check: 'En route · accès rig à vérifier',
+};
+const poiShown = p => (p.mode !== 'check' || $('poiCheck').checked)
+  && document.querySelector(`[data-poi=${p.c}]`)?.checked;
+
+const poiIcon = p => {
+  const size = p.notable ? 24 : 20;
+  return L.divIcon({ className: '', html: `<div class="poi${p.notable ? ' star' : ''}${p.mode === 'check' ? ' check' : ''}">${CATS[p.c].icon}</div>`,
+    iconSize: [size, size], iconAnchor: [size / 2, size / 2] });
+};
+
+function poiAccess(p) {
+  if (p.mode === 'stop') {
+    const s = trip.steps[p.stop];
+    return `À ${p.dStop.toFixed(1).replace('.', ',')} km de ${esc(s.name.split(',')[0])}${leaveRigAt(s) ? ' · fifth wheel laissée sur place' : ' · avec le rig ou en camion seul'}`;
+  }
+  const off = `à ${p.off.toFixed(1).replace('.', ',')} km du trajet (km ~${fmt(p.km)})`;
+  if (p.rigParking) return `${off} · stationnement grand véhicule à proximité`;
+  if (p.mode === 'route') return `${off} · halte en bordure de route`;
+  return `${off} · accès avec le rig non confirmé`;
+}
+
+function poiPopup(p) {
+  const wiki = wikiLink(p);
+  return `<div class="pop">
+    <span class="chip">${CATS[p.c].icon} ${CATS[p.c].label}</span>${p.notable ? ' <span class="chip" title="Article Wikipédia / Wikidata">⭐ reconnu</span>' : ''}
+    <div><b>${esc(p.n)}</b></div>
+    <div class="src">${POI_MODE[p.mode]}<br>${poiAccess(p)}</div>
+    ${p.d ? `<div class="src">${esc(p.d)}</div>` : ''}
+    <div class="row">
+      <button class="btn sm" onclick="viewPoi('${p.id}')">Vue satellite</button>
+      ${wiki ? `<a class="btn sm" target="_blank" rel="noopener" href="${wiki}">Wikipédia ↗</a>` : ''}
+      ${p.web ? `<a class="btn sm" target="_blank" rel="noopener" href="${esc(p.web)}">Site ↗</a>` : ''}
+    </div>
+  </div>`;
+}
+
+function renderPois() {
+  pois = poisAlong(legs, trip.steps);
+  layers.pois.clearLayers();
+  pois.filter(poiShown).forEach(p => {
+    L.marker([p.lat, p.lng], { icon: poiIcon(p), title: p.n, zIndexOffset: p.notable ? 300 : 100 })
+      .bindPopup(() => poiPopup(p), { minWidth: 230 })
+      .addTo(layers.pois);
+  });
+  if ($('decouv').classList.contains('on')) renderDiscoverLists();
+}
+document.querySelectorAll('[data-poi]').forEach(cb => cb.onchange = renderPois);
+$('publicLands').onchange = e => {
+  e.target.checked ? publicLands.addTo(map) : map.removeLayer(publicLands);
+  $('publicLegend').hidden = !e.target.checked;
+};
+$('poiCheck').onchange = renderPois;
+
+window.viewPoi = id => {
+  const p = pois.find(x => x.id === id);
+  if (!p) return;
+  openView('map');
+  if (!viewBefore) viewBefore = { base: settings.baseMap, center: map.getCenter(), zoom: map.getZoom() };
+  if (settings.baseMap !== 'sat') document.querySelector('[name=base][value=sat]').click();
+  showBack();
+  map.flyTo([p.lat, p.lng], 16, { duration: .8 });
+  setTimeout(() => layers.pois.eachLayer(m => { if (m.getLatLng().equals([p.lat, p.lng])) m.openPopup(); }), 900);
+};
+
+// ---------- Mes guides (lieux tirés des guides personnels, synchronisés en privé) ----------
+// Étape la plus proche, pour situer chaque lieu par rapport au voyage
+function nearestStep(p) {
+  let best = -1, d = Infinity;
+  trip.steps.forEach((s, i) => { const k = hav(s, p); if (k < d) { d = k; best = i; } });
+  return { i: best, d };
+}
+
+const guideIcon = p => L.divIcon({ className: '',
+  html: `<div class="poi guide" style="border-color:${p.diff ? DIFF[p.diff].color : '#3d6fb4'}">${PLACE_CATS[p.cat].icon}</div>`,
+  iconSize: [24, 24], iconAnchor: [12, 12] });
+
+function guidePopup(p) {
+  const n = nearestStep(p), s = trip.steps[n.i];
+  return `<div class="pop">
+    <span class="chip">📘 ${PLACE_CATS[p.cat].icon} ${PLACE_CATS[p.cat].label}</span>
+    ${p.diff ? `<span class="chip" style="border-color:${DIFF[p.diff].color};color:${DIFF[p.diff].color}">${DIFF[p.diff].label}</span>` : ''}
+    <div><b>${esc(p.name)}</b></div>
+    <div>${esc(p.note)}</div>
+    <div class="src">À ${fmt(n.d)} km de ${esc(s.name.split(',')[0])} · ${esc(p.src)}</div>
+    <div class="row"><button class="btn sm" onclick="viewAt(${p.lat}, ${p.lng}, 16)">Vue satellite</button></div>
+  </div>`;
+}
+
+function renderGuides() {
+  const list = getPlaces();
+  layers.guides.clearLayers();
+  list.forEach(p => {
+    L.marker([p.lat, p.lng], { icon: guideIcon(p), title: p.name, zIndexOffset: 400 })
+      .bindPopup(() => guidePopup(p), { minWidth: 240 })
+      .addTo(layers.guides);
+  });
+  $('guidesCount').textContent = list.length ? `(${list.length})` : '(aucun : importer dans ⚙)';
+  $('placesInfo').textContent = list.length ? `${list.length} lieux sur cet appareil` : '';
+  if ($('decouv').classList.contains('on')) renderDiscoverLists();
+}
+onPlacesChange(renderGuides);
+
+// Vue satellite centrée sur un point (bouton « Retour » pour revenir)
+window.viewAt = (lat, lng, zoom) => {
+  openView('map');
+  if (!viewBefore) viewBefore = { base: settings.baseMap, center: map.getCenter(), zoom: map.getZoom() };
+  if (settings.baseMap !== 'sat') document.querySelector('[name=base][value=sat]').click();
+  showBack();
+  map.flyTo([lat, lng], zoom, { duration: .8 });
+};
+
+$('placesFile').onchange = async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const n = importPlaces(await file.text());
+    $('dataMsg').textContent = `✔ ${n} lieux importés. Ils seront envoyés à votre compte à la prochaine synchronisation.`;
+    syncNow();
+  } catch (err) {
+    $('dataMsg').textContent = `✖ ${err.message}`;
+  }
+  e.target.value = '';
+};
+
+// ---------- Page Découvertes (une étape à la fois) ----------
+let dcIndex = 1;
+const dcSteps = () => trip.steps.map((s, i) => ({ s, i })).filter(({ s }) => s.type !== 'start');
+
+window.openDiscover = i => {
+  dcIndex = i;
+  openView('decouv');
+  renderDiscover();
+};
+
+function renderDiscover() {
+  const list = dcSteps();
+  if (!list.some(x => x.i === dcIndex)) dcIndex = list[0]?.i ?? 1;
+  $('dcStep').innerHTML = list.map(({ s, i }) => `<option value="${i}" ${i === dcIndex ? 'selected' : ''}>${shortDate(arrival(i))} · ${esc(s.name)}</option>`).join('');
+  const s = trip.steps[dcIndex];
+  $('dcInfo').textContent = `${TYPE_LABEL[s.type]} · ${s.nights || 0} nuit(s) · rayon de découverte ${stopRadiusKm(s)} km${leaveRigAt(s) ? ' (fifth wheel laissée sur place)' : ''}`;
+  renderDiscoverLists();
+  renderHistory(s);
+}
+
+function poiRow(p) {
+  return `<div class="pl" onclick="viewPoi('${p.id}')"><span class="i">${CATS[p.c].icon}</span>
+    <div><b>${esc(p.n)}</b>${p.notable ? ' ⭐' : ''}<small>${poiAccess(p)}</small></div></div>`;
+}
+
+function renderDiscoverLists() {
+  const s = trip.steps[dcIndex];
+  if (!s) return;
+  // Mes guides : autour de l'étape (rayon selon la fifth wheel) ou à 15 km au plus du tronçon d'arrivée
+  const leg = legs[dcIndex - 1];
+  const mine = getPlaces().map(p => {
+    const d = hav(s, p);
+    const off = leg && leg.coords.length > 1 ? project(p, leg.coords).off : Infinity;
+    return { p, d, off };
+  }).filter(x => x.d <= stopRadiusKm(s) || x.off <= 15).sort((a, b) => a.d - b.d);
+  $('dcGuides').innerHTML = mine.length ? mine.map(({ p, d, off }) => `<div class="pl" onclick="viewAt(${p.lat}, ${p.lng}, 16)">
+      <span class="i">${PLACE_CATS[p.cat].icon}</span>
+      <div><b>${esc(p.name)}</b>${p.diff ? ` <span class="chip" style="border-color:${DIFF[p.diff].color};color:${DIFF[p.diff].color}">${DIFF[p.diff].label}</span>` : ''}
+        <small>${esc(p.note)}</small>
+        <small>${d <= stopRadiusKm(s) ? `À ${d.toFixed(1).replace('.', ',')} km de l'étape` : `En route, à ${off.toFixed(1).replace('.', ',')} km du trajet`} · ${esc(p.src)}</small></div></div>`).join('')
+    : `<div class="src">${getPlaces().length ? 'Aucun lieu de vos guides près de cette étape.' : 'Importez vos lieux dans ⚙ Paramètres.'}</div>`;
+  const pending = poiProgress(legs);
+  const wait = pending.done < pending.total ? '<div class="src">Recherche en cours sur OpenStreetMap…</div>' : '';
+  const around = pois.filter(p => p.mode === 'stop' && p.stop === dcIndex)
+    .sort((a, b) => (b.notable - a.notable) || a.dStop - b.dStop);
+  $('dcAroundTitle').textContent = `Autour de ${s.name.split(',')[0]} (${stopRadiusKm(s)} km)`;
+  $('dcAround').innerHTML = (around.length
+    ? Object.keys(CATS).map(c => {
+        const g = around.filter(p => p.c === c);
+        return g.length ? `<h3 class="mt">${CATS[c].icon} ${CATS[c].label} (${g.length})</h3>` + g.map(poiRow).join('') : '';
+      }).join('')
+    : '<div class="src">Aucun lieu trouvé dans ce rayon.</div>') + wait;
+  const onLeg = pois.filter(p => p.leg === dcIndex - 1 && (p.mode === 'route' || (p.mode === 'check' && $('poiCheck').checked)));
+  $('dcRoute').innerHTML = (onLeg.length ? onLeg.map(poiRow).join('')
+    : '<div class="src">Aucun arrêt accessible au rig sur ce tronçon.</div>') + wait;
+}
+
+async function renderHistory(s) {
+  const box = $('dcHistory');
+  box.innerHTML = '<h2>📜 Histoire</h2><div class="src">Chargement depuis Wikipédia…</div>';
+  try {
+    const h = await cityHistory(s.name);
+    if (trip.steps[dcIndex] !== s) return;   // l'utilisateur a changé d'étape entre-temps
+    if (!h) { box.innerHTML = '<h2>📜 Histoire</h2><div class="src">Aucun article Wikipédia trouvé.</div>'; return; }
+    box.innerHTML = `<h2>📜 ${esc(h.title)}</h2>
+      ${h.thumb ? `<img class="dc-thumb" src="${esc(h.thumb)}" alt="">` : ''}
+      <p>${esc(h.intro)}</p>
+      ${h.history ? `<h3>Histoire</h3><p>${esc(h.history).replace(/\n/g, '<br>')}</p>` : ''}
+      <a class="btn sm" target="_blank" rel="noopener" href="${esc(h.url)}">Lire sur Wikipédia ↗</a>`;
+  } catch (e) {
+    box.innerHTML = `<h2>📜 Histoire</h2><div class="src">Wikipédia indisponible (${esc(e.message)}).</div>`;
+  }
+}
+
+$('dcStep').onchange = e => { dcIndex = +e.target.value; renderDiscover(); };
+document.querySelector('nav [data-t=decouv]').addEventListener('click', renderDiscover);
+const dcMove = d => {
+  const list = dcSteps(), k = list.findIndex(x => x.i === dcIndex);
+  const next = list[k + d];
+  if (next) { dcIndex = next.i; renderDiscover(); }
+};
+$('dcPrev').onclick = () => dcMove(-1);
+$('dcNext').onclick = () => dcMove(1);
 
 // ---------- Stations diesel réelles (OpenStreetMap) ----------
 // Une seule recherche à la fois (le serveur public refuse les requêtes simultanées) ;
@@ -375,6 +631,7 @@ window.act = (what, i, v) => {
   if (what === 'nights') s.nights = Math.max(1, s.nights + v);
   if (what === 'setNights') s.nights = Math.max(1, Math.min(30, v || 1));
   if (what === 'type') s.type = s.type === 'b' ? 'c' : 'b';
+  if (what === 'leaveRig') s.leaveRig = v;
   if (what === 'del') { steps.splice(i, 1); map.closePopup(); geometry = true; }
   if (what === 'up' && steps[i - 1].type !== 'start') { [steps[i - 1], steps[i]] = [steps[i], steps[i - 1]]; geometry = true; }
   if (what === 'down' && steps[i + 1].type !== 'dest') { [steps[i + 1], steps[i]] = [steps[i], steps[i + 1]]; geometry = true; }
@@ -388,7 +645,7 @@ window.act = (what, i, v) => {
     else prev.nights += delta;
   }
   refresh(geometry);
-  if (hadPopup && ['nights', 'type', 'date'].includes(what)) markers.get(s.id)?.openPopup();
+  if (hadPopup && ['nights', 'type', 'date', 'leaveRig'].includes(what)) markers.get(s.id)?.openPopup();
 };
 
 window.focusStep = i => {
@@ -569,7 +826,8 @@ $('importFile').onchange = async e => {
 $('clearRoutes').onclick = () => {
   clearRouteCache();
   clearStationCache();
-  $('dataMsg').textContent = 'Cache vidé. Recalcul du trajet et des stations…';
+  clearPoiCache();
+  $('dataMsg').textContent = 'Cache vidé. Recalcul du trajet, des stations et des découvertes…';
   recompute();
 };
 
@@ -588,7 +846,7 @@ onStatus((status, detail, user) => {
   $('syncChip').textContent = chip;
   $('syncChip').className = 'chip ' + cls;
   $('syncState').textContent = text;
-  $('syncMsg').textContent = status === 'error' ? detail : '';
+  $('syncMsg').textContent = detail || '';
   $('syncSignedOut').hidden = !!user;
   $('syncSignedIn').hidden = !user;
   $('syncUser').textContent = user?.email || '—';
@@ -630,6 +888,7 @@ $('syncOut').onclick = () => { if (confirm('Se déconnecter ? L\'itinéraire res
 map.setView([47, -92], 4);
 renderMarkers();
 recompute();
+renderGuides();
 initSync();
 // La carte n'a sa taille réelle qu'après la mise en page (et parfois plus tard si l'onglet est caché) :
 // on suit sa taille et on cadre le trajet dès qu'elle est connue.

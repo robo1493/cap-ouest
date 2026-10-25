@@ -6,6 +6,7 @@
 
 import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
 import { trip, markSynced, replaceTrip, onTripSaved } from './store.js';
+import { syncPlaces } from './places.js';
 
 const LIB = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/+esm';
 const PUSH_DELAY = 2000;
@@ -99,6 +100,14 @@ export async function syncNow() {
       if (firstSyncHere || remoteNewer) await pull(remote);
       else if (dirty) await push();
     }
+    // Lieux de « Mes guides » : une erreur ici (table absente) ne bloque pas le voyage
+    try {
+      await syncPlaces(sb);
+    } catch (e) {
+      console.warn('Synchronisation des lieux', e);
+      setStatus('synced', 'Lieux des guides non synchronisés : exécuter la mise à jour SQL (table places)');
+      return;
+    }
     setStatus('synced');
   } catch (e) {
     console.warn('Synchronisation', e);
@@ -111,7 +120,7 @@ export async function syncNow() {
 
 async function pull(remote) {
   const { data: steps, error } = await sb.from('steps')
-    .select('id, name, lat, lng, type, nights, position')
+    .select('*')
     .eq('trip_id', remote.id)
     .order('position');
   if (error) throw error;
@@ -121,7 +130,10 @@ async function pull(remote) {
     id: remote.id,
     name: remote.name,
     startIso: remote.start_date,
-    steps: steps.map(({ position, ...s }) => s),
+    steps: steps.map(s => ({
+      id: s.id, name: s.name, lat: s.lat, lng: s.lng, type: s.type, nights: s.nights,
+      ...(s.leave_rig == null ? {} : { leaveRig: s.leave_rig }),
+    })),
     updatedAt: ts,
     syncedAt: ts,
   });
@@ -135,8 +147,14 @@ async function push() {
   if (error) throw error;
   const rows = trip.steps.map((s, i) => ({
     id: s.id, trip_id: trip.id, position: i, name: s.name, lat: s.lat, lng: s.lng, type: s.type, nights: s.nights, updated_at: iso,
+    leave_rig: s.leaveRig ?? null,
   }));
   ({ error } = await sb.from('steps').upsert(rows));
+  // Colonne leave_rig absente (schéma pas encore mis à jour) : on envoie sans elle
+  if (error && /leave_rig/.test(error.message || '')) {
+    console.warn('Colonne leave_rig absente dans Supabase : exécuter supabase/schema.sql à nouveau');
+    ({ error } = await sb.from('steps').upsert(rows.map(({ leave_rig, ...r }) => r)));
+  }
   if (error) throw error;
   ({ error } = await sb.from('steps').delete().eq('trip_id', trip.id).not('id', 'in', `(${rows.map(r => r.id).join(',')})`));
   if (error) throw error;

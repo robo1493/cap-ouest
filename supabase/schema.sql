@@ -23,6 +23,22 @@ create table if not exists steps (
 );
 create index if not exists steps_trip_idx on steps(trip_id, position);
 
+-- v0.7 : la fifth wheel peut rester sur place à cette étape (null = selon le type d'étape)
+alter table steps add column if not exists leave_rig boolean;
+
+-- v0.7 : « Mes guides », lieux relevés dans les guides de voyage personnels (privés)
+create table if not exists places (
+  id          text not null,
+  owner       uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  data        jsonb not null,
+  updated_at  timestamptz not null default now(),
+  primary key (owner, id)
+);
+alter table places enable row level security;
+drop policy if exists "places: propriétaire" on places;
+create policy "places: propriétaire" on places
+  for all using (owner = auth.uid()) with check (owner = auth.uid());
+
 alter table trips enable row level security;
 alter table steps enable row level security;
 
