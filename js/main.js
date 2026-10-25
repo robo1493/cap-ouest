@@ -22,6 +22,9 @@ const routeOpts = () => ({ orsKey: settings.orsKey, vehicle: settings.vehicle })
 
 // ---------- Carte ----------
 const map = L.map('map', { zoomControl: false, worldCopyJump: true, zoomSnap: 0.25 });
+// Les icônes grossissent avec le zoom de la carte (×1 à zoom 6, jusqu'à ×2,2 de près)
+const scaleIcons = () => map.getContainer().style.setProperty('--k', Math.min(2.2, Math.max(1, 1 + (map.getZoom() - 6) * 0.2)).toFixed(2));
+map.on('zoom zoomend', scaleIcons);
 // OSM et CARTO refusent les tuiles sans « Referer » (fichier ouvert en local) : on passe par Esri
 const baseMaps = {
   plan: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: '© Esri' }),
@@ -246,21 +249,28 @@ window.viewStation = id => {
   if (!s) return;
   openView('map');
   if (!viewBefore) viewBefore = { base: settings.baseMap, center: map.getCenter(), zoom: map.getZoom() };
-  $('backView').hidden = false;
   if (!map.hasLayer(layers.stations)) { layers.stations.addTo(map); document.querySelector('[data-lyr=stations]').checked = true; }
   if (settings.baseMap !== 'sat') document.querySelector('[name=base][value=sat]').click();
+  showBack();
   map.flyTo([s.lat, s.lng], 18, { duration: .8 });
   setTimeout(() => layers.stations.eachLayer(m => { if (m.getLatLng().equals([s.lat, s.lng])) m.openPopup(); }), 900);
 };
 
+// Le bouton « Retour » est visible après une station, et chaque fois que la carte est en satellite
+// (même si on y est passé par le menu Calques)
+function showBack() { $('backView').hidden = !(viewBefore || settings.baseMap === 'sat'); }
+
 function backFromStation() {
-  if (!viewBefore) return;
-  const v = viewBefore;
-  viewBefore = null;
-  $('backView').hidden = true;
   map.closePopup();
-  if (settings.baseMap !== v.base) document.querySelector(`[name=base][value=${v.base}]`).click();
-  map.flyTo(v.center, v.zoom, { duration: .8 });
+  if (viewBefore) {
+    const v = viewBefore;
+    viewBefore = null;
+    if (settings.baseMap !== v.base) document.querySelector(`[name=base][value=${v.base}]`).click();
+    map.flyTo(v.center, v.zoom, { duration: .8 });
+  } else if (settings.baseMap === 'sat') {
+    document.querySelector('[name=base][value=plan]').click();
+  }
+  showBack();
 }
 $('backView').onclick = backFromStation;
 document.addEventListener('keydown', e => { if (e.key === 'Escape') backFromStation(); });
@@ -433,8 +443,10 @@ document.querySelectorAll('[name=base]').forEach(r => {
   r.onchange = () => {
     Object.entries(baseMaps).forEach(([k, l]) => k === r.value ? l.addTo(map) : map.removeLayer(l));
     settings.baseMap = r.value; saveSettings();
+    showBack();
   };
 });
+showBack();
 document.querySelectorAll('[data-lyr]').forEach(cb => cb.onchange = () => {
   const l = layers[cb.dataset.lyr];
   cb.checked ? l.addTo(map) : map.removeLayer(l);
