@@ -239,15 +239,31 @@ function renderStationTable() {
 $('stMax').onchange = renderStations;
 
 // Centre la carte sur la station, en vue satellite, pour juger l'entrée et la sortie
+// On retient la vue d'avant (fond de carte, position, zoom) pour le bouton « Retour »
+let viewBefore = null;
 window.viewStation = id => {
   const s = stations.find(x => x.id === id);
   if (!s) return;
   openView('map');
+  if (!viewBefore) viewBefore = { base: settings.baseMap, center: map.getCenter(), zoom: map.getZoom() };
+  $('backView').hidden = false;
   if (!map.hasLayer(layers.stations)) { layers.stations.addTo(map); document.querySelector('[data-lyr=stations]').checked = true; }
   if (settings.baseMap !== 'sat') document.querySelector('[name=base][value=sat]').click();
   map.flyTo([s.lat, s.lng], 18, { duration: .8 });
   setTimeout(() => layers.stations.eachLayer(m => { if (m.getLatLng().equals([s.lat, s.lng])) m.openPopup(); }), 900);
 };
+
+function backFromStation() {
+  if (!viewBefore) return;
+  const v = viewBefore;
+  viewBefore = null;
+  $('backView').hidden = true;
+  map.closePopup();
+  if (settings.baseMap !== v.base) document.querySelector(`[name=base][value=${v.base}]`).click();
+  map.flyTo(v.center, v.zoom, { duration: .8 });
+}
+$('backView').onclick = backFromStation;
+document.addEventListener('keydown', e => { if (e.key === 'Escape') backFromStation(); });
 
 // ---------- Liste d'étapes ----------
 function renderList() {
