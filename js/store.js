@@ -1,30 +1,41 @@
 // Données de l'application, gardées sur l'appareil.
-// La synchronisation Supabase viendra se brancher ici : chaque étape a déjà un id stable.
+// La synchronisation Supabase (sync.js) s'abonne aux enregistrements via onTripSaved.
 
 import { DEFAULT_STEPS, DEFAULT_START, DEFAULT_VEHICLE } from './data.js';
 
 const TRIP_KEY = 'capouest.trip.v2';
+const BACKUP_KEY = 'capouest.trip.backup';
 const SETTINGS_KEY = 'capouest.settings.v1';
 
-const uid = () => crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36);
+const uid = () => crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+  const r = Math.random() * 16 | 0;
+  return (c === 'x' ? r : (r & 3) | 8).toString(16);
+});
+const isUuid = s => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s || '');
 const read = key => { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } };
 const write = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch {} };
 
 export const newStep = fields => ({ id: uid(), ...fields });
 
 function freshTrip() {
-  return { startIso: DEFAULT_START, steps: DEFAULT_STEPS.map(newStep), updatedAt: Date.now() };
+  return { id: uid(), name: 'Voyage Ouest', startIso: DEFAULT_START, steps: DEFAULT_STEPS.map(newStep), updatedAt: Date.now(), syncedAt: 0 };
 }
 
 function loadTrip() {
-  const t = read(TRIP_KEY);
-  if (Array.isArray(t?.steps) && t.steps.length >= 2) return t;
-  // Reprise des données du wireframe, s'il y en a
-  const old = read('capouest.steps.v1');
-  if (Array.isArray(old) && old.length >= 2) {
-    return { startIso: localStorage.getItem('capouest.start.v1') || DEFAULT_START, steps: old.map(newStep), updatedAt: Date.now() };
+  let t = read(TRIP_KEY);
+  if (!(Array.isArray(t?.steps) && t.steps.length >= 2)) {
+    // Reprise des données du wireframe, s'il y en a
+    const old = read('capouest.steps.v1');
+    t = Array.isArray(old) && old.length >= 2
+      ? { startIso: localStorage.getItem('capouest.start.v1') || DEFAULT_START, steps: old.map(newStep), updatedAt: Date.now() }
+      : freshTrip();
   }
-  return freshTrip();
+  // Identifiants compatibles avec la base (uuid)
+  if (!isUuid(t.id)) t.id = uid();
+  t.steps.forEach(s => { if (!isUuid(s.id)) s.id = uid(); });
+  t.name ||= 'Voyage Ouest';
+  t.syncedAt ||= 0;
+  return t;
 }
 
 function loadSettings() {
@@ -40,8 +51,27 @@ function loadSettings() {
 export const trip = loadTrip();
 export const settings = loadSettings();
 
+const savedListeners = [];
+export const onTripSaved = cb => savedListeners.push(cb);
+
+// Enregistre une modification faite par l'utilisateur (date de modification mise à jour)
 export function saveTrip() {
   trip.updatedAt = Date.now();
+  write(TRIP_KEY, trip);
+  savedListeners.forEach(cb => cb());
+}
+
+// Après une synchronisation réussie : les deux côtés sont identiques à cette date
+export function markSynced(ts) {
+  trip.syncedAt = ts;
+  write(TRIP_KEY, trip);
+}
+
+// Remplace le voyage local par celui reçu du serveur (copie de sécurité de l'ancien)
+export function replaceTrip(t) {
+  write(BACKUP_KEY, trip);
+  Object.keys(trip).forEach(k => delete trip[k]);
+  Object.assign(trip, t);
   write(TRIP_KEY, trip);
 }
 
@@ -50,7 +80,8 @@ export function saveSettings() {
 }
 
 export function resetTrip() {
-  Object.assign(trip, freshTrip());
+  const { id, syncedAt } = trip;
+  Object.assign(trip, freshTrip(), { id, syncedAt });
   saveTrip();
 }
 
@@ -63,6 +94,6 @@ export function importTrip(text) {
   const t = data.trip || data;
   if (!Array.isArray(t.steps) || t.steps.length < 2) throw new Error('Fichier invalide : aucune étape.');
   trip.startIso = t.startIso || DEFAULT_START;
-  trip.steps = t.steps.map(s => ({ id: s.id || uid(), name: s.name, lat: +s.lat, lng: +s.lng, type: s.type, nights: +s.nights || 0 }));
+  trip.steps = t.steps.map(s => ({ id: isUuid(s.id) ? s.id : uid(), name: s.name, lat: +s.lat, lng: +s.lng, type: s.type, nights: +s.nights || 0 }));
   saveTrip();
 }

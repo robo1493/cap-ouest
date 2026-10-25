@@ -1,6 +1,6 @@
 // Service worker : garde l'application (fichiers et Leaflet) pour l'ouvrir sans réseau.
 // Augmenter VERSION à chaque publication pour forcer la mise à jour.
-const VERSION = 'cap-ouest-v0.4.0';
+const VERSION = 'cap-ouest-v0.5.0';
 const SHELL = [
   './',
   'index.html',
@@ -10,6 +10,8 @@ const SHELL = [
   'js/geo.js',
   'js/routing.js',
   'js/store.js',
+  'js/sync.js',
+  'js/config.js',
   'manifest.webmanifest',
   'icons/icon.svg',
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css',
@@ -30,7 +32,7 @@ self.addEventListener('activate', e => {
 // Tuiles de carte et calculs de trajet : jamais mis en cache ici.
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-  const isShell = url.origin === location.origin || url.hostname === 'cdnjs.cloudflare.com';
+  const isShell = url.origin === location.origin || url.hostname === 'cdnjs.cloudflare.com' || url.hostname === 'cdn.jsdelivr.net';
   if (e.request.method !== 'GET' || !isShell) return;
   e.respondWith(
     fetch(e.request)

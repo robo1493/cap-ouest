@@ -15,7 +15,7 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v0.4</small></div>
+  <div class="logo">Cap Ouest <small>v0.5</small></div>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
     <button data-t="dash">Tableau de bord</button>
@@ -24,7 +24,7 @@
     <button data-t="equip">Équipement</button>
     <button data-t="params">⚙ Paramètres</button>
   </nav>
-  <div class="trip">Lévis → Yellowstone → … · juin → ~fév. (9 mois)</div>
+  <div class="trip">Lévis → Yellowstone → … · juin → ~fév. (9 mois) <button class="chip" id="syncChip" data-t="params" title="Synchronisation">☁ …</button></div>
 </header>
 
 <div class="stage" id="stage">
@@ -283,13 +283,26 @@
           <div class="src">Un changement recalcule les tronçons avec ORS.</div>
         </div>
 
-        <div class="box">
+        <div class="box real">
           <h2>🔄 Synchronisation tablette ↔ portable</h2>
-          <label class="lbl">URL du projet Supabase</label>
-          <input class="inp" disabled placeholder="https://xxxx.supabase.co">
-          <label class="lbl">Clé publique (anon)</label>
-          <input class="inp" disabled placeholder="eyJ…">
-          <div class="note">Prochaine étape : créer le projet Supabase (voir README).</div>
+          <div class="field"><span>État</span><b id="syncState">—</b></div>
+          <div id="syncSignedOut">
+            <label class="lbl" for="syncEmail">Votre courriel</label>
+            <div class="row">
+              <input id="syncEmail" class="inp" type="email" placeholder="vous@exemple.com" autocomplete="email">
+              <button class="btn pri" id="syncSignIn">Recevoir le lien</button>
+            </div>
+            <div class="src">Un lien de connexion vous est envoyé par courriel. Ouvrez-le sur cet appareil. Aucun mot de passe.</div>
+          </div>
+          <div id="syncSignedIn" hidden>
+            <div class="field"><span>Connecté</span><b id="syncUser">—</b></div>
+            <div class="row mt">
+              <button class="btn" id="syncNowBtn">Synchroniser maintenant</button>
+              <button class="btn" id="syncOut">Se déconnecter</button>
+            </div>
+            <div class="src">Les modifications sont envoyées automatiquement. Hors ligne, elles partent au retour du réseau.</div>
+          </div>
+          <div class="src" id="syncMsg"></div>
         </div>
 
         <div class="box real">

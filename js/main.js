@@ -3,6 +3,7 @@ import { TARGET_ISO, FUEL, FUEL_KM, TYPE_LABEL, DEFAULT_VEHICLE } from './data.j
 import { trip, settings, saveTrip, saveSettings, resetTrip, newStep, exportTrip, importTrip } from './store.js';
 import { cachedOrEstimate, fetchMissing, providerOf, testOrs, clearRouteCache, PROVIDER_LABEL } from './routing.js';
 import { hav, pointsAlong, fmt, fmtH } from './geo.js';
+import { initSync, onStatus, onRemoteChange, signIn, signOut, syncNow } from './sync.js';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -458,10 +459,47 @@ $('clearRoutes').onclick = () => {
   recompute();
 };
 
+// ---------- Synchronisation ----------
+const SYNC_LABEL = {
+  init: ['☁ …', 'Démarrage…', ''],
+  signedout: ['☁ non connecté', 'Non connecté · données sur cet appareil seulement', 'b'],
+  syncing: ['☁ synchro…', 'Synchronisation en cours…', ''],
+  synced: ['☁ à jour', '✔ À jour', 'c'],
+  offline: ['☁ hors ligne', 'Hors ligne · envoi au retour du réseau', 'b'],
+  error: ['☁ erreur', 'Erreur de synchronisation', 'x'],
+  unavailable: ['☁ indisponible', 'Indisponible (hors ligne au démarrage)', 'b'],
+};
+onStatus((status, detail, user) => {
+  const [chip, text, cls] = SYNC_LABEL[status] || SYNC_LABEL.init;
+  $('syncChip').textContent = chip;
+  $('syncChip').className = 'chip ' + cls;
+  $('syncState').textContent = text;
+  $('syncMsg').textContent = status === 'error' ? detail : '';
+  $('syncSignedOut').hidden = !!user;
+  $('syncSignedIn').hidden = !user;
+  $('syncUser').textContent = user?.email || '—';
+});
+onRemoteChange(() => { renderMarkers(); recompute(); });
+
+$('syncSignIn').onclick = async () => {
+  const email = $('syncEmail').value.trim();
+  if (!/^\S+@\S+\.\S+$/.test(email)) { $('syncMsg').textContent = 'Entrez un courriel valide.'; return; }
+  $('syncMsg').textContent = 'Envoi…';
+  try {
+    await signIn(email);
+    $('syncMsg').textContent = `✔ Lien envoyé à ${email}. Ouvrez-le sur cet appareil (vérifiez les indésirables).`;
+  } catch (e) {
+    $('syncMsg').textContent = `✖ ${e.message}`;
+  }
+};
+$('syncNowBtn').onclick = () => syncNow();
+$('syncOut').onclick = () => { if (confirm('Se déconnecter ? L\'itinéraire reste sur cet appareil.')) signOut(); };
+
 // ---------- Démarrage ----------
 map.setView([47, -92], 4);
 renderMarkers();
 recompute();
+initSync();
 // La carte n'a sa taille réelle qu'après la mise en page (et parfois plus tard si l'onglet est caché) :
 // on suit sa taille et on cadre le trajet dès qu'elle est connue.
 let framed = false;
