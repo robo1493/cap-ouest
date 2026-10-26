@@ -66,6 +66,21 @@ export async function verifyCode(email, code) {
   if (error) throw error;
 }
 
+// Mot de passe : une fois défini (depuis un appareil déjà connecté), les autres appareils se
+// connectent sans courriel. Utile car Supabase gratuit limite les courriels et ne laisse plus
+// modifier le modèle de courriel sans serveur d'envoi personnel.
+export async function signInPassword(email, password) {
+  if (!sb) throw new Error('Synchronisation indisponible.');
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) throw error;
+}
+
+export async function setPassword(password) {
+  if (!sb || !user) throw new Error('Connectez-vous d’abord.');
+  const { error } = await sb.auth.updateUser({ password });
+  if (error) throw error;
+}
+
 export async function signOut() {
   if (sb) await sb.auth.signOut();
 }

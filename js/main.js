@@ -4,7 +4,7 @@ import { trip, settings, saveTrip, saveSettings, resetTrip, newStep, exportTrip,
 import { cachedOrEstimate, fetchMissing, providerOf, testOrs, clearRouteCache, PROVIDER_LABEL } from './routing.js';
 import { hav, pointsAlong, fmt, fmtH } from './geo.js';
 import { LEVEL, stationsAlong, fetchMissingStations, stationProgress, clearStationCache } from './stations.js';
-import { initSync, onStatus, onRemoteChange, signIn, verifyCode, signOut, syncNow } from './sync.js';
+import { initSync, onStatus, onRemoteChange, signIn, verifyCode, signInPassword, setPassword, signOut, syncNow } from './sync.js';
 import { CATS, poisAlong, fetchMissingPois, poiProgress, clearPoiCache, wikiLink, stopRadiusKm, leaveRigAt } from './pois.js';
 import { cityHistory } from './history.js';
 import { PLACE_CATS, DIFF, getPlaces, onPlacesChange, importPlaces } from './places.js';
@@ -1000,6 +1000,34 @@ $('syncVerify').onclick = async () => {
   }
 };
 $('syncCode').addEventListener('keydown', e => { if (e.key === 'Enter') $('syncVerify').click(); });
+
+$('syncPassIn').onclick = async () => {
+  const email = $('syncEmail').value.trim(), pass = $('syncPass').value;
+  if (!/^\S+@\S+\.\S+$/.test(email) || !pass) { $('syncMsg').textContent = 'Entrez votre courriel et votre mot de passe.'; return; }
+  $('syncMsg').textContent = 'Connexion…';
+  try {
+    await signInPassword(email, pass);
+    $('syncPass').value = '';
+    $('syncMsg').textContent = '✔ Connecté.';
+  } catch (e) {
+    $('syncMsg').textContent = /invalid/i.test(e.message)
+      ? '✖ Courriel ou mot de passe incorrect. Le mot de passe se crée d’abord sur un appareil déjà connecté.'
+      : `✖ ${e.message}`;
+  }
+};
+$('syncPass').addEventListener('keydown', e => { if (e.key === 'Enter') $('syncPassIn').click(); });
+
+$('syncSetPass').onclick = async () => {
+  const pass = $('syncNewPass').value;
+  if (pass.length < 8) { $('syncMsg').textContent = 'Le mot de passe doit avoir au moins 8 caractères.'; return; }
+  try {
+    await setPassword(pass);
+    $('syncNewPass').value = '';
+    $('syncMsg').textContent = '✔ Mot de passe enregistré. Sur vos autres appareils : courriel + ce mot de passe.';
+  } catch (e) {
+    $('syncMsg').textContent = `✖ ${e.message}`;
+  }
+};
 $('syncNowBtn').onclick = () => syncNow();
 $('syncOut').onclick = () => { if (confirm('Se déconnecter ? L\'itinéraire reste sur cet appareil.')) signOut(); };
 

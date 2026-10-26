@@ -385,10 +385,14 @@
           <div class="field"><span>État</span><b id="syncState">—</b></div>
           <div id="syncSignedOut">
             <label class="lbl" for="syncEmail">Votre courriel</label>
+            <input id="syncEmail" class="inp" type="email" placeholder="vous@exemple.com" autocomplete="email">
+            <label class="lbl" for="syncPass">Mot de passe Cap Ouest</label>
             <div class="row">
-              <input id="syncEmail" class="inp" type="email" placeholder="vous@exemple.com" autocomplete="email">
-              <button class="btn pri" id="syncSignIn">Recevoir le code</button>
+              <input id="syncPass" class="inp" type="password" autocomplete="current-password">
+              <button class="btn pri" id="syncPassIn">Se connecter</button>
             </div>
+            <div class="src">Pas encore de mot de passe ? Recevez plutôt un lien ou un code par courriel :
+              <button class="btn sm" id="syncSignIn">Recevoir par courriel</button></div>
             <div id="syncCodeRow" hidden>
               <label class="lbl" for="syncCode">Code à 6 chiffres reçu par courriel</label>
               <div class="row">
@@ -396,7 +400,6 @@
                 <button class="btn pri" id="syncVerify">Se connecter</button>
               </div>
             </div>
-            <div class="src">Un code vous est envoyé par courriel : tapez-le ici. Aucun mot de passe.</div>
           </div>
           <div id="syncSignedIn" hidden>
             <div class="field"><span>Connecté</span><b id="syncUser">—</b></div>
@@ -405,6 +408,11 @@
               <button class="btn" id="syncOut">Se déconnecter</button>
             </div>
             <div class="src">Les modifications sont envoyées automatiquement. Hors ligne, elles partent au retour du réseau.</div>
+            <label class="lbl" for="syncNewPass">Mot de passe pour vos autres appareils (8 caractères ou plus)</label>
+            <div class="row">
+              <input id="syncNewPass" class="inp" type="password" autocomplete="new-password">
+              <button class="btn" id="syncSetPass">Enregistrer le mot de passe</button>
+            </div>
           </div>
           <div class="src" id="syncMsg"></div>
         </div>
