@@ -3,6 +3,7 @@
 // (Data/mes-lieux.json, hors Git) puis synchronisées de façon privée par Supabase (table places).
 
 import { CATS } from './pois.js';
+import { PACK_ID } from './ioverlander.js';
 
 const KEY = 'capouest.places.v1';
 const DIRTY_KEY = 'capouest.places.dirty';
@@ -60,12 +61,13 @@ export async function syncPlaces(sb) {
     const rows = places.map(p => ({ id: p.id, data: p, updated_at: new Date().toISOString() }));
     let { error } = await sb.from('places').upsert(rows);
     if (error) throw error;
-    ({ error } = await sb.from('places').delete().not('id', 'in', `(${rows.map(r => `"${r.id}"`).join(',')})`));
+    // Le lot iOverlander (ligne PACK_ID) n'est pas un lieu des guides : on ne l'efface jamais ici
+    ({ error } = await sb.from('places').delete().not('id', 'in', `(${[...rows.map(r => r.id), PACK_ID].map(id => `"${id}"`).join(',')})`));
     if (error) throw error;
     store(places, false);
     return;
   }
-  const { data, error } = await sb.from('places').select('data');
+  const { data, error } = await sb.from('places').select('data').neq('id', PACK_ID);
   if (error) throw error;
   const list = data.map(r => clean(r.data));
   if (JSON.stringify(list.map(p => p.id).sort()) !== JSON.stringify(places.map(p => p.id).sort())

@@ -11,6 +11,7 @@ import { PLACE_CATS, DIFF, getPlaces, onPlacesChange, importPlaces } from './pla
 import { project } from './overpass.js';
 import { dayLog, usPeriods, usRollingMax, latestUsExit, qcAbsence, US_LIMIT, QC_LIMIT } from './days.js';
 import { proposals, simulate } from './catchup.js';
+import { BY_K, GROUPS, getIo, onIoChange, importIoCsv, clearIo, ioNear } from './ioverlander.js';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -84,7 +85,7 @@ function popupHtml(i) {
     <span class="chip ${s.type}">${TYPE_LABEL[s.type]}</span>
     <input value="${esc(s.name)}" onchange="act('rename', ${i}, this.value)">
     <div>${km}</div>
-    ${milestoneHtml(i)}${s.extra?.note ? `<div class="src">ℹ ${esc(s.extra.note)}</div>` : ''}
+    ${milestoneHtml(i)}${s.extra?.note ? `<div class="src">ℹ ${esc(s.extra.note)}</div>` : ''}${s.type !== 'start' ? ioSummary(s) : ''}
     ${leg && leg.provider !== 'ferry' && leg.km > maxKm() ? `<label style="display:block"><input type="checkbox" ${s.extra?.longOk ? 'checked' : ''} onchange="act('longOk', ${i}, this.checked)">
       Tronçon long accepté (${fmt(leg.km)} km, route facile)</label>` : ''}
     <div>${s.type === 'start' ? 'Départ' : 'Arrivée'} : <input type="date" style="width:auto" value="${toIso(arrival(i))}" onchange="act('date', ${i}, this.value)"></div>
@@ -307,6 +308,87 @@ window.viewPoi = id => {
   setTimeout(() => layers.pois.eachLayer(m => { if (m.getLatLng().equals([p.lat, p.lng])) m.openPopup(); }), 900);
 };
 
+// ---------- iOverlander (export personnel, synchronisé en privé) ----------
+// Des milliers de points : dessinés sur un canevas, et seulement à partir du zoom 8
+const IO_MIN_ZOOM = 8;
+const ioRenderer = L.canvas({ padding: 0.5 });
+const ioLayer = L.layerGroup();
+const ioGroupOn = g => document.querySelector(`[data-io=${g}]`)?.checked;
+
+function ioPopup(x) {
+  const c = BY_K[x[3]], p = { lat: x[0], lng: x[1] };
+  let near = -1, d = Infinity;
+  trip.steps.forEach((s, i) => { const k = hav(s, p); if (k < d) { d = k; near = i; } });
+  return `<div class="pop">
+    <span class="chip" style="border-color:${c.color};color:${c.color}">${c.icon} ${c.label}</span>
+    <div><b>${esc(x[2] || 'Sans nom')}</b></div>
+    <div class="src">À ${fmt(d)} km de ${esc(trip.steps[near].name.split(',')[0])} · source : iOverlander</div>
+    <div class="row">
+      <button class="btn sm" onclick="viewAt(${x[0]}, ${x[1]}, 17)">Vue satellite</button>
+      <a class="btn sm" target="_blank" rel="noopener" href="https://www.google.com/maps/@${x[0]},${x[1]},300m/data=!3m1!1e3">Google Maps ↗</a>
+    </div>
+  </div>`;
+}
+
+function renderIo() {
+  ioLayer.clearLayers();
+  const list = getIo();
+  $('ioCount').textContent = list.length ? `(${fmt(list.length)})` : '(aucun : importer dans ⚙)';
+  $('ioInfo').textContent = list.length ? `${fmt(list.length)} lieux sur cet appareil` : '';
+  list.forEach(x => {
+    const c = BY_K[x[3]];
+    if (!c || !ioGroupOn(c.g)) return;
+    L.circleMarker([x[0], x[1]], { renderer: ioRenderer, radius: 6, color: '#fff', weight: 1.5, fillColor: c.color, fillOpacity: .9 })
+      .bindPopup(() => ioPopup(x), { minWidth: 220 })
+      .addTo(ioLayer);
+  });
+  toggleIo();
+  if ($('decouv').classList.contains('on')) renderDiscoverLists();
+}
+const toggleIo = () => {
+  const show = map.getZoom() >= IO_MIN_ZOOM;
+  if (show && !map.hasLayer(ioLayer)) ioLayer.addTo(map);
+  if (!show && map.hasLayer(ioLayer)) map.removeLayer(ioLayer);
+};
+map.on('zoomend', toggleIo);
+document.querySelectorAll('[data-io]').forEach(cb => cb.onchange = renderIo);
+onIoChange(renderIo);
+
+// Résumé des lieux iOverlander proches d'une étape (fiche de l'étape)
+function ioSummary(s) {
+  const near = ioNear(s, 15);
+  if (!near.length) return '';
+  const n = k => near.filter(({ x }) => BY_K[x[3]].g === k).length;
+  const by = k => near.filter(({ x }) => x[3] === k).length;
+  return `<div class="src">iOverlander à 15 km : ⛺ ${n('night')} · 💧 ${by('water')} · 🚽 ${by('dump')}${by('nope') ? ` · 🚫 ${by('nope')}` : ''}</div>`;
+}
+
+$('ioFile').onchange = async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  // Le corridor se calcule sur le vrai tracé : attendre la fin du calcul du trajet
+  if (legs.some(l => l.pending)) {
+    $('dataMsg').textContent = '⏳ Le trajet est encore en calcul : réessayez dans une minute.';
+    e.target.value = '';
+    return;
+  }
+  $('dataMsg').textContent = 'Lecture du fichier iOverlander…';
+  await new Promise(r => setTimeout(r, 30));
+  try {
+    const r = importIoCsv(await file.text(), legs, trip.steps);
+    $('dataMsg').textContent = `✔ ${fmt(r.kept)} lieux gardés près du trajet (sur ${fmt(r.read)} utiles) · ${fmt(r.total)} au total. Ils seront envoyés à votre compte.`;
+    syncNow();
+  } catch (err) {
+    $('dataMsg').textContent = `✖ ${err.message}`;
+  }
+  e.target.value = '';
+};
+$('ioClear').onclick = () => {
+  if (!confirm('Retirer tous les lieux iOverlander de cet appareil et de votre compte ?')) return;
+  clearIo();
+  syncNow();
+};
+
 // ---------- Mes guides (lieux tirés des guides personnels, synchronisés en privé) ----------
 // Étape la plus proche, pour situer chaque lieu par rapport au voyage
 function nearestStep(p) {
@@ -408,6 +490,16 @@ function renderDiscoverLists() {
         <small>${esc(p.note)}</small>
         <small>${d <= stopRadiusKm(s) ? `À ${d.toFixed(1).replace('.', ',')} km de l'étape` : `En route, à ${off.toFixed(1).replace('.', ',')} km du trajet`} · ${esc(p.src)}</small></div></div>`).join('')
     : `<div class="src">${getPlaces().length ? 'Aucun lieu de vos guides près de cette étape.' : 'Importez vos lieux dans ⚙ Paramètres.'}</div>`;
+
+  // iOverlander : les plus proches de l'étape, par groupe
+  const io = ioNear(s, 15);
+  $('dcIo').innerHTML = !getIo().length ? '<div class="src">Importez votre export iOverlander dans ⚙ Paramètres.</div>'
+    : !io.length ? '<div class="src">Aucun lieu iOverlander à 15 km de cette étape.</div>'
+    : Object.entries(GROUPS).map(([g, title]) => {
+        const list = io.filter(({ x }) => BY_K[x[3]].g === g).slice(0, 10);
+        return list.length ? `<h3 class="mt">${title}</h3>` + list.map(({ x, d }) => `<div class="pl" onclick="viewAt(${x[0]}, ${x[1]}, 17)">
+          <span class="i">${BY_K[x[3]].icon}</span><div><b>${esc(x[2] || 'Sans nom')}</b><small>${BY_K[x[3]].label} · à ${d.toFixed(1).replace('.', ',')} km</small></div></div>`).join('') : '';
+      }).join('');
   const pending = poiProgress(legs);
   const wait = pending.done < pending.total ? '<div class="src">Recherche en cours sur OpenStreetMap…</div>' : '';
   const around = pois.filter(p => p.mode === 'stop' && p.stop === dcIndex)
@@ -1136,6 +1228,7 @@ map.setView([47, -92], 4);
 renderMarkers();
 recompute();
 renderGuides();
+renderIo();
 initSync();
 // La carte n'a sa taille réelle qu'après la mise en page (et parfois plus tard si l'onglet est caché) :
 // on suit sa taille et on cadre le trajet dès qu'elle est connue.

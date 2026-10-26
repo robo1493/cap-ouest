@@ -15,7 +15,7 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v1.1</small></div>
+  <div class="logo">Cap Ouest <small>v1.2</small></div>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
     <button data-t="dash">Tableau de bord</button>
@@ -83,6 +83,12 @@
       <label><input type="checkbox" data-poi="history" checked> 📜 Histoire</label>
       <label><input type="checkbox" id="poiCheck"> Inclure les accès rig à vérifier</label>
       <label><input type="checkbox" data-lyr="guides" checked> 📘 Mes guides <span id="guidesCount" class="src"></span></label>
+      <hr style="border:0; border-top:1px solid var(--fill); margin:4px 0">
+      <b style="font-size:12px">iOverlander <span id="ioCount" class="src"></span></b>
+      <label><input type="checkbox" data-io="night" checked> ⛺ Nuits (sauvage, informel, campings)</label>
+      <label><input type="checkbox" data-io="serv" checked> 💧 Services (eau, vidange, propane…)</label>
+      <label><input type="checkbox" data-io="warn" checked> 🚫 Nuit interdite, avertissements</label>
+      <div class="legend"><span>Visibles en zoomant (niveau 8 et plus)</span></div>
     </details>
 
     <div class="tools">
@@ -295,6 +301,10 @@
         <div id="dcGuides"></div>
       </div>
       <div class="box real mt">
+        <h2>⛺ iOverlander autour de l’étape (15 km)</h2>
+        <div id="dcIo"></div>
+      </div>
+      <div class="box real mt">
         <h2 id="dcAroundTitle">Autour de l'étape</h2>
         <div id="dcAround"></div>
       </div>
@@ -453,6 +463,12 @@
             <label class="btn">📘 Importer mes lieux (guides)… <input type="file" id="placesFile" accept="application/json,.json" hidden></label>
             <span class="src" id="placesInfo"></span>
           </div>
+          <div class="row mt">
+            <label class="btn">⛺ Importer un export iOverlander (CSV)… <input type="file" id="ioFile" accept=".csv,text/csv" hidden></label>
+            <button class="btn sm" id="ioClear">Retirer les lieux iOverlander</button>
+            <span class="src" id="ioInfo"></span>
+          </div>
+          <div class="src">Seuls les lieux à 40 km ou moins du trajet sont gardés (camping, eau, vidange, propane, nuit interdite…). Plusieurs fichiers (Canada, États-Unis) s’additionnent. Réimportez si le trajet change beaucoup.</div>
           <div class="src">Fichier privé <b>Data/mes-lieux.json</b> préparé à partir de vos guides : importé une fois, il se synchronise ensuite avec vos autres appareils.</div>
           <div class="src" id="dataMsg"></div>
         </div>
