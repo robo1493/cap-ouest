@@ -1,6 +1,6 @@
 // Service worker : garde l'application (fichiers et Leaflet) pour l'ouvrir sans réseau.
 // Augmenter VERSION à chaque publication pour forcer la mise à jour.
-const VERSION = 'cap-ouest-v0.8.0';
+const VERSION = 'cap-ouest-v0.9.0';
 const SHELL = [
   './',
   'index.html',
@@ -14,6 +14,7 @@ const SHELL = [
   'js/pois.js',
   'js/history.js',
   'js/places.js',
+  'js/days.js',
   'js/store.js',
   'js/sync.js',
   'js/config.js',

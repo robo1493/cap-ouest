@@ -9,6 +9,7 @@ import { CATS, poisAlong, fetchMissingPois, poiProgress, clearPoiCache, wikiLink
 import { cityHistory } from './history.js';
 import { PLACE_CATS, DIFF, getPlaces, onPlacesChange, importPlaces } from './places.js';
 import { project } from './overpass.js';
+import { dayLog, usPeriods, usRollingMax, latestUsExit, qcAbsence, US_LIMIT, QC_LIMIT } from './days.js';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -635,6 +636,45 @@ function milestoneHtml(i) {
   return `<small style="color:${x.ok ? 'var(--ok)' : 'var(--bad)'}">📌 ${esc(x.s.extra?.label || 'Jalon')} : ${x.msg}</small>`;
 }
 
+// ---------- Compteurs de séjour (États-Unis, hors Québec) ----------
+const longDate = d => d.toLocaleDateString('fr-CA', { day: 'numeric', month: 'long', year: 'numeric' });
+function renderDays() {
+  const days = dayLog(trip.steps, trip.startIso);
+  const periods = usPeriods(days);
+  const planned = periods.reduce((t, p) => t + p.days, 0);
+  const max = usRollingMax(days);
+  $('dUsPlanned').textContent = `${planned} j`;
+  $('dUsMax').textContent = `${max} / ${US_LIMIT} j`;
+  $('dUsMax').style.color = max > US_LIMIT ? 'var(--bad)' : '';
+  $('dUsPeriods').textContent = periods.length
+    ? 'Périodes : ' + periods.map(p => `${shortDate(p.from)} → ${shortDate(p.to)} (${p.days} j)`).join(' · ')
+    : 'Aucun jour aux États-Unis dans le trajet planifié.';
+  $('hudDays').textContent = `🇺🇸 ${max}/${US_LIMIT} j`;
+  $('hudDays').className = 'chip ' + (max > US_LIMIT ? 'x' : '');
+
+  // Calculateur : date d'entrée de l'automne → dernier jour possible aux États-Unis
+  const entryIso = settings.usEntry || `${parseIso(trip.startIso).getFullYear()}-09-15`;
+  $('dUsEntry').value = entryIso;
+  const ex = latestUsExit(days, entryIso);
+  $('dUsExit').textContent = ex ? longDate(ex.last) : '—';
+  $('dUsExitNote').textContent = ex
+    ? `Soit ${ex.stay} jours de séjour continu${ex.before ? `, en tenant compte de ${ex.before} jours déjà passés aux États-Unis dans les 12 mois précédents` : ''}.`
+    : '';
+
+  // RAMQ : année civile du départ
+  const year = parseIso(trip.startIso).getFullYear();
+  const qc = qcAbsence(days, year);
+  $('dQcYearLbl').textContent = `Prévus au trajet en ${year}`;
+  $('dQcPlanned').textContent = `${qc.planned} j`;
+  $('dQcProjected').textContent = qc.stillAway ? `${qc.projected} j` : '—';
+  const over = Math.max(qc.planned, qc.projected) >= QC_LIMIT;
+  $('dQcProjected').style.color = over ? 'var(--bad)' : '';
+  $('dQcNote').textContent = over
+    ? `Au-delà de ${QC_LIMIT - 1} jours d'absence en ${year} : l'admissibilité à la RAMQ serait perdue pour toute l'année, sauf exception (une fois tous les 7 ans, sur demande). À vérifier avec la RAMQ avant le départ.`
+    : `Moins de ${QC_LIMIT} jours d'absence en ${year} selon le trajet planifié.`;
+}
+$('dUsEntry').onchange = e => { settings.usEntry = e.target.value; saveSettings(); renderDays(); };
+
 // ---------- Indicateurs ----------
 function renderKpis() {
   const km = legs.reduce((t, l) => t + l.km, 0);
@@ -651,6 +691,7 @@ function renderKpis() {
   set('kCost', fmt(litres * FUEL.priceCad) + ' $');
   set('kNights', `${nb} / ${nights - nb}`);
   set('kFuel', fuelPts.length);
+  renderDays();
   const p = providerOf(routeOpts());
   $('dashNote').textContent = `Distances : ${PROVIDER_LABEL[p]}. Consommation ${FUEL.lPer100} L/100 km et prix ${FUEL.priceCad.toFixed(2).replace('.', ',')} $ CA/L provisoires. Tous les montants en $ CA.`;
 }

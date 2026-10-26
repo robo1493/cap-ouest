@@ -15,7 +15,7 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v0.8</small></div>
+  <div class="logo">Cap Ouest <small>v0.9</small></div>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
     <button data-t="dash">Tableau de bord</button>
@@ -98,6 +98,7 @@
       <span class="chip f" id="hudFuel">Pleins : …</span>
       <span class="chip" id="hudSt">⛽ Stations : …</span>
       <span class="chip" id="hudPoi">🧭 Découvertes : …</span>
+      <button class="chip" id="hudDays" data-t="dash" title="Compteurs de séjour">🇺🇸 …</button>
     </div>
   </div>
 
@@ -126,6 +127,28 @@
         <div class="box real kpi"><b id="kL">—</b><span>diesel (phase 1)</span></div>
         <div class="box real kpi"><b id="kCost">—</b><span>carburant (phase 1)</span></div>
         <div class="box real kpi"><b id="kNights">—</b><span>nuits boondock / camping</span></div>
+      </div>
+      <div class="box real mt" id="daysBox">
+        <h2>🗓 Compteurs de séjour</h2>
+        <div class="grid auto">
+          <div>
+            <h3>🇺🇸 Jours aux États-Unis</h3>
+            <div class="field"><span>Prévus au trajet</span><b id="dUsPlanned">—</b></div>
+            <div class="field"><span>Maximum sur 12 mois glissants</span><b id="dUsMax">—</b></div>
+            <div class="src" id="dUsPeriods"></div>
+            <h3 class="mt">Entrée aux États-Unis cet automne</h3>
+            <div class="field"><span>Date d'entrée</span><input class="inp" type="date" id="dUsEntry" style="width:auto"></div>
+            <div class="field"><span>Rester au plus tard jusqu'au</span><b id="dUsExit">—</b></div>
+            <div class="src" id="dUsExitNote"></div>
+          </div>
+          <div>
+            <h3>⚜ Jours hors Québec (RAMQ)</h3>
+            <div class="field"><span id="dQcYearLbl">Année</span><b id="dQcPlanned">—</b></div>
+            <div class="field"><span>Si aucun retour avant le 31 décembre</span><b id="dQcProjected">—</b></div>
+            <div class="note" id="dQcNote"></div>
+          </div>
+        </div>
+        <div class="src mt">Calculs simplifiés : un jour passé en partie aux États-Unis compte (jours de passage inclus). Le test fiscal américain réel est une formule sur 3 ans (formulaire 8840). À valider avec la RAMQ et un fiscaliste Canada–États-Unis.</div>
       </div>
       <div class="box mt">
         <h2>Alertes</h2>
