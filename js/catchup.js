@@ -3,7 +3,7 @@
 // - « skip »  : sauter un arrêt de transit (boondock d'une nuit) quand les deux journées de route
 //               qui l'entourent tiennent en une seule au rythme choisi (km/jour)
 // - « short » : raccourcir d'une nuit un séjour de 2 nuits ou plus (camping, parc)
-// Les étapes qui portent un jalon de date ne sont jamais sautées.
+// Les étapes qui portent un jalon de date ne sont jamais sautées, et un séjour réservé n'est jamais raccourci.
 
 const hasMilestone = s => !!(s.extra?.by || s.extra?.from);
 
@@ -30,7 +30,7 @@ export function proposals(steps, legs, from, maxKmDay) {
   // Séjours raccourcis d'une nuit
   for (let k = from + 1; k < steps.length; k++) {
     const s = steps[k];
-    if (s.type === 'c' && s.nights >= 2) {
+    if (s.type === 'c' && s.nights >= 2 && !s.extra?.reserved) {
       out.push({ id: `short:${s.id}`, kind: 'short', stepId: s.id, saves: 1,
         label: `Raccourcir ${s.name.split(',')[0]} : ${s.nights} → ${s.nights - 1} nuits` });
     }

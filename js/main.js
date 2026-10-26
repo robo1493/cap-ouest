@@ -92,6 +92,9 @@ function popupHtml(i) {
     ${canType ? `<div>Nuits ici : <b>${s.nights}</b>
       <button class="btn sm" onclick="act('nights', ${i}, -1)">−</button>
       <button class="btn sm" onclick="act('nights', ${i}, 1)">+</button></div>` : ''}
+    ${s.type !== 'start' ? `<div class="resv"><label><input type="checkbox" ${s.extra?.reserved ? 'checked' : ''} onchange="act('reserve', ${i}, this.checked)">
+      📌 Réservation (date et nuits fixes)</label>
+      ${s.extra?.reserved ? `<input placeholder="Camping, n° de réservation…" value="${esc(s.extra.resName || '')}" onchange="act('resName', ${i}, this.value)">` : ''}</div>` : ''}
     ${s.type !== 'start' ? `<label style="display:block;margin-top:4px"><input type="checkbox" ${leaveRigAt(s) ? 'checked' : ''} onchange="act('leaveRig', ${i}, this.checked)">
       La fifth wheel peut rester sur place <span class="src">(découvertes à ${stopRadiusKm(s)} km)</span></label>` : ''}
     <div class="row">
@@ -743,17 +746,22 @@ function milestones() {
     if (!by && !from) return null;
     const d = arrival(i), place = s.name.split(/[,(–]/)[0].trim();
     const late = by ? dayDiff(parseIso(by), d) : 0, early = from ? dayDiff(d, parseIso(from)) : 0;
-    const ok = late <= 0 && early <= 0;
-    const msg = late > 0 ? `en retard de ${late} j (au plus tard le ${shortDate(parseIso(by))})`
+    const nightsOff = s.extra?.reserved && s.nights !== s.extra.resNights;
+    const ok = late <= 0 && early <= 0 && !nightsOff;
+    const msg = (nightsOff ? `${s.nights} nuit(s) prévue(s) au lieu de ${s.extra.resNights} réservée(s) · ` : '') + (late > 0 ? `en retard de ${late} j (au plus tard le ${shortDate(parseIso(by))})`
       : early > 0 ? `trop tôt de ${early} j (pas avant le ${shortDate(parseIso(from))})`
-      : by ? `arrivée ${shortDate(d)}, marge ${-late} j` : `arrivée ${shortDate(d)}`;
-    return { i, s, ok, msg, short: `${place} ${shortDate(d)}${ok && by ? ` (marge ${-late} j)` : ok ? '' : ` : ${late > 0 ? 'retard ' + late : 'tôt ' + early} j`}` };
+      : by ? `arrivée ${shortDate(d)}${s.extra?.reserved ? '' : `, marge ${-late} j`}` : `arrivée ${shortDate(d)}`);
+    const state = ok ? (s.extra?.reserved ? ' (réservé)' : by ? ` (marge ${-late} j)` : '')
+      : late > 0 ? ` : retard ${late} j` : early > 0 ? ` : tôt ${early} j` : ' : nuits ≠ réservation';
+    return { i, s, ok, msg, short: `${place} ${shortDate(d)}${state}` };
   }).filter(Boolean);
 }
 function milestoneHtml(i) {
   const x = milestones().find(m => m.i === i);
   if (!x) return '';
-  return `<small style="color:${x.ok ? 'var(--ok)' : 'var(--bad)'}">📌 ${esc(x.s.extra?.label || 'Jalon')} : ${x.msg}</small>`;
+  const r = x.s.extra?.reserved && x.ok ? ` · ${x.s.extra.resNights} nuit(s) réservée(s)` : '';
+  const what = x.s.extra?.reserved ? `Réservé${x.s.extra.resName ? ' – ' + esc(x.s.extra.resName) : ''}` : esc(x.s.extra?.label || 'Jalon');
+  return `<small style="color:${x.ok ? 'var(--ok)' : 'var(--bad)'}">📌 ${what} : ${x.msg}${r}</small>`;
 }
 
 // ---------- Compteurs de séjour (États-Unis, hors Québec) ----------
@@ -943,6 +951,17 @@ window.act = (what, i, v) => {
   if (what === 'type') s.type = s.type === 'b' ? 'c' : 'b';
   if (what === 'leaveRig') s.leaveRig = v;
   if (what === 'longOk') s.extra = { ...(s.extra || {}), longOk: v };
+  // Réservation : la date d'arrivée actuelle devient fixe (arriver ni avant ni après)
+  if (what === 'reserve') {
+    const { reserved, resName, resNights, ...rest } = s.extra || {};
+    const iso = toIso(arrival(i));
+    if (v) s.extra = { ...rest, reserved: true, resName: resName || '', resNights: s.nights, from: iso, by: iso, label: 'Réservé' };
+    else {
+      const { from, by, label, ...others } = rest;   // retirer aussi la date fixe posée par la réservation
+      s.extra = label === 'Réservé' ? others : rest;
+    }
+  }
+  if (what === 'resName') s.extra = { ...(s.extra || {}), resName: v };
   if (what === 'del') { steps.splice(i, 1); map.closePopup(); geometry = true; }
   if (what === 'up' && steps[i - 1].type !== 'start') { [steps[i - 1], steps[i]] = [steps[i], steps[i - 1]]; geometry = true; }
   if (what === 'down' && steps[i + 1].type !== 'dest') { [steps[i + 1], steps[i]] = [steps[i], steps[i + 1]]; geometry = true; }
@@ -954,9 +973,10 @@ window.act = (what, i, v) => {
     if (i === 0 || prev.type === 'start') trip.startIso = toIso(addDays(parseIso(trip.startIso), delta));
     else if (prev.nights + delta < 1) alert(`Impossible : ${prev.name} doit garder au moins 1 nuit. Date la plus tôt : ${addDays(arrival(i - 1), 1).toLocaleDateString('fr-CA')}`);
     else prev.nights += delta;
+    if (s.extra?.reserved) s.extra = { ...s.extra, from: toIso(arrival(i)), by: toIso(arrival(i)) };
   }
   refresh(geometry);
-  if (hadPopup && ['nights', 'type', 'date', 'leaveRig', 'longOk'].includes(what)) markers.get(s.id)?.openPopup();
+  if (hadPopup && ['nights', 'type', 'date', 'leaveRig', 'longOk', 'reserve', 'resName'].includes(what)) markers.get(s.id)?.openPopup();
 };
 
 window.focusStep = i => {
