@@ -217,8 +217,8 @@
         <h2>Paramètres</h2>
         <div class="field"><span>Réservoir</span><b>189 L</b></div>
         <div class="field"><span>Plein déclenché à</span><b>50 % (94 L)</b></div>
-        <div class="field"><span>Conso. en remorquage</span><i>32 L/100 km [à calibrer]</i></div>
-        <div class="field"><span>Autonomie avant seuil</span><b>~295 km</b></div>
+        <div class="field"><span>Conso. en remorquage (L/100 km)</span><input class="inp" type="number" id="lPer100" min="10" max="60" step="0.5"></div>
+        <div class="field"><span>Autonomie avant seuil</span><b id="fuelRange">—</b></div>
         <div class="field"><span>Pleins calculés sur le trajet</span><b id="kFuel">—</b></div>
         <div style="margin: 22px 0 6px;"><div class="gauge"></div></div>
         <button class="btn" style="margin-top:10px" disabled>+ Saisir un plein réel (à venir)</button>

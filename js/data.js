@@ -98,8 +98,8 @@ export const PHASE2 = [
 ];
 
 // Ram 3500 2023 SRW Cummins 6.7 + Coachmen Chaparral 298RLS 2019
-export const FUEL = { tankL: 189, threshold: 0.5, lPer100: 32, priceCad: 1.85 };
-export const FUEL_KM = (FUEL.tankL * FUEL.threshold) / (FUEL.lPer100 / 100);   // ~295 km
+// Consommation par défaut : 22 à 25 L/100 km mesurés par l'utilisateur avec sa Chaparral (modifiable dans Carburant)
+export const FUEL = { tankL: 189, threshold: 0.5, lPer100: 24, priceCad: 1.85 };
 
 // Gabarit de l'ensemble, utilisé par le profil poids lourd d'OpenRouteService
 export const DEFAULT_VEHICLE = {

@@ -47,6 +47,7 @@ function loadSettings() {
     baseMap: s.baseMap || 'plan',
     usEntry: s.usEntry || '',
     septennial: !!s.septennial,
+    lPer100: s.lPer100 || 0,
   };
 }
 

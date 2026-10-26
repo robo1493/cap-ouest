@@ -1,5 +1,5 @@
 /* global L */
-import { YELLOWSTONE_BY, PHASE2, FUEL, FUEL_KM, TYPE_LABEL, DEFAULT_VEHICLE } from './data.js';
+import { YELLOWSTONE_BY, PHASE2, FUEL, TYPE_LABEL, DEFAULT_VEHICLE } from './data.js';
 import { trip, settings, saveTrip, saveSettings, resetTrip, newStep, exportTrip, importTrip } from './store.js';
 import { cachedOrEstimate, fetchMissing, providerOf, testOrs, clearRouteCache, PROVIDER_LABEL } from './routing.js';
 import { hav, pointsAlong, fmt, fmtH } from './geo.js';
@@ -24,6 +24,10 @@ const arrival = i => addDays(parseIso(trip.startIso), trip.steps.slice(0, i).red
 const shortDate = d => d.toLocaleDateString('fr-CA', { day: 'numeric', month: 'short' });
 
 const routeOpts = () => ({ orsKey: settings.orsKey, vehicle: settings.vehicle });
+
+// Consommation (réglable dans Carburant) et distance avant le seuil de plein (50 % du réservoir)
+const lPer100 = () => settings.lPer100 || FUEL.lPer100;
+const fuelKm = () => FUEL.tankL * FUEL.threshold / (lPer100() / 100);
 
 // ---------- Carte ----------
 const map = L.map('map', { zoomControl: false, worldCopyJump: true, zoomSnap: 0.25 });
@@ -130,7 +134,7 @@ function renderLines() {
     L.polyline(leg.coords, style).addTo(layers.lines);
   });
 
-  fuelPts = pointsAlong(legs, FUEL_KM);
+  fuelPts = pointsAlong(legs, fuelKm());
   fuelPts.forEach((p, k) => {
     const a = trip.steps[p.leg], b = trip.steps[p.leg + 1];
     L.marker([p.lat, p.lng], { icon: L.divIcon({ className: '', html: '<div class="fu"></div>', iconSize: [14, 14], iconAnchor: [7, 7] }) })
@@ -504,6 +508,12 @@ function renderStationTable() {
       <td><span class="dot" style="background:${LEVEL[s.level].color}"></span>${LEVEL[s.level].label}${s.unsure ? ' <span title="Diesel non confirmé">(diesel ?)</span>' : ''}</td><td>${s.off.toFixed(1).replace('.', ',')} km</td></tr>`).join('');
 }
 $('stMax').onchange = renderStations;
+$('lPer100').onchange = e => {
+  const v = parseFloat(e.target.value);
+  settings.lPer100 = v >= 10 && v <= 60 ? v : FUEL.lPer100;
+  saveSettings();
+  renderLines();   // pleins, litres et coûts recalculés
+};
 
 // Centre la carte sur la station, en vue satellite, pour juger l'entrée et la sortie
 // On retient la vue d'avant (fond de carte, position, zoom) pour le bouton « Retour »
@@ -698,7 +708,7 @@ function renderKpis() {
   const hours = legs.reduce((t, l) => t + (l.h || 0), 0);
   const nights = trip.steps.reduce((t, s) => t + s.nights, 0);
   const nb = trip.steps.filter(s => s.type === 'b').reduce((t, s) => t + s.nights, 0);
-  const litres = km * FUEL.lPer100 / 100;
+  const litres = km * lPer100() / 100;
   const set = (id, v) => { $(id).textContent = v; };
   set('kKm', fmt(km));
   set('kHours', legs.every(l => l.h) ? fmtH(hours) : '—');
@@ -708,9 +718,11 @@ function renderKpis() {
   set('kCost', fmt(litres * FUEL.priceCad) + ' $');
   set('kNights', `${nb} / ${nights - nb}`);
   set('kFuel', fuelPts.length);
+  $('fuelRange').textContent = `~${fmt(fuelKm())} km`;
+  if (document.activeElement !== $('lPer100')) $('lPer100').value = lPer100();
   renderDays();
   const p = providerOf(routeOpts());
-  $('dashNote').textContent = `Distances : ${PROVIDER_LABEL[p]}. Consommation ${FUEL.lPer100} L/100 km et prix ${FUEL.priceCad.toFixed(2).replace('.', ',')} $ CA/L provisoires. Tous les montants en $ CA.`;
+  $('dashNote').textContent = `Distances : ${PROVIDER_LABEL[p]}. Consommation ${String(lPer100()).replace('.', ',')} L/100 km et prix ${FUEL.priceCad.toFixed(2).replace('.', ',')} $ CA/L provisoires. Tous les montants en $ CA.`;
 }
 
 function renderFuelTable() {
