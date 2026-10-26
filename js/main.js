@@ -568,8 +568,11 @@ function renderList() {
 // puis ajuste le séjour à Yellowstone pour arriver à Calgary pendant le Stampede (vers le 12 juillet).
 $('addPhase2').onclick = () => {
   const steps = trip.steps, last = steps[steps.length - 1];
+  // Une seule fois : la suite contient Calgary
+  if (steps.some(s => /calgary/i.test(s.name))) { $('phase2Box').hidden = true; return; }
   if (last.type === 'dest') {
-    last.extra = { ...(last.extra || {}), by: stepBy(last) || YELLOWSTONE_BY, label: last.extra?.label || 'Arrivée visée' };
+    const by = stepBy(last);
+    last.extra = { ...(last.extra || {}), ...(by ? { by, label: last.extra?.label || 'Arrivée visée' } : {}) };
     last.type = 'c';
     last.nights = Math.max(last.nights, 3);
     last.leaveRig ??= true;
