@@ -48,6 +48,7 @@ function loadSettings() {
     usEntry: s.usEntry || '',
     septennial: !!s.septennial,
     lPer100: s.lPer100 || 0,
+    maxKmDay: s.maxKmDay || 0,
   };
 }
 

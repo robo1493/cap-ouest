@@ -188,7 +188,7 @@
           <div class="field" style="margin-top:8px"><span>Boondock consécutifs</span><i>2 à 3</i></div>
           <div class="field"><span>Forcer un camping si</span><i>eau &lt; 25 % ou batt. &lt; 30 %</i></div>
           <div class="field"><span>Préférence</span><i>Parcs nat./prov. › privé</i></div>
-          <div class="field"><span>Route par jour</span><i>300–400 km</i></div>
+          <div class="field"><span>Route par jour (maximum)</span><i id="routeMaxTxt">400 km</i></div>
         </div>
         <div class="box">
           <h3>Filtres boondock</h3>
@@ -368,6 +368,12 @@
           </div>
           <div class="src" id="orsMsg"></div>
           <div class="src">La clé reste sur cet appareil, jamais dans le code publié. Sans clé : OSRM, profil auto, sans restrictions VR.</div>
+        </div>
+
+        <div class="box real">
+          <h2>🚚 Rythme de route</h2>
+          <div class="field"><span>Distance maximale par jour (km)</span><input class="inp" type="number" id="maxKmDay" min="100" max="1200" step="25"></div>
+          <div class="src">Au-delà, le tronçon est signalé en rouge. Pour une route facile, cochez « Tronçon long accepté » dans la fiche de l’étape.</div>
         </div>
 
         <div class="box real">

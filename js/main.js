@@ -27,6 +27,9 @@ const routeOpts = () => ({ orsKey: settings.orsKey, vehicle: settings.vehicle })
 
 // Consommation (réglable dans Carburant) et distance avant le seuil de plein (50 % du réservoir)
 const lPer100 = () => settings.lPer100 || FUEL.lPer100;
+// Distance maximale par jour (réglable) ; un tronçon peut être accepté plus long (route facile)
+const maxKm = () => settings.maxKmDay || 400;
+const tooLong = (leg, s) => leg.provider !== 'ferry' && leg.km > maxKm() && !s.extra?.longOk;
 const fuelKm = () => FUEL.tankL * FUEL.threshold / (lPer100() / 100);
 
 // ---------- Carte ----------
@@ -81,6 +84,8 @@ function popupHtml(i) {
     <input value="${esc(s.name)}" onchange="act('rename', ${i}, this.value)">
     <div>${km}</div>
     ${milestoneHtml(i)}${s.extra?.note ? `<div class="src">ℹ ${esc(s.extra.note)}</div>` : ''}
+    ${leg && leg.provider !== 'ferry' && leg.km > maxKm() ? `<label style="display:block"><input type="checkbox" ${s.extra?.longOk ? 'checked' : ''} onchange="act('longOk', ${i}, this.checked)">
+      Tronçon long accepté (${fmt(leg.km)} km, route facile)</label>` : ''}
     <div>${s.type === 'start' ? 'Départ' : 'Arrivée'} : <input type="date" style="width:auto" value="${toIso(arrival(i))}" onchange="act('date', ${i}, this.value)"></div>
     ${canType ? `<div>Nuits ici : <b>${s.nights}</b>
       <button class="btn sm" onclick="act('nights', ${i}, -1)">−</button>
@@ -508,6 +513,12 @@ function renderStationTable() {
       <td><span class="dot" style="background:${LEVEL[s.level].color}"></span>${LEVEL[s.level].label}${s.unsure ? ' <span title="Diesel non confirmé">(diesel ?)</span>' : ''}</td><td>${s.off.toFixed(1).replace('.', ',')} km</td></tr>`).join('');
 }
 $('stMax').onchange = renderStations;
+$('maxKmDay').onchange = e => {
+  const v = parseInt(e.target.value, 10);
+  settings.maxKmDay = v >= 100 && v <= 1200 ? v : 400;
+  saveSettings();
+  renderLines();
+};
 $('lPer100').onchange = e => {
   const v = parseFloat(e.target.value);
   settings.lPer100 = v >= 10 && v <= 60 ? v : FUEL.lPer100;
@@ -555,12 +566,12 @@ function renderList() {
   trip.steps.forEach((s, i) => {
     if (i > 0) {
       const leg = legs[i - 1];
-      const long = leg.km > 400;
+      const long = tooLong(leg, s);
       const tag = leg.pending ? ' · ⏳' : leg.provider === 'estimate' ? ' · ≈ estimé'
         : leg.provider === 'ors-car' ? ' · 🚗 profil auto (fermé aux camions)' : '';
       html += leg.provider === 'ferry'
         ? `<div class="leg">↓ ⛴ traversier · ~${fmtH(leg.h)}</div>`
-        : `<div class="leg ${long ? 'long' : ''}">↓ ${fmt(leg.km)} km${leg.h ? ' · ' + fmtH(leg.h) : ''}${tag}${long ? ' · plus de 400 km' : ''}</div>`;
+        : `<div class="leg ${long ? 'long' : ''}">↓ ${fmt(leg.km)} km${leg.h ? ' · ' + fmtH(leg.h) : ''}${tag}${long ? ` · plus de ${fmt(maxKm())} km` : leg.km > maxKm() && s.extra?.longOk ? ' · long accepté ✔' : ''}</div>`;
     }
     if (isNight(s)) n++;
     const dateInput = `<input type="date" class="dt" value="${toIso(arrival(i))}" onchange="act('date', ${i}, this.value)" title="${s.type === 'start' ? 'Date de départ' : 'Date d\'arrivée'}">`;
@@ -719,6 +730,8 @@ function renderKpis() {
   set('kNights', `${nb} / ${nights - nb}`);
   set('kFuel', fuelPts.length);
   $('fuelRange').textContent = `~${fmt(fuelKm())} km`;
+  $('routeMaxTxt').textContent = `${fmt(maxKm())} km`;
+  if (document.activeElement !== $('maxKmDay')) $('maxKmDay').value = maxKm();
   if (document.activeElement !== $('lPer100')) $('lPer100').value = lPer100();
   renderDays();
   const p = providerOf(routeOpts());
@@ -751,6 +764,7 @@ window.act = (what, i, v) => {
   if (what === 'setNights') s.nights = Math.max(1, Math.min(30, v || 1));
   if (what === 'type') s.type = s.type === 'b' ? 'c' : 'b';
   if (what === 'leaveRig') s.leaveRig = v;
+  if (what === 'longOk') s.extra = { ...(s.extra || {}), longOk: v };
   if (what === 'del') { steps.splice(i, 1); map.closePopup(); geometry = true; }
   if (what === 'up' && steps[i - 1].type !== 'start') { [steps[i - 1], steps[i]] = [steps[i], steps[i - 1]]; geometry = true; }
   if (what === 'down' && steps[i + 1].type !== 'dest') { [steps[i + 1], steps[i]] = [steps[i], steps[i + 1]]; geometry = true; }
@@ -764,7 +778,7 @@ window.act = (what, i, v) => {
     else prev.nights += delta;
   }
   refresh(geometry);
-  if (hadPopup && ['nights', 'type', 'date', 'leaveRig'].includes(what)) markers.get(s.id)?.openPopup();
+  if (hadPopup && ['nights', 'type', 'date', 'leaveRig', 'longOk'].includes(what)) markers.get(s.id)?.openPopup();
 };
 
 window.focusStep = i => {
