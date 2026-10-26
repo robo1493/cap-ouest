@@ -132,7 +132,8 @@ export async function fetchMissing(steps, opts, { onLeg, onError, isStale }) {
     } catch (e) {
       onError?.(i - 1, e);
     }
-    await new Promise(r => setTimeout(r, p === 'osrm' ? 1000 : 250));
+    // OSRM public : ~1 requête/s ; ORS gratuit : 40 calculs/min (le repli « rattacher à la route » en coûte plus)
+    await new Promise(r => setTimeout(r, p === 'osrm' ? 1000 : 1600));
   }
 }
 

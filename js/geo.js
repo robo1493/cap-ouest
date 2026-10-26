@@ -58,4 +58,8 @@ export function pointsAlong(legs, everyKm) {
 }
 
 export const fmt = n => Math.round(n).toLocaleString('fr-CA');
-export const fmtH = h => h == null ? '' : `${Math.floor(h)} h ${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
+export const fmtH = h => {
+  if (h == null) return '';
+  const min = Math.round(h * 60);   // arrondir le total pour éviter « 5 h 60 »
+  return `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')}`;
+};

@@ -171,6 +171,9 @@ function recompute() {
     onLeg: (i, leg) => { legs[i] = leg; queueRenderLines(); },
     onError: (i, e) => { routeErrors++; legs[i].pending = false; console.warn('Tronçon', i, e); queueRenderLines(); },
     isStale: () => gen !== routeGen,
+  }).then(() => {
+    // Tronçons refusés (limite de débit, réseau) : nouvel essai une minute plus tard
+    if (routeErrors && gen === routeGen) setTimeout(() => { if (gen === routeGen) recompute(); }, 65000);
   });
 }
 
@@ -667,8 +670,10 @@ function renderDays() {
   // RAMQ : année civile du départ
   const year = parseIso(trip.startIso).getFullYear();
   const qc = qcAbsence(days, year);
-  $('dQcYearLbl').textContent = `Prévus au trajet en ${year}`;
-  $('dQcPlanned').textContent = `${qc.planned} j`;
+  // Une ligne par année civile couverte par le trajet (ex. 2027 et 2028)
+  const years = [...new Set(days.map(d => d.date.getFullYear()))];
+  $('dQcYearLbl').textContent = 'Prévus au trajet';
+  $('dQcPlanned').textContent = years.map(y => `${y} : ${qcAbsence(days, y).planned} j`).join(' · ');
   $('dQcProjected').textContent = qc.stillAway ? `${qc.projected} j` : '—';
   const over = Math.max(qc.planned, qc.projected) >= QC_LIMIT;
   const sept = !!settings.septennial;
