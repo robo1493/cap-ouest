@@ -15,7 +15,7 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v1.0</small></div>
+  <div class="logo">Cap Ouest <small>v1.1</small></div>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
     <button data-t="dash">Tableau de bord</button>
@@ -151,6 +151,23 @@
           </div>
         </div>
         <div class="src mt">Calculs simplifiés : un jour passé en partie aux États-Unis compte (jours de passage inclus). Le test fiscal américain réel est une formule sur 3 ans (formulaire 8840). À valider avec la RAMQ et un fiscaliste Canada–États-Unis.</div>
+      </div>
+      <div class="box real mt" id="catchupBox">
+        <h2>⏱ Rattraper un retard</h2>
+        <div class="grid auto">
+          <div class="field"><span>Étape où vous êtes</span><select class="inp" id="cuFrom" style="width:auto; max-width:60%"></select></div>
+          <div class="field"><span>Jours de retard</span><input class="inp" type="number" id="cuDelay" min="0" max="30" value="0"></div>
+          <div class="field"><span>Km par jour pour rattraper</span><input class="inp" type="number" id="cuKm" min="200" max="1200" step="25"></div>
+        </div>
+        <h3 class="mt">Coupures possibles (cochez selon vos réservations)</h3>
+        <div id="cuList"></div>
+        <div class="field mt"><span>Sélection</span><b id="cuSummary">—</b></div>
+        <div class="scroll"><table id="cuImpact"></table></div>
+        <div class="row mt">
+          <button class="btn pri" id="cuApply">Appliquer au voyage</button>
+          <button class="btn" id="cuUndo" hidden>Annuler le dernier rattrapage</button>
+        </div>
+        <div class="src" id="cuMsg">Rien ne change tant que vous n’appliquez pas. Le retard est alors ajouté à l’étape où vous êtes.</div>
       </div>
       <div class="box mt">
         <h2>Alertes</h2>

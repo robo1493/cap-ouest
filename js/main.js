@@ -10,6 +10,7 @@ import { cityHistory } from './history.js';
 import { PLACE_CATS, DIFF, getPlaces, onPlacesChange, importPlaces } from './places.js';
 import { project } from './overpass.js';
 import { dayLog, usPeriods, usRollingMax, latestUsExit, qcAbsence, US_LIMIT, QC_LIMIT } from './days.js';
+import { proposals, simulate } from './catchup.js';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -713,6 +714,90 @@ function renderDays() {
 $('dQcSept').onchange = e => { settings.septennial = e.target.checked; saveSettings(); renderDays(); };
 $('dUsEntry').onchange = e => { settings.usEntry = e.target.value; saveSettings(); renderDays(); };
 
+// ---------- Rattrapage d'un retard (propositions, aperçu, application) ----------
+const cuChosen = new Set();
+let cuFromId = null;
+
+// Dates des jalons pour une liste d'étapes quelconque (aperçu sans toucher au voyage)
+function milestoneDates(steps) {
+  const out = new Map();
+  let d = parseIso(trip.startIso);
+  steps.forEach(s => {
+    const by = stepBy(s), from = s.extra?.from;
+    if (by || from) {
+      const late = by ? dayDiff(parseIso(by), d) : 0, early = from ? dayDiff(d, parseIso(from)) : 0;
+      out.set(s.id, { name: s.name.split(/[,(–]/)[0].trim(), date: d, ok: late <= 0 && early <= 0, late, early });
+    }
+    d = addDays(d, s.nights);
+  });
+  return out;
+}
+const msCell = m => !m ? '—'
+  : `<span style="color:${m.ok ? 'var(--ok)' : 'var(--bad)'}">${shortDate(m.date)}${m.late > 0 ? ` · retard ${m.late} j` : m.early > 0 ? ` · ${m.early} j trop tôt` : ' ✔'}</span>`;
+
+function renderCatchup() {
+  const steps = trip.steps;
+  if (!cuFromId || !steps.some(s => s.id === cuFromId)) cuFromId = steps[0].id;
+  $('cuFrom').innerHTML = steps.slice(0, -1).map(s =>
+    `<option value="${s.id}" ${s.id === cuFromId ? 'selected' : ''}>${shortDate(arrival(steps.indexOf(s)))} · ${esc(s.name)}</option>`).join('');
+  if (!$('cuKm').value) $('cuKm').value = maxKm() + 100;
+  const from = steps.findIndex(s => s.id === cuFromId);
+  const delay = Math.max(0, parseInt($('cuDelay').value, 10) || 0);
+  const km = parseInt($('cuKm').value, 10) || maxKm();
+
+  const props = proposals(steps, legs, from, km);
+  [...cuChosen].forEach(id => { if (!props.some(p => p.id === id)) cuChosen.delete(id); });
+  $('cuList').innerHTML = props.length
+    ? props.map(p => `<label class="field" style="justify-content:flex-start"><input type="checkbox" data-cu="${p.id}" ${cuChosen.has(p.id) ? 'checked' : ''}>
+        <span>${p.kind === 'skip' ? '🚚' : '🏕'} ${esc(p.label)}</span><i style="margin-left:auto">−1 j</i></label>`).join('')
+    : '<div class="src">Aucune coupure possible après cette étape à ce rythme. Augmentez les km par jour.</div>';
+  $('cuList').querySelectorAll('[data-cu]').forEach(cb => cb.onchange = () => {
+    cb.checked ? cuChosen.add(cb.dataset.cu) : cuChosen.delete(cb.dataset.cu);
+    renderCatchup();
+  });
+
+  const chosen = props.filter(p => cuChosen.has(p.id));
+  const saved = chosen.reduce((t, p) => t + p.saves, 0);
+  $('cuSummary').textContent = `${saved} jour(s) rattrapé(s)${delay ? ` sur ${delay} de retard` : ''}`;
+  $('cuSummary').style.color = delay && saved >= delay ? 'var(--ok)' : '';
+
+  // Aperçu : jalons et jours aux États-Unis, avant et après les coupures choisies
+  const late = simulate(steps, from, delay, []);
+  const after = simulate(steps, from, delay, chosen);
+  const a = milestoneDates(late), b = milestoneDates(after);
+  const usA = usRollingMax(dayLog(late, trip.startIso)), usB = usRollingMax(dayLog(after, trip.startIso));
+  $('cuImpact').innerHTML = '<tr><th>Jalon</th><th>Avec le retard</th><th>Avec les coupures</th></tr>' +
+    [...a.keys()].map(id => `<tr><td>${esc(a.get(id).name)}</td><td>${msCell(a.get(id))}</td><td>${msCell(b.get(id))}</td></tr>`).join('') +
+    `<tr><td>🇺🇸 Jours aux USA (12 mois)</td><td>${usA} / ${US_LIMIT}</td><td style="color:${usB > US_LIMIT ? 'var(--bad)' : ''}">${usB} / ${US_LIMIT}</td></tr>`;
+  $('cuApply').disabled = !delay && !chosen.length;
+  try { $('cuUndo').hidden = !localStorage.getItem('capouest.trip.precatchup'); } catch {}
+}
+$('cuFrom').onchange = e => { cuFromId = e.target.value; renderCatchup(); };
+$('cuDelay').oninput = renderCatchup;
+$('cuKm').oninput = renderCatchup;
+
+$('cuApply').onclick = () => {
+  const from = trip.steps.findIndex(s => s.id === cuFromId);
+  const delay = Math.max(0, parseInt($('cuDelay').value, 10) || 0);
+  const chosen = proposals(trip.steps, legs, from, parseInt($('cuKm').value, 10) || maxKm()).filter(p => cuChosen.has(p.id));
+  if (!confirm(`Appliquer ${delay ? delay + ' jour(s) de retard et ' : ''}${chosen.length} coupure(s) au voyage ?`)) return;
+  try { localStorage.setItem('capouest.trip.precatchup', JSON.stringify(trip.steps)); } catch {}
+  trip.steps = simulate(trip.steps, from, delay, chosen);
+  cuChosen.clear();
+  $('cuDelay').value = 0;
+  refresh(true);
+  $('cuMsg').textContent = '✔ Rattrapage appliqué. « Annuler le dernier rattrapage » remet le voyage comme avant.';
+};
+$('cuUndo').onclick = () => {
+  let prev = null;
+  try { prev = JSON.parse(localStorage.getItem('capouest.trip.precatchup')); } catch {}
+  if (!prev || !confirm('Remettre le voyage comme avant le dernier rattrapage ?')) return;
+  trip.steps = prev;
+  try { localStorage.removeItem('capouest.trip.precatchup'); } catch {}
+  refresh(true);
+  $('cuMsg').textContent = '✔ Voyage remis comme avant le rattrapage.';
+};
+
 // ---------- Indicateurs ----------
 function renderKpis() {
   const km = legs.reduce((t, l) => t + l.km, 0);
@@ -734,6 +819,7 @@ function renderKpis() {
   if (document.activeElement !== $('maxKmDay')) $('maxKmDay').value = maxKm();
   if (document.activeElement !== $('lPer100')) $('lPer100').value = lPer100();
   renderDays();
+  renderCatchup();
   const p = providerOf(routeOpts());
   $('dashNote').textContent = `Distances : ${PROVIDER_LABEL[p]}. Consommation ${String(lPer100()).replace('.', ',')} L/100 km et prix ${FUEL.priceCad.toFixed(2).replace('.', ',')} $ CA/L provisoires. Tous les montants en $ CA.`;
 }

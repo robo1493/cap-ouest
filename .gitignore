@@ -11,3 +11,6 @@ desktop.ini
 # Données personnelles (iOverlander, documents de voyage) : jamais publiées
 Data/
 data/
+
+# Réglages locaux de Claude Code
+.claude/
