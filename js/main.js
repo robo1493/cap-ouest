@@ -668,11 +668,20 @@ function renderDays() {
   $('dQcPlanned').textContent = `${qc.planned} j`;
   $('dQcProjected').textContent = qc.stillAway ? `${qc.projected} j` : '—';
   const over = Math.max(qc.planned, qc.projected) >= QC_LIMIT;
-  $('dQcProjected').style.color = over ? 'var(--bad)' : '';
-  $('dQcNote').textContent = over
-    ? `Au-delà de ${QC_LIMIT - 1} jours d'absence en ${year} : l'admissibilité à la RAMQ serait perdue pour toute l'année, sauf exception (une fois tous les 7 ans, sur demande). À vérifier avec la RAMQ avant le départ.`
-    : `Moins de ${QC_LIMIT} jours d'absence en ${year} selon le trajet planifié.`;
+  const sept = !!settings.septennial;
+  $('dQcSept').checked = sept;
+  $('dQcSeptYear').textContent = year;
+  $('dQcProjected').style.color = over && !sept ? 'var(--bad)' : over ? 'var(--ok)' : '';
+  // L'année septennale ne couvre qu'une année civile : l'année suivante, la règle des 183 jours
+  // s'applique de nouveau. Absent dès le 1er janvier, il faut être revenu au plus tard le 182e jour.
+  $('dQcNext').textContent = shortDate(addDays(new Date(year + 1, 0, 1), QC_LIMIT - 1)) + ` ${year + 1}`;
+  $('dQcNote').textContent = !over
+    ? `Moins de ${QC_LIMIT} jours d'absence en ${year} selon le trajet planifié.`
+    : sept
+      ? `Année septennale ${year} : l'absence de 183 jours ou plus est permise cette année-là, à condition d'en avoir avisé la RAMQ avant le départ. En ${year + 1}, la règle des 183 jours revient : être de retour au Québec au plus tard vers la date indiquée ci-dessus.`
+      : `Au-delà de ${QC_LIMIT - 1} jours d'absence en ${year} : l'admissibilité à la RAMQ serait perdue pour toute l'année, sauf année septennale (une fois tous les 7 ans, sur avis à la RAMQ avant le départ).`;
 }
+$('dQcSept').onchange = e => { settings.septennial = e.target.checked; saveSettings(); renderDays(); };
 $('dUsEntry').onchange = e => { settings.usEntry = e.target.value; saveSettings(); renderDays(); };
 
 // ---------- Indicateurs ----------

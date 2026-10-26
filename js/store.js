@@ -46,6 +46,7 @@ function loadSettings() {
     widths: { sw: 320, dw: 620, ...read('capouest.widths.v1'), ...s.widths },
     baseMap: s.baseMap || 'plan',
     usEntry: s.usEntry || '',
+    septennial: !!s.septennial,
   };
 }
 
