@@ -15,6 +15,7 @@ export const PROVIDER_LABEL = {
   'ors-car': 'OpenRouteService · auto (zone fermée aux poids lourds, VR permis)',
   osrm: 'OSRM · profil auto (sans restrictions VR)',
   estimate: 'estimation à vol d\'oiseau × 1,2',
+  ferry: 'traversier',
 };
 
 let cache = {};
@@ -39,8 +40,12 @@ export function estimate(a, b) {
   return { coords: [[a.lat, a.lng], [b.lat, b.lng]], km: hav(a, b) * ROAD_FACTOR, h: null, provider: 'estimate' };
 }
 
+// Tronçon en traversier : ligne droite, sans distance routière (ni carburant)
+export const ferryLeg = (a, b) => ({ coords: [[a.lat, a.lng], [b.lat, b.lng]], km: 0, h: 1.6, provider: 'ferry' });
+
 // Synchrone : le tronçon en cache, sinon une estimation marquée « pending »
 export function cachedOrEstimate(a, b, opts) {
+  if (b.extra?.ferry) return ferryLeg(a, b);
   const c = cache[keyFor(a, b, opts)];
   if (c) return { coords: decodePolyline(c.poly), km: c.km, h: c.h, provider: c.provider };
   return { ...estimate(a, b), pending: true };
@@ -116,7 +121,7 @@ export async function fetchMissing(steps, opts, { onLeg, onError, isStale }) {
   for (let i = 1; i < steps.length; i++) {
     if (isStale()) return;
     const a = steps[i - 1], b = steps[i], k = keyFor(a, b, opts);
-    if (cache[k]) continue;
+    if (cache[k] || b.extra?.ferry) continue;   // traversier : pas de calcul routier
     try {
       const res = p === 'ors' ? await orsWithSnap(a, b, opts) : await osrm(a, b);
       const provider = res.provider || p;

@@ -97,6 +97,7 @@ export function importTrip(text) {
   trip.steps = t.steps.map(s => ({
     id: isUuid(s.id) ? s.id : uid(), name: s.name, lat: +s.lat, lng: +s.lng, type: s.type, nights: +s.nights || 0,
     ...(typeof s.leaveRig === 'boolean' ? { leaveRig: s.leaveRig } : {}),
+    ...(s.extra && typeof s.extra === 'object' ? { extra: s.extra } : {}),
   }));
   saveTrip();
 }

@@ -133,6 +133,7 @@ async function pull(remote) {
     steps: steps.map(s => ({
       id: s.id, name: s.name, lat: s.lat, lng: s.lng, type: s.type, nights: s.nights,
       ...(s.leave_rig == null ? {} : { leaveRig: s.leave_rig }),
+      ...(s.extra == null ? {} : { extra: s.extra }),
     })),
     updatedAt: ts,
     syncedAt: ts,
@@ -148,12 +149,13 @@ async function push() {
   const rows = trip.steps.map((s, i) => ({
     id: s.id, trip_id: trip.id, position: i, name: s.name, lat: s.lat, lng: s.lng, type: s.type, nights: s.nights, updated_at: iso,
     leave_rig: s.leaveRig ?? null,
+    extra: s.extra ?? null,
   }));
   ({ error } = await sb.from('steps').upsert(rows));
-  // Colonne leave_rig absente (schéma pas encore mis à jour) : on envoie sans elle
-  if (error && /leave_rig/.test(error.message || '')) {
-    console.warn('Colonne leave_rig absente dans Supabase : exécuter supabase/schema.sql à nouveau');
-    ({ error } = await sb.from('steps').upsert(rows.map(({ leave_rig, ...r }) => r)));
+  // Colonnes récentes absentes (schéma pas encore mis à jour) : on envoie sans elles
+  if (error && /leave_rig|extra/.test(error.message || '')) {
+    console.warn('Colonnes leave_rig / extra absentes dans Supabase : exécuter la mise à jour SQL', error.message);
+    ({ error } = await sb.from('steps').upsert(rows.map(({ leave_rig, extra, ...r }) => r)));
   }
   if (error) throw error;
   ({ error } = await sb.from('steps').delete().eq('trip_id', trip.id).not('id', 'in', `(${rows.map(r => r.id).join(',')})`));

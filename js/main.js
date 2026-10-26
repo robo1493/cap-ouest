@@ -1,5 +1,5 @@
 /* global L */
-import { TARGET_ISO, FUEL, FUEL_KM, TYPE_LABEL, DEFAULT_VEHICLE } from './data.js';
+import { YELLOWSTONE_BY, PHASE2, FUEL, FUEL_KM, TYPE_LABEL, DEFAULT_VEHICLE } from './data.js';
 import { trip, settings, saveTrip, saveSettings, resetTrip, newStep, exportTrip, importTrip } from './store.js';
 import { cachedOrEstimate, fetchMissing, providerOf, testOrs, clearRouteCache, PROVIDER_LABEL } from './routing.js';
 import { hav, pointsAlong, fmt, fmtH } from './geo.js';
@@ -67,12 +67,15 @@ function markerIcon(s, n) {
 
 function popupHtml(i) {
   const s = trip.steps[i], prev = trip.steps[i - 1], leg = legs[i - 1];
-  const km = prev && leg ? `${fmt(leg.km)} km${leg.h ? ' · ' + fmtH(leg.h) : ''} depuis ${esc(prev.name.split(',')[0])}` : 'Point de départ';
+  const km = !prev || !leg ? 'Point de départ'
+    : leg.provider === 'ferry' ? `⛴ Traversier depuis ${esc(prev.name.split(',')[0])}`
+    : `${fmt(leg.km)} km${leg.h ? ' · ' + fmtH(leg.h) : ''} depuis ${esc(prev.name.split(',')[0])}`;
   const canType = isNight(s);
   return `<div class="pop">
     <span class="chip ${s.type}">${TYPE_LABEL[s.type]}</span>
     <input value="${esc(s.name)}" onchange="act('rename', ${i}, this.value)">
     <div>${km}</div>
+    ${milestoneHtml(i)}${s.extra?.note ? `<div class="src">ℹ ${esc(s.extra.note)}</div>` : ''}
     <div>${s.type === 'start' ? 'Départ' : 'Arrivée'} : <input type="date" style="width:auto" value="${toIso(arrival(i))}" onchange="act('date', ${i}, this.value)"></div>
     ${canType ? `<div>Nuits ici : <b>${s.nights}</b>
       <button class="btn sm" onclick="act('nights', ${i}, -1)">−</button>
@@ -119,7 +122,8 @@ function renderLines() {
   layers.lines.clearLayers();
   layers.fuel.clearLayers();
   legs.forEach(leg => {
-    const style = leg.provider === 'estimate' ? { color: '#777', weight: 3, opacity: .8, dashArray: '6 8' }
+    const style = leg.provider === 'ferry' ? { color: '#3d6fb4', weight: 3, opacity: .9, dashArray: '2 8' }
+      : leg.provider === 'estimate' ? { color: '#777', weight: 3, opacity: .8, dashArray: '6 8' }
       : leg.provider === 'ors-car' ? { color: '#b4733d', weight: 4, opacity: .9 }
       : { color: '#222', weight: 4, opacity: .8 };
     L.polyline(leg.coords, style).addTo(layers.lines);
@@ -540,7 +544,9 @@ function renderList() {
       const long = leg.km > 400;
       const tag = leg.pending ? ' · ⏳' : leg.provider === 'estimate' ? ' · ≈ estimé'
         : leg.provider === 'ors-car' ? ' · 🚗 profil auto (fermé aux camions)' : '';
-      html += `<div class="leg ${long ? 'long' : ''}">↓ ${fmt(leg.km)} km${leg.h ? ' · ' + fmtH(leg.h) : ''}${tag}${long ? ' · plus de 400 km' : ''}</div>`;
+      html += leg.provider === 'ferry'
+        ? `<div class="leg">↓ ⛴ traversier · ~${fmtH(leg.h)}</div>`
+        : `<div class="leg ${long ? 'long' : ''}">↓ ${fmt(leg.km)} km${leg.h ? ' · ' + fmtH(leg.h) : ''}${tag}${long ? ' · plus de 400 km' : ''}</div>`;
     }
     if (isNight(s)) n++;
     const dateInput = `<input type="date" class="dt" value="${toIso(arrival(i))}" onchange="act('date', ${i}, this.value)" title="${s.type === 'start' ? 'Date de départ' : 'Date d\'arrivée'}">`;
@@ -548,12 +554,32 @@ function renderList() {
     html += `<div class="step">
       <span class="n ${s.type}">${s.type === 'start' ? '⌂' : s.type === 'dest' ? '★' : n}</span>
       <div class="d"><b onclick="focusStep(${i})">${esc(s.name)}</b>
-        <small>${s.type === 'start' ? 'Départ ' : s.type === 'dest' ? 'Arrivée ' : ''}${dateInput}${nightsInput}</small></div>
+        <small>${s.type === 'start' ? 'Départ ' : s.type === 'dest' ? 'Arrivée ' : ''}${dateInput}${nightsInput}</small>
+        ${milestoneHtml(i)}${s.extra?.note ? `<small>ℹ ${esc(s.extra.note)}</small>` : ''}</div>
       ${isNight(s) ? `<div class="ctl"><button onclick="act('up', ${i})" title="Monter">↑</button><button onclick="act('down', ${i})" title="Descendre">↓</button></div>` : ''}
     </div>`;
   });
   $('stepList').innerHTML = html;
+  $('phase2Box').hidden = trip.steps.some(s => /calgary/i.test(s.name));
 }
+
+// Ajoute la suite proposée (data.js PHASE2) après la destination actuelle (Yellowstone),
+// puis ajuste le séjour à Yellowstone pour arriver à Calgary pendant le Stampede (vers le 12 juillet).
+$('addPhase2').onclick = () => {
+  const steps = trip.steps, last = steps[steps.length - 1];
+  if (last.type === 'dest') {
+    last.extra = { ...(last.extra || {}), by: stepBy(last) || YELLOWSTONE_BY, label: last.extra?.label || 'Arrivée visée' };
+    last.type = 'c';
+    last.nights = Math.max(last.nights, 3);
+    last.leaveRig ??= true;
+  }
+  PHASE2.forEach(p => steps.push(newStep(structuredClone(p))));
+  const ci = steps.findIndex(s => s.extra?.from);
+  const gap = dayDiff(arrival(ci), parseIso('2027-07-12'));
+  last.nights = Math.min(7, Math.max(1, last.nights + gap));   // au plus une semaine à Yellowstone
+  refresh(true);
+  fitRoute();
+};
 
 // ---------- Calendrier ----------
 function renderCalendar() {
@@ -575,15 +601,38 @@ function renderCalendar() {
   const el = document.createElement('div');
   el.className = 'd-dest';
   el.textContent = `${arrive.getDate()}/${arrive.getMonth() + 1}`;
-  el.title = 'Arrivée à Yellowstone';
+  el.title = `Arrivée : ${trip.steps[trip.steps.length - 1].name}`;
   el.onclick = () => focusStep(trip.steps.length - 1);
   days.appendChild(el);
   days.style.gridTemplateColumns = `repeat(${k + 1}, minmax(22px, 1fr))`;
 
-  const margin = dayDiff(arrive, parseIso(TARGET_ISO));
+  const ms = milestones();
   const m = $('margin');
-  m.textContent = margin >= 0 ? `Arrivée ${shortDate(arrive)} · marge ${margin} j` : `En retard de ${-margin} j sur le 1er juil.`;
-  m.className = 'chip ' + (margin >= 0 ? 'c' : 'x');
+  m.textContent = ms.length ? ms.map(x => `${x.ok ? '✔' : '⚠'} ${x.short}`).join(' · ') : `Fin ${shortDate(arrive)}`;
+  m.title = ms.map(x => `${x.s.name} : ${x.msg}`).join(' / ');
+  m.className = 'chip ' + (ms.every(x => x.ok) ? 'c' : 'x');
+}
+
+// ---------- Jalons de dates (arriver au plus tard / pas avant) ----------
+// Compatibilité : une étape Yellowstone sans jalon garde la cible du 1er juillet
+const stepBy = s => s.extra?.by ?? (/yellowstone/i.test(s.name) && !s.extra ? YELLOWSTONE_BY : null);
+function milestones() {
+  return trip.steps.map((s, i) => {
+    const by = stepBy(s), from = s.extra?.from;
+    if (!by && !from) return null;
+    const d = arrival(i), place = s.name.split(/[,(–]/)[0].trim();
+    const late = by ? dayDiff(parseIso(by), d) : 0, early = from ? dayDiff(d, parseIso(from)) : 0;
+    const ok = late <= 0 && early <= 0;
+    const msg = late > 0 ? `en retard de ${late} j (au plus tard le ${shortDate(parseIso(by))})`
+      : early > 0 ? `trop tôt de ${early} j (pas avant le ${shortDate(parseIso(from))})`
+      : by ? `arrivée ${shortDate(d)}, marge ${-late} j` : `arrivée ${shortDate(d)}`;
+    return { i, s, ok, msg, short: `${place} ${shortDate(d)}${ok && by ? ` (marge ${-late} j)` : ok ? '' : ` : ${late > 0 ? 'retard ' + late : 'tôt ' + early} j`}` };
+  }).filter(Boolean);
+}
+function milestoneHtml(i) {
+  const x = milestones().find(m => m.i === i);
+  if (!x) return '';
+  return `<small style="color:${x.ok ? 'var(--ok)' : 'var(--bad)'}">📌 ${esc(x.s.extra?.label || 'Jalon')} : ${x.msg}</small>`;
 }
 
 // ---------- Indicateurs ----------

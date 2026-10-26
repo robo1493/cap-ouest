@@ -1,6 +1,6 @@
 // Service worker : garde l'application (fichiers et Leaflet) pour l'ouvrir sans réseau.
 // Augmenter VERSION à chaque publication pour forcer la mise à jour.
-const VERSION = 'cap-ouest-v0.7.0';
+const VERSION = 'cap-ouest-v0.8.0';
 const SHELL = [
   './',
   'index.html',
@@ -39,8 +39,11 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   const isShell = url.origin === location.origin || url.hostname === 'cdnjs.cloudflare.com' || url.hostname === 'cdn.jsdelivr.net';
   if (e.request.method !== 'GET' || !isShell) return;
+  // Fichiers de l'application : toujours revalidés auprès du serveur, pour ne jamais mélanger
+  // une ancienne et une nouvelle version des modules (le cache HTTP de GitHub Pages dure 10 min)
+  const req = url.origin === location.origin ? new Request(e.request, { cache: 'no-cache' }) : e.request;
   e.respondWith(
-    fetch(e.request)
+    fetch(req)
       .then(res => {
         const copy = res.clone();
         caches.open(VERSION).then(c => c.put(e.request, copy));

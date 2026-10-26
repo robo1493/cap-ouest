@@ -26,6 +26,9 @@ create index if not exists steps_trip_idx on steps(trip_id, position);
 -- v0.7 : la fifth wheel peut rester sur place à cette étape (null = selon le type d'étape)
 alter table steps add column if not exists leave_rig boolean;
 
+-- v0.8 : informations libres par étape (jalons de dates, traversier, note)
+alter table steps add column if not exists extra jsonb;
+
 -- v0.7 : « Mes guides », lieux relevés dans les guides de voyage personnels (privés)
 create table if not exists places (
   id          text not null,

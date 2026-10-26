@@ -15,7 +15,7 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v0.7</small></div>
+  <div class="logo">Cap Ouest <small>v0.8</small></div>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
     <button data-t="dash">Tableau de bord</button>
@@ -38,7 +38,10 @@
     </div>
     <div class="src" style="margin-bottom:8px">Glisser un point sur la carte pour le déplacer · ↑↓ pour réordonner</div>
     <div id="stepList"></div>
-    <div class="step" style="border-style: dashed; color: var(--muted);"><div class="d">Phase 2 : Yellowstone → … (8 mois)<small>à planifier</small></div></div>
+    <div class="step" id="phase2Box" style="border-style: dashed;"><div class="d"><b>Suite : juillet → mi-septembre</b>
+      <small>Glacier, Stampede de Calgary, Rocheuses, Colombie-Britannique, île de Vancouver</small>
+      <button class="btn sm pri" id="addPhase2" style="margin-top:6px">Ajouter la suite proposée</button></div></div>
+    <div class="step" style="border-style: dashed; color: var(--muted);"><div class="d">Mi-septembre → février<small>à planifier</small></div></div>
     <button class="btn sm" id="resetBtn" style="margin-top:6px">Réinitialiser l'itinéraire</button>
   </aside>
 
@@ -100,7 +103,7 @@
 
   <div class="timeline">
     <div class="row between">
-      <b>Calendrier → arrivée Yellowstone</b>
+      <b>Calendrier</b>
       <div class="row"><span class="chip b">Boondock</span><span class="chip c">Camping / parc</span><span id="margin" class="chip"></span></div>
     </div>
     <div class="scroll" style="margin-top: 6px;"><div class="days" id="days"></div></div>
@@ -116,9 +119,9 @@
     <!-- TABLEAU DE BORD -->
     <section id="dash" data-title="Tableau de bord">
       <div class="grid kpis">
-        <div class="box real kpi"><b id="kKm">—</b><span>km Lévis → Yellowstone</span></div>
+        <div class="box real kpi"><b id="kKm">—</b><span>km au total</span></div>
         <div class="box real kpi"><b id="kHours">—</b><span>heures de conduite</span></div>
-        <div class="box real kpi"><b id="kDays">—</b><span>nuits avant Yellowstone</span></div>
+        <div class="box real kpi"><b id="kDays">—</b><span>nuits planifiées</span></div>
         <div class="box real kpi"><b id="kAvg">—</b><span>km / jour de route</span></div>
         <div class="box real kpi"><b id="kL">—</b><span>diesel (phase 1)</span></div>
         <div class="box real kpi"><b id="kCost">—</b><span>carburant (phase 1)</span></div>
