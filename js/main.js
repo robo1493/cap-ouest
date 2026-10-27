@@ -2,7 +2,7 @@
 import { YELLOWSTONE_BY, PHASE2, FUEL, TYPE_LABEL, DEFAULT_VEHICLE } from './data.js';
 import { trip, settings, saveTrip, saveSettings, resetTrip, newStep, exportTrip, importTrip } from './store.js';
 import { cachedOrEstimate, fetchMissing, providerOf, testOrs, clearRouteCache, PROVIDER_LABEL } from './routing.js';
-import { hav, pointsAlong, fmt, fmtH } from './geo.js';
+import { hav, pointsAlong, lineKm, fmt, fmtH } from './geo.js';
 import { LEVEL, stationsAlong, fetchMissingStations, stationProgress, clearStationCache } from './stations.js';
 import { initSync, onStatus, onRemoteChange, signIn, verifyCode, signInPassword, setPassword, signOut, syncNow } from './sync.js';
 import { CATS, poisAlong, fetchMissingPois, poiProgress, clearPoiCache, wikiLink, stopRadiusKm, leaveRigAt } from './pois.js';
@@ -1025,29 +1025,88 @@ $('resetBtn').onclick = () => {
   renderMarkers(); recompute(); fitRoute();
 };
 
+// ---------- Mode conduite : où suis-je sur le trajet, et qu'est-ce qui vient ----------
+// Lieux de « Mes guides » projetés sur chaque tronçon (calculé une fois par tronçon)
+const guideCache = new WeakMap();
+function guidesOnLeg(leg) {
+  if (!guideCache.has(leg)) {
+    const scale = leg.km / (lineKm(leg.coords) || 1);
+    guideCache.set(leg, getPlaces().filter(p => p.cat !== 'camping').map(p => ({ p, pr: project(p, leg.coords) }))
+      .filter(x => x.pr.off <= 10).map(x => ({ ...x.p, alongKm: x.pr.along * scale })));
+  }
+  return guideCache.get(leg);
+}
+onPlacesChange(() => legs.forEach(l => guideCache.delete(l)));
+
+function renderDrive(pos) {
+  const box = $('drive');
+  if (!legs.length) { box.hidden = true; return; }
+  // Tronçon le plus proche (on cherche d'abord autour du précédent, puis partout)
+  let best = { off: Infinity };
+  let kmBefore = 0;
+  legs.forEach((leg, li) => {
+    const pr = project(pos, leg.coords);
+    if (pr.off < best.off) best = { off: pr.off, li, km: kmBefore + pr.along * (leg.km / (pr.total || 1)), frac: pr.along / (pr.total || 1) };
+    kmBefore += leg.km;
+  });
+  const myKm = best.km, leg = legs[best.li], next = trip.steps[best.li + 1];
+  const nextKm = legs.slice(0, best.li + 1).reduce((t, l) => t + l.km, 0) - myKm;
+  const hours = (leg.h || leg.km / 80) * (1 - best.frac);
+  const eta = new Date(Date.now() + hours * 36e5).toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' });
+
+  // Prochaine station facile (sinon faisable) devant nous, et prochain plein prévu
+  const ahead = stations.filter(s => s.km > myKm + 1);
+  const st = ahead.find(s => s.level === 1) || ahead.find(s => s.level === 2);
+  const plein = fuelPts.find(p => p.km > myKm);
+
+  // Prochaine découverte : guides personnels (10 km du trajet) et découvertes OSM, dans les 300 km
+  let poi = null, legStart = myKm - best.frac * leg.km;
+  for (let li = best.li; li < legs.length && legStart < myKm + 300; li++) {
+    guidesOnLeg(legs[li]).forEach(g => {
+      const km = legStart + g.alongKm;
+      if (km > myKm + 0.5 && (!poi || km < poi.km)) poi = { name: g.name, icon: PLACE_CATS[g.cat]?.icon || '★', km };
+    });
+    legStart += legs[li].km;
+  }
+  const osm = pois.find(p => p.km > myKm + 0.5 && p.mode !== 'check');
+  if (osm && (!poi || osm.km < poi.km)) poi = { name: osm.n || CATS[osm.c]?.label, icon: CATS[osm.c]?.icon || '★', km: osm.km };
+
+  const d = km => `${fmt(km)} km`;
+  box.innerHTML = `
+    ${best.off > 3 ? `<div class="warn">⚠ Hors du trajet prévu (${d(best.off)})</div>` : ''}
+    <div class="big">🏁 <b>${esc(next.name.split(',')[0])}</b><span>${d(nextKm)} · ${fmtH(hours)} · arrivée ~${eta}</span></div>
+    <div>⛽ ${st ? `<b>${esc(st.name)}</b> <span style="display:inline;color:${LEVEL[st.level].color}">${LEVEL[st.level].label}</span> · ${d(st.km - myKm)}` : 'Aucune station facile connue devant'}
+      ${plein ? `<small>Plein prévu (réservoir à 50 %) dans ${d(plein.km - myKm)}</small>` : ''}</div>
+    <div>🧭 ${poi ? `${poi.icon} <b>${esc(poi.name)}</b> · ${d(poi.km - myKm)}` : 'Aucune découverte dans les 300 prochains km'}</div>`;
+  box.hidden = false;
+}
+
 // ---------- Outils de la carte ----------
 const fitRoute = () => map.fitBounds(L.latLngBounds(trip.steps.map(s => [s.lat, s.lng])), { padding: [40, 40] });
 $('zin').onclick = () => map.zoomIn();
 $('zout').onclick = () => map.zoomOut();
 $('fit').onclick = fitRoute;
-// Ma position (GPS de l'appareil) : un appui active le suivi (point bleu, la carte suit), un autre l'arrête
+// Ma position (GPS de l'appareil) : un appui active le mode conduite (camion sur la carte, la carte suit,
+// bandeau prochain plein / découverte / étape), un autre l'arrête
 let following = false, firstFix = false;
 const me = L.layerGroup().addTo(map);
+const truckIcon = L.divIcon({ className: '', html: '<div class="me">🛻</div>', iconSize: [36, 36], iconAnchor: [18, 18] });
 $('locate').onclick = () => {
   following = !following;
   $('locate').classList.toggle('on', following);
   if (following) { firstFix = true; map.locate({ watch: true, enableHighAccuracy: true, maximumAge: 5000 }); }
-  else { map.stopLocate(); me.clearLayers(); }
+  else { map.stopLocate(); me.clearLayers(); $('drive').hidden = true; }
 };
 map.on('locationfound', e => {
   me.clearLayers();
   if (e.accuracy > 50) L.circle(e.latlng, { radius: e.accuracy, color: '#2a7de1', weight: 1, fillOpacity: .1, interactive: false }).addTo(me);
-  L.circleMarker(e.latlng, { radius: 8, color: '#fff', weight: 3, fillColor: '#2a7de1', fillOpacity: 1 }).bindTooltip('Vous êtes ici').addTo(me);
+  L.marker(e.latlng, { icon: truckIcon, interactive: false, zIndexOffset: 2000 }).addTo(me);
   if (firstFix) { map.setView(e.latlng, Math.max(map.getZoom(), 11)); firstFix = false; }
   else map.panTo(e.latlng, { animate: true });
+  renderDrive({ lat: e.latlng.lat, lng: e.latlng.lng });
 });
 map.on('locationerror', e => {
-  following = false; $('locate').classList.remove('on'); me.clearLayers();
+  following = false; $('locate').classList.remove('on'); me.clearLayers(); $('drive').hidden = true;
   alert('Position introuvable : ' + (e.code === 1 ? 'autorisez la localisation pour Cap Ouest (Réglages de l\'iPad › Confidentialité › Service de localisation › Safari).' : e.message));
 });
 
