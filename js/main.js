@@ -75,6 +75,9 @@ function markerIcon(s, n) {
   return L.divIcon({ className: '', html: `<div class="${cls}">${label}</div>`, iconSize: [size, size], iconAnchor: [size / 2, size / 2] });
 }
 
+// Itinéraire dans Google Maps (application si installée) : vers l'adresse saisie, sinon vers le point de l'étape
+const goUrl = s => 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(s.extra?.addr?.trim() || `${s.lat},${s.lng}`);
+
 function popupHtml(i) {
   const s = trip.steps[i], prev = trip.steps[i - 1], leg = legs[i - 1];
   const km = !prev || !leg ? 'Point de départ'
@@ -95,6 +98,8 @@ function popupHtml(i) {
     ${s.type !== 'start' ? `<div class="resv"><label><input type="checkbox" ${s.extra?.reserved ? 'checked' : ''} onchange="act('reserve', ${i}, this.checked)">
       📌 Réservation (date et nuits fixes)</label>
       ${s.extra?.reserved ? `<input placeholder="Camping, n° de réservation…" value="${esc(s.extra.resName || '')}" onchange="act('resName', ${i}, this.value)">` : ''}</div>` : ''}
+    ${s.type !== 'start' ? `<div class="addr"><input placeholder="Adresse (camping, rue, ville…)" value="${esc(s.extra?.addr || '')}" onchange="act('addr', ${i}, this.value)">
+      <a class="btn sm" href="${goUrl(s)}" target="_blank" rel="noopener" title="Itinéraire dans Google Maps">🧭 Y aller</a></div>` : ''}
     ${s.type !== 'start' ? `<label style="display:block;margin-top:4px"><input type="checkbox" ${leaveRigAt(s) ? 'checked' : ''} onchange="act('leaveRig', ${i}, this.checked)">
       La fifth wheel peut rester sur place <span class="src">(découvertes à ${stopRadiusKm(s)} km)</span></label>` : ''}
     <div class="row">
@@ -676,7 +681,7 @@ function renderList() {
       <span class="n ${s.type}">${s.type === 'start' ? '⌂' : s.type === 'dest' ? '★' : n}</span>
       <div class="d"><b onclick="focusStep(${i})">${esc(s.name)}</b>
         <small>${s.type === 'start' ? 'Départ ' : s.type === 'dest' ? 'Arrivée ' : ''}${dateInput}${nightsInput}</small>
-        ${milestoneHtml(i)}${s.extra?.note ? `<small>ℹ ${esc(s.extra.note)}</small>` : ''}</div>
+        ${milestoneHtml(i)}${s.extra?.note ? `<small>ℹ ${esc(s.extra.note)}</small>` : ''}${s.extra?.addr ? `<small>📍 <a href="${goUrl(s)}" target="_blank" rel="noopener">${esc(s.extra.addr)}</a></small>` : ''}</div>
       ${isNight(s) ? `<div class="ctl"><button onclick="act('up', ${i})" title="Monter">↑</button><button onclick="act('down', ${i})" title="Descendre">↓</button></div>` : ''}
     </div>`;
   });
@@ -962,6 +967,7 @@ window.act = (what, i, v) => {
     }
   }
   if (what === 'resName') s.extra = { ...(s.extra || {}), resName: v };
+  if (what === 'addr') s.extra = { ...(s.extra || {}), addr: v.trim() };
   if (what === 'del') { steps.splice(i, 1); map.closePopup(); geometry = true; }
   if (what === 'up' && steps[i - 1].type !== 'start') { [steps[i - 1], steps[i]] = [steps[i], steps[i - 1]]; geometry = true; }
   if (what === 'down' && steps[i + 1].type !== 'dest') { [steps[i + 1], steps[i]] = [steps[i], steps[i + 1]]; geometry = true; }
@@ -976,7 +982,7 @@ window.act = (what, i, v) => {
     if (s.extra?.reserved) s.extra = { ...s.extra, from: toIso(arrival(i)), by: toIso(arrival(i)) };
   }
   refresh(geometry);
-  if (hadPopup && ['nights', 'type', 'date', 'leaveRig', 'longOk', 'reserve', 'resName'].includes(what)) markers.get(s.id)?.openPopup();
+  if (hadPopup && ['nights', 'type', 'date', 'leaveRig', 'longOk', 'reserve', 'resName', 'addr'].includes(what)) markers.get(s.id)?.openPopup();
 };
 
 window.focusStep = i => {
@@ -1024,7 +1030,26 @@ const fitRoute = () => map.fitBounds(L.latLngBounds(trip.steps.map(s => [s.lat, 
 $('zin').onclick = () => map.zoomIn();
 $('zout').onclick = () => map.zoomOut();
 $('fit').onclick = fitRoute;
-$('locate').onclick = () => map.locate({ setView: true, maxZoom: 10 });
+// Ma position (GPS de l'appareil) : un appui active le suivi (point bleu, la carte suit), un autre l'arrête
+let following = false, firstFix = false;
+const me = L.layerGroup().addTo(map);
+$('locate').onclick = () => {
+  following = !following;
+  $('locate').classList.toggle('on', following);
+  if (following) { firstFix = true; map.locate({ watch: true, enableHighAccuracy: true, maximumAge: 5000 }); }
+  else { map.stopLocate(); me.clearLayers(); }
+};
+map.on('locationfound', e => {
+  me.clearLayers();
+  if (e.accuracy > 50) L.circle(e.latlng, { radius: e.accuracy, color: '#2a7de1', weight: 1, fillOpacity: .1, interactive: false }).addTo(me);
+  L.circleMarker(e.latlng, { radius: 8, color: '#fff', weight: 3, fillColor: '#2a7de1', fillOpacity: 1 }).bindTooltip('Vous êtes ici').addTo(me);
+  if (firstFix) { map.setView(e.latlng, Math.max(map.getZoom(), 11)); firstFix = false; }
+  else map.panTo(e.latlng, { animate: true });
+});
+map.on('locationerror', e => {
+  following = false; $('locate').classList.remove('on'); me.clearLayers();
+  alert('Position introuvable : ' + (e.code === 1 ? 'autorisez la localisation pour Cap Ouest (Réglages de l\'iPad › Confidentialité › Service de localisation › Safari).' : e.message));
+});
 
 document.querySelectorAll('[name=base]').forEach(r => {
   r.checked = r.value === settings.baseMap;
