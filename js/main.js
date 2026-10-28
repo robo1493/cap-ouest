@@ -918,7 +918,10 @@ function renderKpis() {
   set('kAvg', fmt(km / Math.max(1, legs.length)));
   set('kL', fmt(litres) + ' L');
   set('kCost', fmt(litres * FUEL.priceCad) + ' $');
-  set('kNights', `${nb} / ${nights - nb}`);
+  const nc = trip.steps.filter(s => s.type === 'c').reduce((t, s) => t + s.nights, 0);
+  const pct = n => nb + nc ? ` (${Math.round(n / (nb + nc) * 100)} %)` : '';
+  set('kNightsB', nb + pct(nb));
+  set('kNightsC', nc + pct(nc));
   set('kFuel', fuelPts.length);
   $('fuelRange').textContent = `~${fmt(fuelKm())} km`;
   $('routeMaxTxt').textContent = `${fmt(maxKm())} km`;
