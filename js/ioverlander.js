@@ -33,18 +33,47 @@ export const GROUPS = {
   warn: '🚫 Nuit interdite et avertissements',
 };
 
+// Les lieux sont gardés dans IndexedDB : localStorage (~5 Mo, partagé avec les caches de trajets
+// et de stations) se remplissait, et le lot était alors perdu au rechargement sans partir au serveur.
 let items = [];   // [lat, lng, nom, code]
-try { items = JSON.parse(localStorage.getItem(KEY)) || []; } catch { items = []; }
 const listeners = [];
 export const getIo = () => items;
 export const onIoChange = cb => listeners.push(cb);
 
+const idb = () => new Promise((ok, ko) => {
+  const req = indexedDB.open('capouest', 1);
+  req.onupgradeneeded = () => req.result.createObjectStore('kv');
+  req.onsuccess = () => ok(req.result);
+  req.onerror = () => ko(req.error);
+});
+async function idbDo(mode, fn) {
+  const db = await idb();
+  return new Promise((ok, ko) => {
+    const tx = db.transaction('kv', mode), req = fn(tx.objectStore('kv'));
+    tx.oncomplete = () => ok(req.result);
+    tx.onerror = () => ko(tx.error);
+  });
+}
+
+// Chargement au démarrage (avec reprise de l'ancien emplacement dans localStorage)
+const ready = (async () => {
+  try {
+    let list = await idbDo('readonly', s => s.get(KEY));
+    const old = localStorage.getItem(KEY);
+    if (!list && old) {
+      list = JSON.parse(old);
+      await idbDo('readwrite', s => s.put(list, KEY));
+    }
+    if (old) localStorage.removeItem(KEY);
+    if (Array.isArray(list) && list.length) { items = list; listeners.forEach(cb => cb()); }
+  } catch (e) { console.warn('iOverlander : lecture locale impossible', e); }
+})();
+
 function store(list, dirty) {
   items = list;
-  try {
-    localStorage.setItem(KEY, JSON.stringify(items));
-    localStorage.setItem(DIRTY_KEY, dirty ? '1' : '');
-  } catch { /* stockage plein : les lieux restent en mémoire pour cette session */ }
+  // Le drapeau « à envoyer » est posé d'abord : même si l'écriture locale échoue, le lot part au serveur
+  try { localStorage.setItem(DIRTY_KEY, dirty ? '1' : ''); } catch {}
+  idbDo('readwrite', s => s.put(items, KEY)).catch(e => console.warn('iOverlander : écriture locale impossible', e));
   listeners.forEach(cb => cb());
 }
 
@@ -138,6 +167,7 @@ export function ioNear(p, km, filter = () => true) {
 
 // Synchronisation privée : tout le lot dans une seule ligne de la table places
 export async function syncIo(sb) {
+  await ready;   // ne jamais envoyer une liste vide parce que la lecture locale n'est pas finie
   if (localStorage.getItem(DIRTY_KEY) === '1') {
     const { error } = await sb.from('places').upsert({ id: PACK_ID, data: { items }, updated_at: new Date().toISOString() });
     if (error) throw error;
