@@ -22,7 +22,7 @@ export const IO_CATS = {
   'Showers': { k: 'shower', g: 'serv', icon: '🚿', color: '#26a69a', label: 'Douches' },
   'Laundromat': { k: 'laundry', g: 'serv', icon: '🧺', color: '#5c6bc0', label: 'Buanderie' },
   'Mechanic and Parts': { k: 'mech', g: 'serv', icon: '🔧', color: '#616161', label: 'Mécanique' },
-  'Overnight Prohibited': { k: 'nope', g: 'warn', icon: '🚫', color: '#c62828', label: 'Nuit interdite' },
+  // « Overnight Prohibited » (nuit interdite) volontairement exclu à la demande de l'utilisateur
   'Warning': { k: 'warn', g: 'warn', icon: '⚠', color: '#c62828', label: 'Avertissement' },
   'Road Report': { k: 'road', g: 'warn', icon: '⚠', color: '#e65100', label: 'État de la route' },
 };
@@ -30,7 +30,7 @@ export const BY_K = Object.fromEntries(Object.values(IO_CATS).map(c => [c.k, c])
 export const GROUPS = {
   night: '⛺ Nuits (sauvage, informel, campings)',
   serv: '💧 Services (eau, vidange, propane…)',
-  warn: '🚫 Nuit interdite et avertissements',
+  warn: '⚠ Avertissements et état des routes',
 };
 
 // Les lieux sont gardés dans IndexedDB : localStorage (~5 Mo, partagé avec les caches de trajets
@@ -39,6 +39,8 @@ let items = [];   // [lat, lng, nom, code]
 const listeners = [];
 export const getIo = () => items;
 export const onIoChange = cb => listeners.push(cb);
+// Seules les catégories gardées (les lots importés avant peuvent en contenir d'autres)
+const keep = list => list.filter(x => BY_K[x[3]]);
 
 const idb = () => new Promise((ok, ko) => {
   const req = indexedDB.open('capouest', 1);
@@ -65,12 +67,12 @@ const ready = (async () => {
       await idbDo('readwrite', s => s.put(list, KEY));
     }
     if (old) localStorage.removeItem(KEY);
-    if (Array.isArray(list) && list.length) { items = list; listeners.forEach(cb => cb()); }
+    if (Array.isArray(list) && list.length) { items = keep(list); listeners.forEach(cb => cb()); }
   } catch (e) { console.warn('iOverlander : lecture locale impossible', e); }
 })();
 
 function store(list, dirty) {
-  items = list;
+  items = keep(list);
   // Le drapeau « à envoyer » est posé d'abord : même si l'écriture locale échoue, le lot part au serveur
   try { localStorage.setItem(DIRTY_KEY, dirty ? '1' : ''); } catch {}
   idbDo('readwrite', s => s.put(items, KEY)).catch(e => console.warn('iOverlander : écriture locale impossible', e));
@@ -177,5 +179,5 @@ export async function syncIo(sb) {
   const { data, error } = await sb.from('places').select('data').eq('id', PACK_ID).maybeSingle();
   if (error) throw error;
   const remote = data?.data?.items;
-  if (Array.isArray(remote) && remote.length !== items.length) store(remote, false);
+  if (Array.isArray(remote) && keep(remote).length !== items.length) store(remote, false);
 }

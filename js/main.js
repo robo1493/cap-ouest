@@ -369,7 +369,7 @@ function ioSummary(s) {
   if (!near.length) return '';
   const n = k => near.filter(({ x }) => BY_K[x[3]].g === k).length;
   const by = k => near.filter(({ x }) => x[3] === k).length;
-  return `<div class="src">iOverlander à 15 km : ⛺ ${n('night')} · 💧 ${by('water')} · 🚽 ${by('dump')}${by('nope') ? ` · 🚫 ${by('nope')}` : ''}</div>`;
+  return `<div class="src">iOverlander à 15 km : ⛺ ${n('night')} · 💧 ${by('water')} · 🚽 ${by('dump')}</div>`;
 }
 
 $('ioFile').onchange = async e => {
