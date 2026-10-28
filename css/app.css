@@ -167,3 +167,7 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; }
 .drive span, .drive small { display: block; color: var(--muted, #666); font-size: 13px; }
 .drive .big span { font-size: 15px; color: var(--ink); }
 .drive .warn { color: #b33; font-weight: 600; }
+.drive .warn, .drive .back { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.drive .back { color: #2a7de1; font-weight: 600; }
+.drive .back small, .drive .back .btn { display: inline; }
+.drive .back .btn { margin-left: auto; }

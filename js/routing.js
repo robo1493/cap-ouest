@@ -137,6 +137,13 @@ export async function fetchMissing(steps, opts, { onLeg, onError, isStale }) {
   }
 }
 
+// Chemin ponctuel (ex. retour au trajet après un détour), sans cache
+export async function routeOnce(a, b, opts) {
+  const p = providerOf(opts);
+  const res = p === 'ors' ? await orsWithSnap(a, b, opts) : await osrm(a, b);
+  return { coords: decodePolyline(res.poly), km: res.km, h: res.h, provider: res.provider || p };
+}
+
 // Vérifie une clé ORS sur un court trajet (Lévis → Québec)
 export async function testOrs(orsKey, vehicle) {
   const res = await ors({ lat: 46.80, lng: -71.18 }, { lat: 46.81, lng: -71.21 }, { orsKey, vehicle });

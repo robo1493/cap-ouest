@@ -1,7 +1,7 @@
 /* global L */
 import { YELLOWSTONE_BY, PHASE2, FUEL, TYPE_LABEL, DEFAULT_VEHICLE } from './data.js';
 import { trip, settings, saveTrip, saveSettings, resetTrip, newStep, exportTrip, importTrip } from './store.js';
-import { cachedOrEstimate, fetchMissing, providerOf, testOrs, clearRouteCache, PROVIDER_LABEL } from './routing.js';
+import { cachedOrEstimate, fetchMissing, routeOnce, providerOf, testOrs, clearRouteCache, PROVIDER_LABEL } from './routing.js';
 import { hav, pointsAlong, lineKm, fmt, fmtH } from './geo.js';
 import { LEVEL, stationsAlong, fetchMissingStations, stationProgress, clearStationCache } from './stations.js';
 import { initSync, onStatus, onRemoteChange, signIn, verifyCode, signInPassword, setPassword, signOut, syncNow } from './sync.js';
@@ -61,6 +61,7 @@ const layers = {
   b: L.layerGroup().addTo(map),
   c: L.layerGroup().addTo(map),
   preview: L.layerGroup().addTo(map),
+  detour: L.layerGroup().addTo(map),
 };
 const markers = new Map();   // id d'étape → marqueur Leaflet
 let legs = [];               // legs[i] : tronçon de steps[i] à steps[i+1]
@@ -1049,9 +1050,17 @@ function renderDrive(pos) {
     if (pr.off < best.off) best = { off: pr.off, li, km: kmBefore + pr.along * (leg.km / (pr.total || 1)), frac: pr.along / (pr.total || 1) };
     kmBefore += leg.km;
   });
-  const myKm = best.km, leg = legs[best.li], next = trip.steps[best.li + 1];
-  const nextKm = legs.slice(0, best.li + 1).reduce((t, l) => t + l.km, 0) - myKm;
-  const hours = (leg.h || leg.km / 80) * (1 - best.frac);
+  const myKm = best.km, leg = legs[best.li];
+  // De retour sur le trajet prévu : le chemin de retour n'est plus utile
+  if (detour && best.off < 0.5) clearDetour();
+  const next = detour ? trip.steps.find(s => s.id === detour.toId) || trip.steps[best.li + 1] : trip.steps[best.li + 1];
+  let nextKm = legs.slice(0, best.li + 1).reduce((t, l) => t + l.km, 0) - myKm;
+  let hours = (leg.h || leg.km / 80) * (1 - best.frac);
+  if (detour) {
+    // Distance restante le long du chemin de retour
+    const pr = project(pos, detour.coords), left = 1 - pr.along / (pr.total || 1);
+    nextKm = detour.km * left; hours = detour.h * left;
+  }
   const eta = new Date(Date.now() + hours * 36e5).toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' });
 
   // Prochaine station facile (sinon faisable) devant nous, et prochain plein prévu
@@ -1073,13 +1082,36 @@ function renderDrive(pos) {
 
   const d = km => `${fmt(km)} km`;
   box.innerHTML = `
-    ${best.off > 3 ? `<div class="warn">⚠ Hors du trajet prévu (${d(best.off)})</div>` : ''}
+    ${detour ? `<div class="back">↩ Chemin de retour vers ${esc(next.name.split(',')[0])}${detour.provider === 'osrm' || detour.provider === 'ors-car' ? ' <small>(calcul auto, sans restrictions VR)</small>' : ''}
+        <button class="btn sm" onclick="clearDetour()">✕</button></div>`
+      : best.off > 3 ? `<div class="warn">⚠ Hors du trajet prévu (${d(best.off)})
+        <button class="btn sm" id="backBtn" onclick="backToRoute()">↩ Retour au trajet</button></div>` : ''}
     <div class="big">🏁 <b>${esc(next.name.split(',')[0])}</b><span>${d(nextKm)} · ${fmtH(hours)} · arrivée ~${eta}</span></div>
     <div>⛽ ${st ? `<b>${esc(st.name)}</b> <span style="display:inline;color:${LEVEL[st.level].color}">${LEVEL[st.level].label}</span> · ${d(st.km - myKm)}` : 'Aucune station facile connue devant'}
       ${plein ? `<small>Plein prévu (réservoir à 50 %) dans ${d(plein.km - myKm)}</small>` : ''}</div>
     <div>🧭 ${poi ? `${poi.icon} <b>${esc(poi.name)}</b> · ${d(poi.km - myKm)}` : 'Aucune découverte dans les 300 prochains km'}</div>`;
   box.hidden = false;
+  lastPos = pos; lastNext = next;
 }
+
+// Retour au trajet : chemin (poids lourd avec la clé ORS) de la position actuelle à la prochaine étape
+let detour = null, lastPos = null, lastNext = null;
+window.clearDetour = () => { detour = null; layers.detour.clearLayers(); if (lastPos) renderDrive(lastPos); };
+window.backToRoute = async () => {
+  if (!lastPos || !lastNext) return;
+  const btn = $('backBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Calcul…'; }
+  try {
+    const r = await routeOnce(lastPos, lastNext, routeOpts());
+    detour = { ...r, toId: lastNext.id };
+    layers.detour.clearLayers();
+    L.polyline(r.coords, { color: '#2a7de1', weight: 6, opacity: .85 }).addTo(layers.detour);
+    renderDrive(lastPos);
+  } catch (e) {
+    alert('Chemin de retour impossible à calculer (réseau ou clé ORS) : ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = '↩ Retour au trajet'; }
+  }
+};
 
 // ---------- Outils de la carte ----------
 const fitRoute = () => map.fitBounds(L.latLngBounds(trip.steps.map(s => [s.lat, s.lng])), { padding: [40, 40] });
@@ -1095,7 +1127,7 @@ $('locate').onclick = () => {
   following = !following;
   $('locate').classList.toggle('on', following);
   if (following) { firstFix = true; map.locate({ watch: true, enableHighAccuracy: true, maximumAge: 5000 }); }
-  else { map.stopLocate(); me.clearLayers(); $('drive').hidden = true; }
+  else { map.stopLocate(); me.clearLayers(); $('drive').hidden = true; detour = null; layers.detour.clearLayers(); }
 };
 map.on('locationfound', e => {
   me.clearLayers();
