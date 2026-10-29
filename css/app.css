@@ -179,3 +179,19 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; }
 .drive .back { color: #2a7de1; font-weight: 600; }
 .drive .back small, .drive .back .btn { display: inline; }
 .drive .back .btn { margin-left: auto; }
+
+/* Passages bas (hauteur libre) : étiquette sur la carte et ligne du bandeau de conduite */
+.clr { display: inline-block; padding: 1px 5px; border-radius: 4px; background: #fff; border: 2px solid #e0661b; color: #b34d0f; font-size: 12px; font-weight: 700; white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
+.clr.danger { background: #c0392b; border-color: #8e2a1f; color: #fff; }
+.drive .lowc { color: #b34d0f; font-weight: 600; }
+.drive .lowc.danger { color: #c0392b; }
+.drive .lowc small { display: inline; }
+
+/* Mode nuit : carte sombre (plan inversé, satellite assombri), bandeau et boutons sombres */
+.stage.night:not(.sat) .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.9) contrast(.9); }
+.stage.night.sat .leaflet-tile-pane { filter: brightness(.6); }
+.stage.night .leaflet-container { background: #1b1d1f; }
+.stage.night .drive { background: #1f2326; color: #e8e8e8; border-color: #3a3f44; }
+.stage.night .drive span, .stage.night .drive small, .stage.night .drive .src { color: #a9b0b6; }
+.stage.night .drive .big span { color: #e8e8e8; }
+.stage.night .tools .btn:not(.on) { background: #1f2326; color: #e8e8e8; border-color: #3a3f44; }

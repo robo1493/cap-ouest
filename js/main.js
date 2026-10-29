@@ -12,6 +12,9 @@ import { project } from './overpass.js';
 import { dayLog, usPeriods, usRollingMax, latestUsExit, qcAbsence, US_LIMIT, QC_LIMIT } from './days.js';
 import { proposals, simulate } from './catchup.js';
 import { BY_K, GROUPS, getIo, onIoChange, importIoCsv, clearIo, ioNear } from './ioverlander.js';
+import { clearancesAlong, fetchMissingClearances, clearanceProgress, clearClearanceCache, feet } from './clearances.js';
+import { addPoint, trailKm, trailSegments, onTrailChange, clearTrail } from './trail.js';
+import { isNight as sunDown } from './night.js';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -63,12 +66,15 @@ const layers = {
   c: L.layerGroup().addTo(map),
   preview: L.layerGroup().addTo(map),
   detour: L.layerGroup().addTo(map),
+  clear: L.layerGroup().addTo(map),
+  trail: L.layerGroup().addTo(map),
 };
 const markers = new Map();   // id d'étape → marqueur Leaflet
 let legs = [];               // legs[i] : tronçon de steps[i] à steps[i+1]
 let fuelPts = [];
 let stations = [];
 let pois = [];
+let clearances = [];
 
 function markerIcon(s, n) {
   const cls = s.type === 'dest' ? 'mk dest' : 'mk ' + s.type;
@@ -166,9 +172,11 @@ function renderLines() {
   renderKpis();
   renderFuelTable();
   renderStations();
+  renderClearances();
   renderPois();
   renderStatus();
   loadStations();
+  loadClearances();
   loadPois();
 }
 
@@ -221,6 +229,11 @@ function renderStatus() {
   $('hudSt').textContent = sp.done < sp.total
     ? `⛽ Stations… ${sp.done}/${sp.total} tronçons${stationErrors ? ` · ${stationErrors} en erreur` : ''}`
     : `⛽ ${stations.filter(s => s.level).length} stations diesel · ${easy} faciles`;
+  const cp = clearanceProgress(legs), danger = clearances.filter(c => c.danger).length;
+  $('hudClear').textContent = cp.done < cp.total
+    ? `⚠ Passages bas… ${cp.done}/${cp.total}${clearErrors ? ` · ${clearErrors} en erreur` : ''}`
+    : `⚠ ${clearances.length} passage(s) bas${danger ? ` · ${danger} trop bas` : ''}`;
+  $('hudClear').className = 'chip' + (danger ? ' x' : '');
   const pp = poiProgress(legs);
   $('hudPoi').textContent = pp.done < pp.total
     ? `🧭 Découvertes… ${pp.done}/${pp.total} tronçons${poiErrors ? ` · ${poiErrors} en erreur` : ''}`
@@ -571,6 +584,43 @@ async function loadStations() {
   });
   stationBusy = false;
   setTimeout(loadStations, stationErrors ? 60000 : 0);
+}
+
+// ---------- Passages bas (hauteur libre d'OpenStreetMap) ----------
+// Même principe que les stations : une recherche à la fois, nouvel essai dans 1 min après une erreur
+let clearBusy = false, clearErrors = 0;
+async function loadClearances() {
+  if (clearBusy || legs.some(l => l.pending)) return;
+  const cp = clearanceProgress(legs);
+  if (cp.done === cp.total) return;
+  clearBusy = true;
+  clearErrors = 0;
+  const snapshot = legs.slice();
+  await fetchMissingClearances(snapshot, {
+    onLeg: () => { renderClearances(); renderStatus(); },
+    onError: (i, e) => { clearErrors++; console.warn('Passages bas, tronçon', i, e); renderStatus(); },
+    isStale: () => legs.length !== snapshot.length || legs.some((l, i) => l !== snapshot[i]),
+  });
+  clearBusy = false;
+  setTimeout(loadClearances, clearErrors ? 60000 : 0);
+}
+
+function renderClearances() {
+  const rig = settings.vehicle.heightM;
+  clearances = clearancesAlong(legs, rig);
+  layers.clear.clearLayers();
+  clearances.forEach(c => {
+    const icon = L.divIcon({ className: '', html: `<div class="clr${c.danger ? ' danger' : ''}">${feet(c.h)}</div>`, iconSize: [52, 22], iconAnchor: [26, 11] });
+    L.marker([c.lat, c.lng], { icon, title: `${c.kind} : ${feet(c.h)}`, zIndexOffset: 1500 })
+      .bindPopup(() => `<div class="pop">
+        <span class="chip" style="border-color:${c.danger ? '#c0392b' : '#e0661b'};color:${c.danger ? '#c0392b' : '#e0661b'}">${c.danger ? '⛔ Trop bas ou trop juste (moins de 3 po de marge)' : '⚠ Passage serré'}</span>
+        <div><b>${c.kind}</b>${c.road ? ' · ' + esc(c.road) : ''}</div>
+        <div>Hauteur libre : <b>${feet(c.h)}</b> (${c.h.toFixed(2).replace('.', ',')} m) · votre rig : ${feet(rig)}</div>
+        <div>km ~${fmt(c.km)} du départ · à ${fmt(c.off * 1000)} m du trajet</div>
+        <div class="src">Donnée OpenStreetMap : peut être incomplète ou erronée. Toujours se fier aux panneaux.</div>
+      </div>`, { minWidth: 220 })
+      .addTo(layers.clear);
+  });
 }
 
 const stationIcon = s => {
@@ -1085,6 +1135,9 @@ function renderDrive(pos) {
   if (osm && (!poi || osm.km < poi.km)) poi = { name: osm.n || CATS[osm.c]?.label, icon: CATS[osm.c]?.icon || '★', km: osm.km };
 
   const d = km => `${fmt(km)} km`;
+  // Prochain passage bas dans les 30 km devant (sur le trajet prévu)
+  const low = clearances.find(c => c.km > myKm - 0.2 && c.km < myKm + 30);
+  const tk = trailKm();
   box.innerHTML = `
     ${detour ? `<div class="back">↩ Chemin de retour vers ${esc(next.name.split(',')[0])}${detour.provider === 'osrm' || detour.provider === 'ors-car' ? ' <small>(calcul auto, sans restrictions VR)</small>' : ''}
         <button class="btn sm" onclick="clearDetour()">✕</button></div>`
@@ -1093,7 +1146,9 @@ function renderDrive(pos) {
     <div class="big">🏁 <b>${esc(next.name.split(',')[0])}</b><span>${d(nextKm)} · ${fmtH(hours)} · arrivée ~${eta}</span></div>
     <div>⛽ ${st ? `<b>${esc(st.name)}</b> <span style="display:inline;color:${LEVEL[st.level].color}">${LEVEL[st.level].label}</span> · ${d(st.km - myKm)}` : 'Aucune station facile connue devant'}
       ${plein ? `<small>Plein prévu (réservoir à 50 %) dans ${d(plein.km - myKm)}</small>` : ''}</div>
-    <div>🧭 ${poi ? `${poi.icon} <b>${esc(poi.name)}</b> · ${d(poi.km - myKm)}` : 'Aucune découverte dans les 300 prochains km'}</div>`;
+    ${low ? `<div class="lowc${low.danger ? ' danger' : ''}">${low.danger ? '⛔' : '⚠'} ${low.kind} : <b>${feet(low.h)}</b> dans ${d(Math.max(0, low.km - myKm))}${low.road ? ` <small>${esc(low.road)}</small>` : ''}</div>` : ''}
+    <div>🧭 ${poi ? `${poi.icon} <b>${esc(poi.name)}</b> · ${d(poi.km - myKm)}` : 'Aucune découverte dans les 300 prochains km'}</div>
+    <div class="src">📍 Parcouru aujourd'hui : ${d(tk.today)} · depuis le début : ${d(tk.total)}</div>`;
   box.hidden = false;
   lastPos = pos; lastNext = next;
 }
@@ -1213,6 +1268,8 @@ map.on('locationfound', e => {
   L.marker(e.latlng, { icon: truckIcon, interactive: false, zIndexOffset: 2000 }).addTo(me);
   updateHeading(e);
   updateSpeed(e);
+  addPoint(e.latlng.lat, e.latlng.lng, e.accuracy);
+  applyNight();
   if (settings.headUp && heading !== null && Math.abs(((map.getBearing() + heading) % 360 + 540) % 360 - 180) > 3) map.setBearing(-heading);
   // Leaflet ignore un setView demandé pendant une animation de zoom (cadrage du trajet à l'ouverture) :
   // on attend alors la fin de l'animation
@@ -1348,7 +1405,7 @@ document.querySelectorAll('[data-veh]').forEach(inp => inp.onchange = () => {
     : k === 'lengthM' ? n('lengthFt') * FT
     : n('weightLb') / LB_PER_T;
   settings.vehicle[k] = x > 0 ? +x.toFixed(3) : DEFAULT_VEHICLE[k];
-  saveSettings(); renderVehicle();
+  saveSettings(); renderVehicle(); renderClearances();
   if (settings.orsKey) recompute();
 });
 renderVehicle();
@@ -1375,6 +1432,7 @@ $('importFile').onchange = async e => {
 $('clearRoutes').onclick = () => {
   clearRouteCache();
   clearStationCache();
+  clearClearanceCache();
   clearPoiCache();
   $('dataMsg').textContent = 'Cache vidé. Recalcul du trajet, des stations et des découvertes…';
   recompute();
@@ -1460,6 +1518,39 @@ $('syncSetPass').onclick = async () => {
 };
 $('syncNowBtn').onclick = () => syncNow();
 $('syncOut').onclick = () => { if (confirm('Se déconnecter ? L\'itinéraire reste sur cet appareil.')) signOut(); };
+
+// ---------- Chemin parcouru (trace GPS gardée sur cet appareil) ----------
+// Redessiné au plus toutes les 10 s (la trace peut compter des dizaines de milliers de points)
+const trailRenderer = L.canvas({ padding: 0.3 });
+let trailTimer = null, trailDrawn = false;
+function renderTrail() {
+  trailTimer = null; trailDrawn = true;
+  layers.trail.clearLayers();
+  trailSegments().forEach(seg => L.polyline(seg, { renderer: trailRenderer, color: '#8e44ad', weight: 5, opacity: .75, interactive: false }).addTo(layers.trail));
+  const tk = trailKm();
+  $('trailInfo').textContent = tk.total ? `${fmt(tk.total)} km enregistrés sur cet appareil (aujourd'hui : ${fmt(tk.today)} km).` : 'Aucun trajet enregistré pour l’instant.';
+}
+onTrailChange(() => { if (!trailTimer) trailTimer = setTimeout(renderTrail, trailDrawn ? 10000 : 0); });
+$('trailClear').onclick = () => {
+  if (!confirm('Effacer tout le chemin parcouru enregistré sur cet appareil ?')) return;
+  clearTrail().then(renderTrail);
+};
+
+// ---------- Mode nuit de la carte ----------
+// Automatique : au coucher du soleil là où on est (position GPS, sinon centre de la carte)
+function applyNight() {
+  const c = lastPos || (map._loaded ? map.getCenter() : trip.steps[0]);
+  const night = settings.night === 'on' || (settings.night === 'auto' && sunDown(Date.now(), c.lat, c.lng));
+  $('stage').classList.toggle('night', night);
+  $('stage').classList.toggle('sat', settings.baseMap === 'sat');
+}
+document.querySelectorAll('[name=night]').forEach(r => {
+  r.checked = r.value === settings.night;
+  r.onchange = () => { settings.night = r.value; saveSettings(); applyNight(); };
+});
+document.querySelectorAll('[name=base]').forEach(r => r.addEventListener('change', applyNight));
+applyNight();
+setInterval(applyNight, 60000);
 
 // ---------- Démarrage ----------
 map.setView([47, -92], 4);

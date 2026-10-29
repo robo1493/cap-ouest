@@ -17,7 +17,7 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v1.6.7</small></div>
+  <div class="logo">Cap Ouest <small>v1.7</small></div>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
     <button data-t="dash">Tableau de bord</button>
@@ -57,6 +57,10 @@
       <summary><b>Calques</b></summary>
       <label><input type="radio" name="base" value="plan" checked> Plan</label>
       <label><input type="radio" name="base" value="sat"> Satellite</label>
+      <div class="row" style="gap:10px; font-size:13px">🌙 Mode nuit :
+        <label><input type="radio" name="night" value="auto"> Auto</label>
+        <label><input type="radio" name="night" value="on"> Oui</label>
+        <label><input type="radio" name="night" value="off"> Non</label></div>
       <label><input type="checkbox" id="publicLands"> 🏕 Terres publiques US (BLM, forêts nationales)</label>
       <div class="legend" id="publicLegend" hidden>
         <span><i style="background:#fee6a6"></i>BLM</span>
@@ -70,6 +74,8 @@
       <label><input type="checkbox" data-lyr="b" checked> ● Boondock</label>
       <label><input type="checkbox" data-lyr="c" checked> ● Campings / parcs</label>
       <label><input type="checkbox" data-lyr="stations" checked> ⛽ Stations diesel</label>
+      <label><input type="checkbox" data-lyr="clear" checked> ⚠ Ponts et passages bas (pour votre hauteur)</label>
+      <label><input type="checkbox" data-lyr="trail" checked> 📍 Chemin parcouru</label>
       <div class="legend">
         <span><i style="background:#2e8b3d"></i>Facile</span>
         <span><i style="background:#d4a106"></i>Faisable</span>
@@ -108,6 +114,7 @@
       <span class="chip" id="routeStatus">Trajet : …</span>
       <span class="chip f" id="hudFuel">Pleins : …</span>
       <span class="chip" id="hudSt">⛽ Stations : …</span>
+      <span class="chip" id="hudClear">⚠ Passages bas : …</span>
       <span class="chip" id="hudPoi">🧭 Découvertes : …</span>
       <button class="chip" id="hudDays" data-t="dash" title="Compteurs de séjour">🇺🇸 …</button>
     </div>
@@ -476,6 +483,10 @@
           </div>
           <div class="src">Seuls les lieux à 40 km ou moins du trajet sont gardés (camping, eau, vidange, propane, nuit interdite…). Plusieurs fichiers (Canada, États-Unis) s’additionnent. Réimportez si le trajet change beaucoup.</div>
           <div class="src">Fichier privé <b>Data/mes-lieux.json</b> préparé à partir de vos guides : importé une fois, il se synchronise ensuite avec vos autres appareils.</div>
+          <div class="row mt">
+            <button class="btn sm" id="trailClear">Effacer le chemin parcouru</button>
+            <span class="src" id="trailInfo"></span>
+          </div>
           <div class="src" id="dataMsg"></div>
         </div>
       </div>

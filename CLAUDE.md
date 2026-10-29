@@ -25,6 +25,9 @@ Application web de planification d'un long voyage en fifth wheel (Québec → Ou
 - `ioverlander.js` : import CSV iOverlander (corridor de 40 km), stocké dans **IndexedDB** (base `capouest`, magasin `kv`), synchronisé comme une seule ligne `places` d'id `__ioverlander__`. Catégorie « Overnight Prohibited » exclue.
 - `days.js` : compteurs de jours (États-Unis 182 j sur 12 mois glissants ; absence du Québec / RAMQ 183 j par année civile).
 - `catchup.js` : propositions pour rattraper un retard (sauter un arrêt de transit, raccourcir un séjour non réservé).
+- `clearances.js` : ponts et passages bas (`maxheight` OSM via Overpass) sur la route même (≤ 60 m et même orientation : la route qui passe sous notre pont est ignorée), signalés sous la hauteur du rig + 1' 6" ; cache par tronçon.
+- `trail.js` : chemin parcouru (GPS du mode conduite, un point / ~50 m), IndexedDB clé `trail`, par jour ; sur l'appareil seulement (pas synchronisé).
+- `night.js` : hauteur du soleil ; mode nuit de la carte (`settings.night` auto / on / off, filtre CSS sur les tuiles).
 
 ### Données d'une étape
 `{ id, name, lat, lng, type: 'start'|'b'(boondock)|'c'(camping)|'dest', nights, leaveRig, extra }`. `extra` (jsonb côté Supabase) : `by`/`from` (jalons de date), `label`, `ferry`, `note`, `longOk`, `reserved`/`resName`/`resNights` (réservation : date et nuits fixes), `addr` (adresse, bouton « Y aller » Google Maps). La région (États-Unis ou non) se déduit du code « , XX » à la fin du nom.
