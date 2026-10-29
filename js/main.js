@@ -1129,10 +1129,13 @@ const truckIcon = L.divIcon({ className: '', html: '<div class="me">🛻</div>',
 $('locate').onclick = () => {
   following = !following;
   $('locate').classList.toggle('on', following);
-  if (following) { firstFix = true; map.locate({ watch: true, enableHighAccuracy: true, maximumAge: 5000 }); }
-  else { map.stopLocate(); me.clearLayers(); $('drive').hidden = true; detour = null; layers.detour.clearLayers(); }
+  // Pas de délai maximal : Leaflet abandonne sinon après 10 s, alors que le premier point GPS
+  // d'une tablette (sans aide du réseau cellulaire) peut prendre plus longtemps
+  if (following) { firstFix = true; $('locate').textContent = '⏳'; map.locate({ watch: true, enableHighAccuracy: true, maximumAge: 5000, timeout: Infinity }); }
+  else { map.stopLocate(); me.clearLayers(); $('locate').textContent = '◎'; $('drive').hidden = true; detour = null; layers.detour.clearLayers(); }
 };
 map.on('locationfound', e => {
+  $('locate').textContent = '◎';
   me.clearLayers();
   if (e.accuracy > 50) L.circle(e.latlng, { radius: e.accuracy, color: '#2a7de1', weight: 1, fillOpacity: .1, interactive: false }).addTo(me);
   L.marker(e.latlng, { icon: truckIcon, interactive: false, zIndexOffset: 2000 }).addTo(me);
@@ -1141,8 +1144,13 @@ map.on('locationfound', e => {
   renderDrive({ lat: e.latlng.lat, lng: e.latlng.lng });
 });
 map.on('locationerror', e => {
-  following = false; $('locate').classList.remove('on'); me.clearLayers(); $('drive').hidden = true;
-  alert('Position introuvable : ' + (e.code === 1 ? 'autorisez la localisation pour Cap Ouest (Réglages de l\'iPad › Confidentialité › Service de localisation › Safari).' : e.message));
+  map.stopLocate();
+  following = false; $('locate').classList.remove('on'); $('locate').textContent = '◎'; me.clearLayers(); $('drive').hidden = true;
+  alert('Position introuvable : ' + (e.code === 1
+    ? 'la localisation est refusée pour Cap Ouest.\n\n'
+      + '• Chrome (Android) : touchez l\'icône à gauche de l\'adresse › Autorisations › Position › Autoriser ; vérifiez aussi Paramètres de la tablette › Applications › Chrome › Autorisations › Position.\n'
+      + '• iPad : Réglages › Confidentialité › Service de localisation › Safari (ou Chrome) › « Lorsque l\'app est active ».'
+    : e.message));
 });
 
 document.querySelectorAll('[name=base]').forEach(r => {
