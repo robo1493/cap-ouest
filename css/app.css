@@ -116,6 +116,8 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; }
 .hint.on { display: block; }
 .back-view { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 1000; min-height: 44px; padding: 8px 16px; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
 .back-view[hidden] { display: none; }
+/* En mode conduite, le bandeau occupe le haut : le bouton passe en bas (les pastilles y sont cachées) */
+.stage.driving .back-view { top: auto; bottom: 24px; }
 .leaflet-control-zoom { display: none; }
 
 .mk { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); color: #fff; font: 700 11px system-ui; display: flex; align-items: center; justify-content: center; background: var(--ink); }
