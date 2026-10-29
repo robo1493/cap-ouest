@@ -8,7 +8,7 @@ Application web de planification d'un long voyage en fifth wheel (Québec → Ou
 - Avant chaque push : `git ls-files | grep -ci '^data/'` doit donner 0.
 
 ## Architecture
-- Statique, **sans compilation** ni Node : HTML + modules ES. Leaflet 1.9.4 (cdnjs). Fonds de carte Esri (OSM/CARTO refusent les requêtes sans Referer).
+- Statique, **sans compilation** ni Node : HTML + modules ES. Leaflet 1.9.4 (cdnjs) + leaflet-rotate 0.2.8 (jsdelivr ; carte « route devant » en mode conduite, bouton 🧭). Fonds de carte Esri (OSM/CARTO refusent les requêtes sans Referer).
 - Hébergement : GitHub Pages, branche `main`, racine → https://robo1493.github.io/cap-ouest/
 - PWA : `sw.js` réseau d'abord (`cache: 'no-cache'`), `manifest.webmanifest`.
 - Serveur local de test : `python -m http.server 5173` dans ce dossier.

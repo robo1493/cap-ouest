@@ -50,6 +50,7 @@ function loadSettings() {
     lPer100: s.lPer100 || 0,
     maxKmDay: s.maxKmDay || 0,
     follow: !!s.follow, // suivi GPS relancé à l'ouverture (cet appareil seulement)
+    headUp: s.headUp !== false, // en mode conduite, la carte tourne : route devant (sinon nord en haut)
   };
 }
 

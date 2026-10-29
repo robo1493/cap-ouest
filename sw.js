@@ -1,6 +1,6 @@
 // Service worker : garde l'application (fichiers et Leaflet) pour l'ouvrir sans réseau.
 // Augmenter VERSION à chaque publication pour forcer la mise à jour.
-const VERSION = 'cap-ouest-v1.6.4';
+const VERSION = 'cap-ouest-v1.6.5';
 const SHELL = [
   './',
   'index.html',
@@ -24,6 +24,7 @@ const SHELL = [
   'icons/icon.svg',
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css',
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js',
+  'https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js',
 ];
 
 self.addEventListener('install', e => {

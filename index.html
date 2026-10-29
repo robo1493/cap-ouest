@@ -10,12 +10,14 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="css/app.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<!-- Rotation de la carte (route devant en mode conduite) -->
+<script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js"></script>
 <script type="module" src="js/main.js"></script>
 </head>
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v1.6.4</small></div>
+  <div class="logo">Cap Ouest <small>v1.6.5</small></div>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
     <button data-t="dash">Tableau de bord</button>
@@ -99,6 +101,7 @@
       <button class="btn" id="zout" title="Zoom arrière">－</button>
       <button class="btn" id="fit" title="Voir tout le trajet">⤢</button>
       <button class="btn" id="locate" title="Ma position">◎</button>
+      <button class="btn" id="headUp" title="Route devant / nord en haut" hidden>🧭</button>
     </div>
 
     <div class="hud">
