@@ -1137,6 +1137,7 @@ $('locate').onclick = () => {
   settings.follow = following; saveSettings();
   $('locate').classList.toggle('on', following);
   $('headUp').hidden = !following;
+  $('stage').classList.toggle('driving', following);
   if (following) { firstFix = true; $('locate').textContent = '⏳'; startLocate(); }
   else { map.stopLocate(); me.clearLayers(); $('locate').textContent = '◎'; $('drive').hidden = true; detour = null; layers.detour.clearLayers(); northUp(); }
 };
@@ -1172,6 +1173,38 @@ showHeadUp();
 // et aussi s'il n'arrive plus aucune position depuis 30 s.
 document.addEventListener('visibilitychange', () => { if (following && !document.hidden) startLocate(); });
 setInterval(() => { if (following && !document.hidden && Date.now() - lastFixAt > 30000) startLocate(); }, 10000);
+// Vitesse (km/h) : celle du GPS, sinon distance / temps entre deux positions ; lissée
+let speedKmh = null, prevFix = null;
+const updateSpeed = e => {
+  let v = Number.isFinite(e.speed) && e.speed >= 0 ? e.speed * 3.6 : null;
+  const t = e.timestamp || Date.now();
+  if (v === null && prevFix && t - prevFix.t >= 1000) v = map.distance(prevFix.ll, e.latlng) / (t - prevFix.t) * 3600;
+  if (!prevFix || t - prevFix.t >= 1000) prevFix = { ll: e.latlng, t };
+  if (v !== null) speedKmh = speedKmh === null ? v : speedKmh * 0.6 + v * 0.4;
+};
+// Zoom selon la vitesse : de près en ville, plus loin sur l'autoroute. Changé seulement après deux
+// positions de suite (pas de va-et-vient) ; en pause une minute si l'utilisateur zoome lui-même.
+const zoomFor = v => v < 25 ? 16 : v < 55 ? 15 : v < 85 ? 14 : 13;
+let autoZoomPause = 0, ourZoom = false, pendingZoom = null, pendingCount = 0;
+map.on('zoomstart', () => { if (following && !firstFix && !ourZoom) autoZoomPause = Date.now() + 60000; });
+// Vue qui suit le camion ; en mode route devant, il est placé au tiers du bas de l'écran
+// (centre de la carte décalé devant lui, selon son cap) pour voir plus de route devant
+const followView = e => {
+  let z = map.getZoom();
+  if (speedKmh !== null && Date.now() > autoZoomPause) {
+    const t = zoomFor(speedKmh);
+    if (t !== pendingZoom) { pendingZoom = t; pendingCount = 0; }
+    if (++pendingCount >= 2) z = t;
+  }
+  let center = e.latlng;
+  if (settings.headUp && heading !== null) {
+    const lat = e.latlng.lat, r = Math.PI / 180;
+    const d = map.getSize().y * 0.2 * 156543.03 * Math.cos(lat * r) / 2 ** z;   // mètres
+    center = L.latLng(lat + d * Math.cos(heading * r) / 111320, e.latlng.lng + d * Math.sin(heading * r) / (111320 * Math.cos(lat * r)));
+  }
+  if (z !== map.getZoom()) { ourZoom = true; map.once('zoomend', () => { ourZoom = false; }); }
+  map.setView(center, z, { animate: true });
+};
 map.on('locationfound', e => {
   lastFixAt = Date.now();
   $('locate').textContent = '◎';
@@ -1179,20 +1212,21 @@ map.on('locationfound', e => {
   if (e.accuracy > 50) L.circle(e.latlng, { radius: e.accuracy, color: '#2a7de1', weight: 1, fillOpacity: .1, interactive: false }).addTo(me);
   L.marker(e.latlng, { icon: truckIcon, interactive: false, zIndexOffset: 2000 }).addTo(me);
   updateHeading(e);
+  updateSpeed(e);
   if (settings.headUp && heading !== null && Math.abs(((map.getBearing() + heading) % 360 + 540) % 360 - 180) > 3) map.setBearing(-heading);
   // Leaflet ignore un setView demandé pendant une animation de zoom (cadrage du trajet à l'ouverture) :
   // on attend alors la fin de l'animation
   if (firstFix) {
-    const zoomIn = () => map.setView(e.latlng, Math.max(map.getZoom(), 15));
+    const zoomIn = () => { ourZoom = true; map.once('zoomend', () => { ourZoom = false; }); map.setView(e.latlng, Math.max(map.getZoom(), 15)); };
     map._animatingZoom ? map.once('zoomend', zoomIn) : zoomIn();
     firstFix = false; framed = true;
   }
-  else map.panTo(e.latlng, { animate: true });
+  else followView(e);
   renderDrive({ lat: e.latlng.lat, lng: e.latlng.lng });
 });
 map.on('locationerror', e => {
   map.stopLocate();
-  following = false; settings.follow = false; saveSettings(); $('locate').classList.remove('on'); $('headUp').hidden = true; northUp(); $('locate').textContent = '◎'; me.clearLayers(); $('drive').hidden = true;
+  following = false; settings.follow = false; saveSettings(); $('locate').classList.remove('on'); $('headUp').hidden = true; $('stage').classList.remove('driving'); northUp(); $('locate').textContent = '◎'; me.clearLayers(); $('drive').hidden = true;
   alert('Position introuvable : ' + (e.code === 1
     ? 'la localisation est refusée pour Cap Ouest.\n\n'
       + '• Chrome (Android) : touchez l\'icône à gauche de l\'adresse › Autorisations › Position › Autoriser ; vérifiez aussi Paramètres de la tablette › Applications › Chrome › Autorisations › Position.\n'

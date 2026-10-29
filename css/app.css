@@ -160,6 +160,11 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; }
   .trip { margin-left: 0; width: 100%; }
 }
 /* Mode conduite */
+/* Mode conduite : carte plein écran (étapes, calendrier et pastilles cachés), gros boutons */
+.stage.driving { grid-template-columns: 0 minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 0; }
+.stage.driving .steps, .stage.driving .timeline, .stage.driving .hud, .stage.driving #stepsGrip, .stage.driving #toggleSteps { display: none; }
+.stage.driving .tools { gap: 10px; }
+.stage.driving .tools .btn { width: 56px; height: 56px; font-size: 24px; }
 .me { width: 36px; height: 36px; border-radius: 50%; background: #fff; border: 3px solid #2a7de1; box-shadow: 0 1px 6px rgba(0,0,0,.5); font-size: 20px; display: flex; align-items: center; justify-content: center; }
 .drive { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 1000; width: min(460px, calc(100% - 120px)); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.25); padding: 8px 12px; font-size: 15px; display: grid; gap: 6px; }
 .drive > div { line-height: 1.3; }
