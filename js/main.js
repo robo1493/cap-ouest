@@ -1123,18 +1123,25 @@ $('zout').onclick = () => map.zoomOut();
 $('fit').onclick = fitRoute;
 // Ma position (GPS de l'appareil) : un appui active le mode conduite (camion sur la carte, la carte suit,
 // bandeau prochain plein / découverte / étape), un autre l'arrête
-let following = false, firstFix = false;
+let following = false, firstFix = false, lastFixAt = 0;
 const me = L.layerGroup().addTo(map);
 const truckIcon = L.divIcon({ className: '', html: '<div class="me">🛻</div>', iconSize: [36, 36], iconAnchor: [18, 18] });
+// Pas de délai maximal : Leaflet abandonne sinon après 10 s, alors que le premier point GPS
+// d'une tablette (sans aide du réseau cellulaire) peut prendre plus longtemps
+const startLocate = () => { map.stopLocate(); lastFixAt = Date.now(); map.locate({ watch: true, enableHighAccuracy: true, maximumAge: 5000, timeout: Infinity }); };
 $('locate').onclick = () => {
   following = !following;
   $('locate').classList.toggle('on', following);
-  // Pas de délai maximal : Leaflet abandonne sinon après 10 s, alors que le premier point GPS
-  // d'une tablette (sans aide du réseau cellulaire) peut prendre plus longtemps
-  if (following) { firstFix = true; $('locate').textContent = '⏳'; map.locate({ watch: true, enableHighAccuracy: true, maximumAge: 5000, timeout: Infinity }); }
+  if (following) { firstFix = true; $('locate').textContent = '⏳'; startLocate(); }
   else { map.stopLocate(); me.clearLayers(); $('locate').textContent = '◎'; $('drive').hidden = true; detour = null; layers.detour.clearLayers(); }
 };
+// Chrome (Android) coupe le GPS de la page quand l'écran s'éteint ou qu'on passe à une autre appli,
+// et ne le relance pas toujours au retour : le camion restait figé. On relance le suivi au retour,
+// et aussi s'il n'arrive plus aucune position depuis 30 s.
+document.addEventListener('visibilitychange', () => { if (following && !document.hidden) startLocate(); });
+setInterval(() => { if (following && !document.hidden && Date.now() - lastFixAt > 30000) startLocate(); }, 10000);
 map.on('locationfound', e => {
+  lastFixAt = Date.now();
   $('locate').textContent = '◎';
   me.clearLayers();
   if (e.accuracy > 50) L.circle(e.latlng, { radius: e.accuracy, color: '#2a7de1', weight: 1, fillOpacity: .1, interactive: false }).addTo(me);
