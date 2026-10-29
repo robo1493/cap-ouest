@@ -1392,6 +1392,18 @@ new ResizeObserver(([entry]) => {
   if (!framed && entry.contentRect.width > 0 && entry.contentRect.height > 0) { framed = true; fitRoute(); }
 }).observe($('map'));
 
+// Écran toujours allumé tant que l'appli est affichée (sinon la tablette se met en veille et le GPS
+// de la page s'arrête). Le navigateur libère le verrou quand on quitte l'appli : on le reprend au retour,
+// et au premier appui si le navigateur exige un geste de l'utilisateur.
+let wakeLock = null;
+const keepAwake = async () => {
+  if (!('wakeLock' in navigator) || document.hidden || (wakeLock && !wakeLock.released)) return;
+  try { wakeLock = await navigator.wakeLock.request('screen'); } catch (e) { console.warn('Écran allumé', e); }
+};
+keepAwake();
+document.addEventListener('visibilitychange', keepAwake);
+document.addEventListener('pointerdown', keepAwake);
+
 // Application installable et utilisable hors ligne (seulement servie en http/https)
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   navigator.serviceWorker.register('sw.js').catch(e => console.warn('Service worker', e));
