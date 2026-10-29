@@ -17,7 +17,7 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v1.6.6</small></div>
+  <div class="logo">Cap Ouest <small>v1.6.7</small></div>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
     <button data-t="dash">Tableau de bord</button>
@@ -411,11 +411,11 @@
 
         <div class="box real">
           <h2>📏 Gabarit pour le calcul poids lourd</h2>
-          <div class="field"><span>Hauteur (m)</span><input class="inp" type="number" step="0.01" data-veh="heightM"></div>
-          <div class="field"><span>Longueur totale (m)</span><input class="inp" type="number" step="0.1" data-veh="lengthM"></div>
-          <div class="field"><span>Largeur (m)</span><input class="inp" type="number" step="0.01" data-veh="widthM"></div>
-          <div class="field"><span>Poids combiné (t)</span><input class="inp" type="number" step="0.1" data-veh="weightT"></div>
-          <div class="src" id="vehImperial"></div>
+          <div class="field"><span>Hauteur</span><span class="ftin"><input class="inp" type="number" min="0" step="1" id="heightFt" data-veh="heightM"> pi <input class="inp" type="number" min="0" max="11" step="1" id="heightIn" data-veh="heightM"> po</span></div>
+          <div class="field"><span>Longueur totale (camion + fifth wheel)</span><span class="ftin"><input class="inp" type="number" min="0" step="1" id="lengthFt" data-veh="lengthM"> pi</span></div>
+          <div class="field"><span>Largeur</span><span class="ftin"><input class="inp" type="number" min="0" step="1" id="widthFt" data-veh="widthM"> pi <input class="inp" type="number" min="0" max="11" step="1" id="widthIn" data-veh="widthM"> po</span></div>
+          <div class="field"><span>Poids combiné</span><span class="ftin"><input class="inp wide" type="number" min="0" step="100" id="weightLb" data-veh="weightT"> lb</span></div>
+          <div class="src" id="vehMetric"></div>
           <div class="src">Un changement recalcule les tronçons avec ORS.</div>
         </div>
 

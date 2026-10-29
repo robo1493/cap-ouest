@@ -83,6 +83,9 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; }
 .field i { color: var(--muted); font-style: normal; text-align: right; }
 .field b { text-align: right; }
 .field .inp { width: 90px; text-align: right; }
+.ftin { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+.field .ftin .inp { width: 60px; }
+.field .ftin .inp.wide { width: 90px; }
 .scroll { overflow-x: auto; }
 .auto { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
 .kpis { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }

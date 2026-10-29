@@ -1330,14 +1330,24 @@ $('orsTest').onclick = async () => {
   }
 };
 
+// Gabarit saisi en pieds, pouces et livres ; conservé en mètres et en tonnes (unités demandées par ORS).
+// Seule la dimension modifiée est recalculée, pour ne pas arrondir les autres.
+const FT = 0.3048, IN = 0.0254, LB_PER_T = 2204.62;
+const ftIn = m => { let ft = Math.floor(m / FT + 1e-6), inch = Math.round((m - ft * FT) / IN); if (inch >= 12) { ft++; inch -= 12; } return [ft, inch]; };
 function renderVehicle() {
-  document.querySelectorAll('[data-veh]').forEach(inp => { inp.value = settings.vehicle[inp.dataset.veh]; });
-  const v = settings.vehicle, ft = v.heightM / 0.3048;
-  $('vehImperial').textContent = `≈ ${Math.floor(ft)}' ${Math.round((ft % 1) * 12)}" de haut · ${Math.round(v.lengthM / 0.3048)}' de long · ${fmt(v.weightT * 2204.6)} lb`;
+  const v = settings.vehicle;
+  [['height', v.heightM], ['width', v.widthM]].forEach(([k, m]) => { [$(k + 'Ft').value, $(k + 'In').value] = ftIn(m); });
+  $('lengthFt').value = Math.round(v.lengthM / FT);
+  $('weightLb').value = Math.round(v.weightT * LB_PER_T / 10) * 10;
+  $('vehMetric').textContent = `Envoyé au calcul poids lourd : ${v.heightM.toFixed(2).replace('.', ',')} m de haut · ${v.lengthM.toFixed(1).replace('.', ',')} m de long · ${v.widthM.toFixed(2).replace('.', ',')} m de large · ${v.weightT.toFixed(1).replace('.', ',')} t`;
 }
 document.querySelectorAll('[data-veh]').forEach(inp => inp.onchange = () => {
-  const k = inp.dataset.veh, n = parseFloat(inp.value);
-  settings.vehicle[k] = n > 0 ? n : DEFAULT_VEHICLE[k];
+  const k = inp.dataset.veh, n = id => Math.max(0, parseFloat($(id).value) || 0);
+  const x = k === 'heightM' ? n('heightFt') * FT + n('heightIn') * IN
+    : k === 'widthM' ? n('widthFt') * FT + n('widthIn') * IN
+    : k === 'lengthM' ? n('lengthFt') * FT
+    : n('weightLb') / LB_PER_T;
+  settings.vehicle[k] = x > 0 ? +x.toFixed(3) : DEFAULT_VEHICLE[k];
   saveSettings(); renderVehicle();
   if (settings.orsKey) recompute();
 });
