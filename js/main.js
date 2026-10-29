@@ -1129,8 +1129,11 @@ const truckIcon = L.divIcon({ className: '', html: '<div class="me">🛻</div>',
 // Pas de délai maximal : Leaflet abandonne sinon après 10 s, alors que le premier point GPS
 // d'une tablette (sans aide du réseau cellulaire) peut prendre plus longtemps
 const startLocate = () => { map.stopLocate(); lastFixAt = Date.now(); map.locate({ watch: true, enableHighAccuracy: true, maximumAge: 5000, timeout: Infinity }); };
+// Le suivi reste actif d'une ouverture à l'autre sur cet appareil (tablette du camion) : l'appli
+// s'ouvre alors directement sur la position, zoomée de près ; le portable n'est pas touché
 $('locate').onclick = () => {
   following = !following;
+  settings.follow = following; saveSettings();
   $('locate').classList.toggle('on', following);
   if (following) { firstFix = true; $('locate').textContent = '⏳'; startLocate(); }
   else { map.stopLocate(); me.clearLayers(); $('locate').textContent = '◎'; $('drive').hidden = true; detour = null; layers.detour.clearLayers(); }
@@ -1146,13 +1149,19 @@ map.on('locationfound', e => {
   me.clearLayers();
   if (e.accuracy > 50) L.circle(e.latlng, { radius: e.accuracy, color: '#2a7de1', weight: 1, fillOpacity: .1, interactive: false }).addTo(me);
   L.marker(e.latlng, { icon: truckIcon, interactive: false, zIndexOffset: 2000 }).addTo(me);
-  if (firstFix) { map.setView(e.latlng, Math.max(map.getZoom(), 11)); firstFix = false; }
+  // Leaflet ignore un setView demandé pendant une animation de zoom (cadrage du trajet à l'ouverture) :
+  // on attend alors la fin de l'animation
+  if (firstFix) {
+    const zoomIn = () => map.setView(e.latlng, Math.max(map.getZoom(), 15));
+    map._animatingZoom ? map.once('zoomend', zoomIn) : zoomIn();
+    firstFix = false; framed = true;
+  }
   else map.panTo(e.latlng, { animate: true });
   renderDrive({ lat: e.latlng.lat, lng: e.latlng.lng });
 });
 map.on('locationerror', e => {
   map.stopLocate();
-  following = false; $('locate').classList.remove('on'); $('locate').textContent = '◎'; me.clearLayers(); $('drive').hidden = true;
+  following = false; settings.follow = false; saveSettings(); $('locate').classList.remove('on'); $('locate').textContent = '◎'; me.clearLayers(); $('drive').hidden = true;
   alert('Position introuvable : ' + (e.code === 1
     ? 'la localisation est refusée pour Cap Ouest.\n\n'
       + '• Chrome (Android) : touchez l\'icône à gauche de l\'adresse › Autorisations › Position › Autoriser ; vérifiez aussi Paramètres de la tablette › Applications › Chrome › Autorisations › Position.\n'
@@ -1391,6 +1400,7 @@ new ResizeObserver(([entry]) => {
   map.invalidateSize();
   if (!framed && entry.contentRect.width > 0 && entry.contentRect.height > 0) { framed = true; fitRoute(); }
 }).observe($('map'));
+if (settings.follow) $('locate').click();
 
 // Écran toujours allumé tant que l'appli est affichée (sinon la tablette se met en veille et le GPS
 // de la page s'arrête). Le navigateur libère le verrou quand on quitte l'appli : on le reprend au retour,

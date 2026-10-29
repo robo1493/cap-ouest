@@ -49,6 +49,7 @@ function loadSettings() {
     septennial: !!s.septennial,
     lPer100: s.lPer100 || 0,
     maxKmDay: s.maxKmDay || 0,
+    follow: !!s.follow, // suivi GPS relancé à l'ouverture (cet appareil seulement)
   };
 }
 
