@@ -207,3 +207,9 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; }
 #fillStats .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-bottom: 6px; }
 #fillTable small { color: var(--muted); }
 .field.chk { justify-content: flex-start; gap: 6px; }
+/* Budget */
+.pop .money { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; margin-top: 4px; font-size: 12px; }
+.pop .money label { display: flex; align-items: center; gap: 3px; }
+.pop .money input { width: 64px; margin: 0; }
+#budgetTable .num { text-align: right; white-space: nowrap; }
+#budgetTable tr.total td { border-top: 2px solid var(--line); }

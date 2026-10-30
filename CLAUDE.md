@@ -17,7 +17,7 @@ L'utilisateur travaille avec Claude tantôt sur son portable, tantôt depuis sa 
 ## À faire (liste acceptée par l'utilisateur, 2026-10-30)
 - [ ] Cartes hors réseau : bouton dans ⚙ Paramètres pour télécharger d'avance la carte du corridor du trajet (respecter les conditions du fournisseur de tuiles)
 - [x] Journal des pleins réels (v1.8) : odomètre, litres ou gallons US, $ CA ou $ US, lieu GPS → conso réelle, prix moyen, pleins prévus recomptés depuis le dernier plein complet, diesel payé au tableau de bord
-- [ ] Budget complet : nuitées (prix par étape), diesel, traversiers ; prévu vs réel, en $ CA
+- [x] Budget complet (v1.9) : 💲 dans la fiche (`extra.price` prévu/nuit, `extra.paid`, `extra.ferryCost`, `extra.ferryPaid`), tableau au tableau de bord ; `settings.campRate` / `ferryRate` par défaut
 - [ ] Export GPX du trajet et des étapes pour l'appli de navigation VR (RV Life, CoPilot, Sygic)
 - [ ] Journal de voyage : note (et photos) par étape, synchronisé
 - [ ] Fiabilité : caches de trajets / stations / découvertes de localStorage vers IndexedDB

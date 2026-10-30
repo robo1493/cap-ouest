@@ -17,7 +17,7 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v1.8</small></div>
+  <div class="logo">Cap Ouest <small>v1.9</small></div>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
     <button data-t="dash">Tableau de bord</button>
@@ -147,6 +147,15 @@
         <div class="box real kpi"><b id="kSpent">—</b><span>diesel payé à ce jour</span></div>
         <div class="box real kpi"><b id="kNightsB">—</b><span>nuits en boondock</span></div>
         <div class="box real kpi"><b id="kNightsC">—</b><span>nuits en camping</span></div>
+      </div>
+      <div class="box real mt" id="budgetBox">
+        <h2>💲 Budget du voyage <small class="src">(en $ CA)</small></h2>
+        <div class="scroll"><table id="budgetTable"></table></div>
+        <div class="row mt" style="gap:14px;flex-wrap:wrap">
+          <label class="src">Camping, prix moyen par nuit si non précisé : <input class="inp" type="number" id="campRate" min="0" max="500" step="1" style="width:80px"> $</label>
+          <label class="src">Traversier, estimation si non précisée : <input class="inp" type="number" id="ferryRate" min="0" max="2000" step="10" style="width:90px"> $</label>
+        </div>
+        <div class="src">Prix par nuit et montants payés : dans la fiche de chaque étape (💲). Diesel prévu : litres du trajet × votre prix moyen ; payé : journal des pleins.</div>
       </div>
       <div class="box real mt" id="daysBox">
         <h2>🗓 Compteurs de séjour</h2>

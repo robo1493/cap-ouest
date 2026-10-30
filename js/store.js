@@ -49,7 +49,9 @@ function loadSettings() {
     septennial: !!s.septennial,
     lPer100: s.lPer100 || 0,
     fuelAuto: s.fuelAuto !== false,   // consommation et prix tirés du journal des pleins quand il y en a assez
-    usdCad: s.usdCad || 1.38,         // taux de change pour les pleins payés en $ US
+    usdCad: s.usdCad || 1.38,
+    campRate: s.campRate ?? 60,       // budget : prix moyen d'une nuit de camping (si l'étape n'a pas son prix)
+    ferryRate: s.ferryRate ?? 450,    // budget : estimation d'un traversier avec le rig (si non précisé)         // taux de change pour les pleins payés en $ US
     maxKmDay: s.maxKmDay || 0,
     follow: !!s.follow, // suivi GPS relancé à l'ouverture (cet appareil seulement)
     headUp: s.headUp !== false, // en mode conduite, la carte tourne : route devant (sinon nord en haut)

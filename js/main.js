@@ -111,6 +111,11 @@ function popupHtml(i) {
     ${s.type !== 'start' ? `<div class="resv"><label><input type="checkbox" ${s.extra?.reserved ? 'checked' : ''} onchange="act('reserve', ${i}, this.checked)">
       📌 Réservation (date et nuits fixes)</label>
       ${s.extra?.reserved ? `<input placeholder="Camping, n° de réservation…" value="${esc(s.extra.resName || '')}" onchange="act('resName', ${i}, this.value)">` : ''}</div>` : ''}
+    ${isNight(s) || s.extra?.ferry ? `<div class="money">💲
+      ${isNight(s) ? `<label>Prévu/nuit <input type="number" min="0" step="1" placeholder="${s.type === 'c' ? settings.campRate : 0}" value="${s.extra?.price ?? ''}" onchange="act('money', ${i}, ['price', this.value])"></label>
+      <label>Payé <input type="number" min="0" step="0.01" value="${s.extra?.paid ?? ''}" onchange="act('money', ${i}, ['paid', this.value])"></label>` : ''}
+      ${s.extra?.ferry ? `<label>⛴ Prévu <input type="number" min="0" step="1" placeholder="${settings.ferryRate}" value="${s.extra?.ferryCost ?? ''}" onchange="act('money', ${i}, ['ferryCost', this.value])"></label>
+      <label>⛴ Payé <input type="number" min="0" step="0.01" value="${s.extra?.ferryPaid ?? ''}" onchange="act('money', ${i}, ['ferryPaid', this.value])"></label>` : ''}</div>` : ''}
     ${s.type !== 'start' ? `<div class="addr"><input placeholder="Adresse (camping, rue, ville…)" value="${esc(s.extra?.addr || '')}" onchange="act('addr', ${i}, this.value)">
       <a class="btn sm" href="${goUrl(s)}" target="_blank" rel="noopener" title="Itinéraire dans Google Maps">🧭 Y aller</a></div>` : ''}
     ${s.type !== 'start' ? `<label style="display:block;margin-top:4px"><input type="checkbox" ${leaveRigAt(s) ? 'checked' : ''} onchange="act('leaveRig', ${i}, this.checked)">
@@ -687,6 +692,30 @@ $('lPer100').onchange = e => {
   renderLines();   // pleins, litres et coûts recalculés
 };
 
+// ---------- Budget : nuitées, diesel, traversiers (prévu / payé) ----------
+function renderBudget(litres) {
+  const steps = trip.steps;
+  const nightPlan = steps.reduce((t, s) => t + (isNight(s) ? s.nights * (s.extra?.price ?? (s.type === 'c' ? settings.campRate : 0)) : 0), 0);
+  const nightPaid = steps.reduce((t, s) => t + (s.extra?.paid || 0), 0);
+  const ferries = steps.filter(s => s.extra?.ferry);
+  const ferryPlan = ferries.reduce((t, s) => t + (s.extra.ferryCost ?? settings.ferryRate), 0);
+  const ferryPaid = ferries.reduce((t, s) => t + (s.extra.ferryPaid || 0), 0);
+  const fuelPlan = litres * priceL(), fuelPaid = fstats.totalCost;
+  const nights = steps.reduce((t, s) => t + s.nights, 0) || 1;
+  const priced = steps.filter(s => s.type === 'c' && s.extra?.price != null).length, camps = steps.filter(s => s.type === 'c').length;
+  const row = (label, plan, paid, note = '') => `<tr><td>${label}${note ? ` <small class="src">${note}</small>` : ''}</td><td class="num">${fmt(plan)} $</td><td class="num">${paid ? fmt(paid) + ' $' : '—'}</td></tr>`;
+  const plan = nightPlan + fuelPlan + ferryPlan, paid = nightPaid + fuelPaid + ferryPaid;
+  $('budgetTable').innerHTML = '<tr><th></th><th class="num">Prévu</th><th class="num">Payé à ce jour</th></tr>'
+    + row('🏕 Nuitées', nightPlan, nightPaid, `${priced}/${camps} campings avec leur prix`)
+    + row('⛽ Diesel', fuelPlan, fuelPaid, `${fmt(litres)} L × ${priceL().toFixed(2).replace('.', ',')} $`)
+    + row('⛴ Traversiers', ferryPlan, ferryPaid, `${ferries.length} traversée${ferries.length > 1 ? 's' : ''}`)
+    + `<tr class="total"><td><b>Total</b> <small class="src">${fmt(plan / nights)} $ par jour en moyenne</small></td><td class="num"><b>${fmt(plan)} $</b></td><td class="num"><b>${paid ? fmt(paid) + ' $' : '—'}</b></td></tr>`;
+  if (document.activeElement !== $('campRate')) $('campRate').value = settings.campRate;
+  if (document.activeElement !== $('ferryRate')) $('ferryRate').value = settings.ferryRate;
+}
+$('campRate').onchange = e => { const v = parseFloat(e.target.value); settings.campRate = v >= 0 ? v : 60; saveSettings(); renderKpis(); };
+$('ferryRate').onchange = e => { const v = parseFloat(e.target.value); settings.ferryRate = v >= 0 ? v : 450; saveSettings(); renderKpis(); };
+
 // ---------- Journal des pleins réels ----------
 const GAL = 3.785411784;   // litres par gallon US
 // Dernier plein complet, situé sur le trajet (km depuis le départ) : point de départ des pleins prévus
@@ -1056,6 +1085,7 @@ function renderKpis() {
   set('kL', fmt(litres) + ' L');
   set('kCost', fmt(litres * priceL()) + ' $');
   set('kSpent', fstats.totalCost ? fmt(fstats.totalCost) + ' $' : '—');
+  renderBudget(litres);
   const nc = trip.steps.filter(s => s.type === 'c').reduce((t, s) => t + s.nights, 0);
   const pct = n => nb + nc ? ` (${Math.round(n / (nb + nc) * 100)} %)` : '';
   set('kNightsB', nb + pct(nb));
@@ -1111,6 +1141,12 @@ window.act = (what, i, v) => {
   }
   if (what === 'resName') s.extra = { ...(s.extra || {}), resName: v };
   if (what === 'addr') s.extra = { ...(s.extra || {}), addr: v.trim() };
+  // Budget : prix prévu par nuit, montant payé, traversier prévu / payé (vide = retiré)
+  if (what === 'money') {
+    const [k, raw] = v, n = parseFloat(raw);
+    const { [k]: _, ...rest } = s.extra || {};
+    s.extra = n >= 0 ? { ...rest, [k]: Math.round(n * 100) / 100 } : rest;
+  }
   if (what === 'del') { steps.splice(i, 1); map.closePopup(); geometry = true; }
   if (what === 'up' && steps[i - 1].type !== 'start') { [steps[i - 1], steps[i]] = [steps[i], steps[i - 1]]; geometry = true; }
   if (what === 'down' && steps[i + 1].type !== 'dest') { [steps[i + 1], steps[i]] = [steps[i], steps[i + 1]]; geometry = true; }
@@ -1125,7 +1161,7 @@ window.act = (what, i, v) => {
     if (s.extra?.reserved) s.extra = { ...s.extra, from: toIso(arrival(i)), by: toIso(arrival(i)) };
   }
   refresh(geometry);
-  if (hadPopup && ['nights', 'type', 'date', 'leaveRig', 'longOk', 'reserve', 'resName', 'addr'].includes(what)) markers.get(s.id)?.openPopup();
+  if (hadPopup && ['nights', 'type', 'date', 'leaveRig', 'longOk', 'reserve', 'resName', 'addr', 'money'].includes(what)) markers.get(s.id)?.openPopup();
 };
 
 window.focusStep = i => {
