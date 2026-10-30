@@ -1758,6 +1758,10 @@ setInterval(applyNight, 60000);
 // ---------- Installer l'application (sans la barre de Chrome) ----------
 // Le bouton n'apparaît que si Chrome permet l'installation (pas déjà installée)
 const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+// iPad (se présente comme un Mac avec écran tactile), iPhone : installation par Partager › Sur l'écran d'accueil
+const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+$('installIos').hidden = !ios || standalone;
+$('installAndroid').hidden = ios || standalone;
 const showInstall = () => {
   const can = !!window.installPrompt && !standalone;
   $('installBtn').hidden = $('installBtn2').hidden = !can;

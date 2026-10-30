@@ -7,6 +7,8 @@
 <title>Cap Ouest</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Cap Ouest">
 <script>
   // Chrome peut proposer l'installation avant le chargement des modules : on garde l'invitation
   addEventListener('beforeinstallprompt', e => { e.preventDefault(); window.installPrompt = e; document.dispatchEvent(new Event('installable')); });
@@ -22,7 +24,7 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v1.13</small></div>
+  <div class="logo">Cap Ouest <small>v1.13.1</small></div>
   <button class="btn sm pri" id="installBtn" hidden>📲 Installer l'application</button>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
@@ -470,8 +472,12 @@
           <h2>📲 Application sur la tablette</h2>
           <div id="appState" class="src"></div>
           <button class="btn pri mt" id="installBtn2" hidden>📲 Installer l'application</button>
-          <div class="src mt">Installée, Cap Ouest s'ouvre par son icône sur l'écran d'accueil, sans la barre d'adresse de Chrome : la carte prend plus de place. Mêmes données et mêmes réglages que dans Chrome.</div>
-          <div class="src mt">Si le bouton n'apparaît pas : menu <b>⋮</b> de Chrome › <b>Ajouter à l'écran d'accueil</b> › <b>Installer</b>.</div>
+          <div class="src mt">Installée, Cap Ouest s'ouvre par son icône sur l'écran d'accueil, sans la barre d'adresse du navigateur : la carte prend plus de place.</div>
+          <div class="src mt" id="installAndroid">Si le bouton n'apparaît pas : menu <b>⋮</b> de Chrome › <b>Ajouter à l'écran d'accueil</b> › <b>Installer</b>. Mêmes données et mêmes réglages que dans Chrome.</div>
+          <div class="src mt" id="installIos" hidden><b>Sur iPad</b> (pas de bouton d'installation chez Apple) :<br>
+            1. Touchez <b>Partager</b> (carré avec une flèche vers le haut ⬆) : dans Chrome, il est au bout de la barre d'adresse ; dans Safari, en haut à droite.<br>
+            2. Ne touchez pas la rangée d'applis (Gmail, Messages…) : faites défiler la <b>liste en dessous</b> jusqu'à <b>« Sur l'écran d'accueil »</b>, puis <b>Ajouter</b>.<br>
+            3. Ouvrez ensuite Cap Ouest par sa nouvelle icône. Sur iPad, l'appli installée a sa propre mémoire : connectez-vous à la synchronisation ci-dessous (votre trajet revient) et entrez de nouveau la clé OpenRouteService.</div>
         </div>
 
         <div class="box real">

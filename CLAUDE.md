@@ -28,7 +28,7 @@ L'utilisateur travaille avec Claude tantôt sur son portable, tantôt depuis sa 
 - [ ] Découvertes OpenStreetMap (en pause : serveur Overpass public trop lent)
 - [ ] Découper `main.js` en modules
 - [x] Écran toujours allumé et GPS fiable en mode conduite (v1.6.3 à v1.7.1)
-- [x] Application installable (v1.13) : icônes PNG 192/512/maskable dans le manifeste (Chrome Android n'installe pas avec la seule icône SVG), bouton « 📲 Installer l'application » (en-tête et ⚙ Paramètres) sur `beforeinstallprompt`
+- [x] Application installable (v1.13) : icônes PNG 192/512/maskable dans le manifeste (Chrome Android n'installe pas avec la seule icône SVG), bouton « 📲 Installer l'application » (en-tête et ⚙ Paramètres) sur `beforeinstallprompt` ; iPad (v1.13.1) : pas de bouton chez Apple, aide Partager › Sur l'écran d'accueil (l'appli installée sur iPad a sa propre mémoire : resynchroniser, ressaisir la clé ORS)
 
 ## Architecture
 - Statique, **sans compilation** ni Node : HTML + modules ES. Leaflet 1.9.4 (cdnjs) + leaflet-rotate 0.2.8 (jsdelivr ; carte « route devant » en mode conduite, bouton 🧭). Fonds de carte Esri (OSM/CARTO refusent les requêtes sans Referer).
