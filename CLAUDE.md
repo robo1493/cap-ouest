@@ -7,6 +7,26 @@ Application web de planification d'un long voyage en fifth wheel (Québec → Ou
 - Ne jamais commiter de données personnelles : le dossier `Data/` (guides PDF, export iOverlander, exports d'itinéraire) est dans `.gitignore` et n'existe que sur le portable de l'utilisateur. Les données personnelles passent par les boutons d'import de l'appli puis la synchro Supabase privée (RLS par utilisateur).
 - Avant chaque push : `git ls-files | grep -ci '^data/'` doit donner 0.
 
+## Deux postes de travail : portable et tablette
+L'utilisateur travaille avec Claude tantôt sur son portable, tantôt depuis sa tablette (session dans le nuage). GitHub (`main`) est la seule source commune.
+- **Avant toute modification** : `git pull --rebase origin main` (une session ouverte depuis longtemps n'a pas les changements de l'autre poste).
+- **Après chaque version** : publier tout de suite (push), ne pas garder de changements non publiés.
+- Si le push est refusé : `git pull --rebase`, régler les conflits en gardant le travail des deux côtés, retester, puis pousser. Jamais de `push --force`.
+- Tenir à jour la liste « À faire » ci-dessous (cocher ce qui est publié) : c'est le plan commun aux deux postes.
+
+## À faire (liste acceptée par l'utilisateur, 2026-10-30)
+- [ ] Cartes hors réseau : bouton dans ⚙ Paramètres pour télécharger d'avance la carte du corridor du trajet (respecter les conditions du fournisseur de tuiles)
+- [ ] Journal des pleins réels (litres, prix, lieu) → prochain plein calculé depuis le vrai réservoir, budget diesel réel
+- [ ] Budget complet : nuitées (prix par étape), diesel, traversiers ; prévu vs réel, en $ CA
+- [ ] Export GPX du trajet et des étapes pour l'appli de navigation VR (RV Life, CoPilot, Sygic)
+- [ ] Journal de voyage : note (et photos) par étape, synchronisé
+- [ ] Fiabilité : caches de trajets / stations / découvertes de localStorage vers IndexedDB
+- [ ] Tronçon Theodore Roosevelt → Badlands (520 km) ; position exacte de Charlevoix
+- [ ] Autres guides (Arizona, FQCC, NPS, boucle des parcs, reste d'Authentik) — fichiers dans `Data/`, donc sur le portable seulement
+- [ ] Découvertes OpenStreetMap (en pause : serveur Overpass public trop lent)
+- [ ] Découper `main.js` en modules
+- [x] Écran toujours allumé et GPS fiable en mode conduite (v1.6.3 à v1.7.1)
+
 ## Architecture
 - Statique, **sans compilation** ni Node : HTML + modules ES. Leaflet 1.9.4 (cdnjs) + leaflet-rotate 0.2.8 (jsdelivr ; carte « route devant » en mode conduite, bouton 🧭). Fonds de carte Esri (OSM/CARTO refusent les requêtes sans Referer).
 - Hébergement : GitHub Pages, branche `main`, racine → https://robo1493.github.io/cap-ouest/
