@@ -116,6 +116,8 @@ function popupHtml(i) {
       <label>Payé <input type="number" min="0" step="0.01" value="${s.extra?.paid ?? ''}" onchange="act('money', ${i}, ['paid', this.value])"></label>` : ''}
       ${s.extra?.ferry ? `<label>⛴ Prévu <input type="number" min="0" step="1" placeholder="${settings.ferryRate}" value="${s.extra?.ferryCost ?? ''}" onchange="act('money', ${i}, ['ferryCost', this.value])"></label>
       <label>⛴ Payé <input type="number" min="0" step="0.01" value="${s.extra?.ferryPaid ?? ''}" onchange="act('money', ${i}, ['ferryPaid', this.value])"></label>` : ''}</div>` : ''}
+    ${s.type !== 'start' ? `<details class="journal"${s.extra?.journal ? ' open' : ''}><summary>📔 Journal${s.extra?.journal ? ' ✔' : ''}</summary>
+      <textarea rows="3" placeholder="Souvenirs, coups de cœur, à éviter, conseils pour la prochaine fois…" onchange="act('journal', ${i}, this.value)">${esc(s.extra?.journal || '')}</textarea></details>` : ''}
     ${s.type !== 'start' ? `<div class="addr"><input placeholder="Adresse (camping, rue, ville…)" value="${esc(s.extra?.addr || '')}" onchange="act('addr', ${i}, this.value)">
       <a class="btn sm" href="${goUrl(s)}" target="_blank" rel="noopener" title="Itinéraire dans Google Maps">🧭 Y aller</a></div>` : ''}
     ${s.type !== 'start' ? `<label style="display:block;margin-top:4px"><input type="checkbox" ${leaveRigAt(s) ? 'checked' : ''} onchange="act('leaveRig', ${i}, this.checked)">
@@ -692,6 +694,26 @@ $('lPer100').onchange = e => {
   renderLines();   // pleins, litres et coûts recalculés
 };
 
+// ---------- Journal de voyage : notes par étape, dans l'ordre du voyage ----------
+function renderJournal() {
+  const items = trip.steps.map((s, i) => ({ s, i })).filter(x => x.s.extra?.journal);
+  $('journalList').innerHTML = items.length ? items.map(({ s, i }) => `<div class="jr">
+      <div><b onclick="focusStep(${i})">${esc(s.name)}</b> <small class="src">${shortDate(arrival(i))}${isNight(s) ? ` · ${s.nights} nuit${s.nights > 1 ? 's' : ''}` : ''}</small></div>
+      <div>${esc(s.extra.journal).replace(/\n/g, '<br>')}</div></div>`).join('')
+    : '<div class="src">Aucune note pour l’instant : ouvrez la fiche d’une étape sur la carte, section 📔 Journal.</div>';
+  $('journalCount').textContent = items.length ? `(${items.length})` : '';
+}
+$('journalExport').onclick = () => {
+  const items = trip.steps.map((s, i) => ({ s, i })).filter(x => x.s.extra?.journal);
+  const txt = 'Journal de voyage – Cap Ouest\n\n'
+    + items.map(({ s, i }) => `${toIso(arrival(i))} – ${s.name}\n${s.extra.journal}\n`).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([txt], { type: 'text/plain;charset=utf-8' }));
+  a.download = `cap-ouest-journal-${toIso(new Date())}.txt`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+
 // ---------- Budget : nuitées, diesel, traversiers (prévu / payé) ----------
 function renderBudget(litres) {
   const steps = trip.steps;
@@ -1086,6 +1108,7 @@ function renderKpis() {
   set('kCost', fmt(litres * priceL()) + ' $');
   set('kSpent', fstats.totalCost ? fmt(fstats.totalCost) + ' $' : '—');
   renderBudget(litres);
+  renderJournal();
   const nc = trip.steps.filter(s => s.type === 'c').reduce((t, s) => t + s.nights, 0);
   const pct = n => nb + nc ? ` (${Math.round(n / (nb + nc) * 100)} %)` : '';
   set('kNightsB', nb + pct(nb));
@@ -1141,6 +1164,10 @@ window.act = (what, i, v) => {
   }
   if (what === 'resName') s.extra = { ...(s.extra || {}), resName: v };
   if (what === 'addr') s.extra = { ...(s.extra || {}), addr: v.trim() };
+  if (what === 'journal') {
+    const { journal, ...rest } = s.extra || {};
+    s.extra = v.trim() ? { ...rest, journal: v.trim().slice(0, 4000), journalAt: toIso(new Date()) } : rest;
+  }
   // Budget : prix prévu par nuit, montant payé, traversier prévu / payé (vide = retiré)
   if (what === 'money') {
     const [k, raw] = v, n = parseFloat(raw);
@@ -1161,7 +1188,7 @@ window.act = (what, i, v) => {
     if (s.extra?.reserved) s.extra = { ...s.extra, from: toIso(arrival(i)), by: toIso(arrival(i)) };
   }
   refresh(geometry);
-  if (hadPopup && ['nights', 'type', 'date', 'leaveRig', 'longOk', 'reserve', 'resName', 'addr', 'money'].includes(what)) markers.get(s.id)?.openPopup();
+  if (hadPopup && ['nights', 'type', 'date', 'leaveRig', 'longOk', 'reserve', 'resName', 'addr', 'money', 'journal'].includes(what)) markers.get(s.id)?.openPopup();
 };
 
 window.focusStep = i => {

@@ -19,7 +19,8 @@ L'utilisateur travaille avec Claude tantôt sur son portable, tantôt depuis sa 
 - [x] Journal des pleins réels (v1.8) : odomètre, litres ou gallons US, $ CA ou $ US, lieu GPS → conso réelle, prix moyen, pleins prévus recomptés depuis le dernier plein complet, diesel payé au tableau de bord
 - [x] Budget complet (v1.9) : 💲 dans la fiche (`extra.price` prévu/nuit, `extra.paid`, `extra.ferryCost`, `extra.ferryPaid`), tableau au tableau de bord ; `settings.campRate` / `ferryRate` par défaut
 - [x] Export GPX (v1.10) : ⚙ Paramètres › Données, « 7 prochains jours » ou « tout le voyage » (wpt + rte des étapes, trk du tracé calculé)
-- [ ] Journal de voyage : note (et photos) par étape, synchronisé
+- [x] Journal de voyage (v1.11) : 📔 dans la fiche (`extra.journal`), liste et export texte au tableau de bord
+- [ ] Photos dans le journal (demande un bucket Supabase Storage + règles : action SQL de l'utilisateur)
 - [ ] Fiabilité : caches de trajets / stations / découvertes de localStorage vers IndexedDB
 - [ ] Tronçon Theodore Roosevelt → Badlands (520 km) ; position exacte de Charlevoix
 - [ ] Autres guides (Arizona, FQCC, NPS, boucle des parcs, reste d'Authentik) — fichiers dans `Data/`, donc sur le portable seulement

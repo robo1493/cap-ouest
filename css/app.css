@@ -213,3 +213,9 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; }
 .pop .money input { width: 64px; margin: 0; }
 #budgetTable .num { text-align: right; white-space: nowrap; }
 #budgetTable tr.total td { border-top: 2px solid var(--line); }
+/* Journal de voyage */
+.pop .journal { margin-top: 4px; }
+.pop .journal summary { cursor: pointer; font-size: 12px; }
+.pop .journal textarea { width: 100%; box-sizing: border-box; font: inherit; font-size: 13px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 4px; }
+.jr { padding: 8px 0; border-bottom: 1px solid var(--line); }
+.jr b { cursor: pointer; }

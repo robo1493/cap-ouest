@@ -17,7 +17,7 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v1.10</small></div>
+  <div class="logo">Cap Ouest <small>v1.11</small></div>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
     <button data-t="dash">Tableau de bord</button>
@@ -147,6 +147,11 @@
         <div class="box real kpi"><b id="kSpent">—</b><span>diesel payé à ce jour</span></div>
         <div class="box real kpi"><b id="kNightsB">—</b><span>nuits en boondock</span></div>
         <div class="box real kpi"><b id="kNightsC">—</b><span>nuits en camping</span></div>
+      </div>
+      <div class="box real mt" id="journalBox">
+        <div class="row between"><h2 style="margin:0">📔 Journal de voyage <small class="src" id="journalCount"></small></h2>
+          <button class="btn sm" id="journalExport">Exporter (texte)</button></div>
+        <div id="journalList" class="mt"></div>
       </div>
       <div class="box real mt" id="budgetBox">
         <h2>💲 Budget du voyage <small class="src">(en $ CA)</small></h2>
