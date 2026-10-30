@@ -4,6 +4,7 @@
 // Les tronçons calculés sont gardés en cache sur l'appareil (polyligne encodée, compacte),
 // donc seuls les tronçons touchés par une modification sont recalculés.
 
+import { loadCache, saveCache } from './kv.js';
 import { hav, decodePolyline } from './geo.js';
 
 const CACHE_KEY = 'capouest.routes.v1';
@@ -19,12 +20,13 @@ export const PROVIDER_LABEL = {
 };
 
 let cache = {};
-try { cache = JSON.parse(localStorage.getItem(CACHE_KEY)) || {}; } catch { cache = {}; }
+// Chargé depuis IndexedDB (kv.js) : attendre « ready » avant d'utiliser le cache
+export const ready = loadCache(CACHE_KEY).then(c => { cache = { ...c, ...cache }; });
 
 function persist() {
   const keys = Object.keys(cache);
   for (let i = 0; i < keys.length - CACHE_MAX; i++) delete cache[keys[i]];
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify(cache)); } catch { /* stockage plein : le cache reste en mémoire */ }
+  saveCache(CACHE_KEY, cache);
 }
 
 export const providerOf = opts => opts.orsKey ? 'ors' : 'osrm';

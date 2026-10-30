@@ -3,6 +3,7 @@
 // Les stations brutes de chaque tronçon sont gardées en cache sur l'appareil ;
 // le classement est recalculé à l'affichage (on peut ajuster les règles sans tout retélécharger).
 
+import { loadCache, saveCache } from './kv.js';
 import { hav } from './geo.js';
 import { overpass as runOverpass, boxes, project } from './overpass.js';
 
@@ -27,12 +28,13 @@ const CARDLOCK = /card\s*-?lock|petro[\s-]*pass|\bcommercial\b|fleet\s*fuel/i;
 const DIESEL_BRANDS = /petro-?canada|esso|shell|husky|irving|ultramar|co-?op|fas\s*gas|chevron|cenex|conoco|sinclair|exxon|maverik|holiday|phillips\s*66|town\s*pump|kum\s*&\s*go|casey'?s/i;
 
 let cache = {};
-try { cache = JSON.parse(localStorage.getItem(CACHE_KEY)) || {}; } catch { cache = {}; }
+// Chargé depuis IndexedDB (kv.js) : attendre « ready » avant d'utiliser le cache
+export const ready = loadCache(CACHE_KEY).then(c => { cache = { ...c, ...cache }; });
 
 function persist() {
   const keys = Object.keys(cache);
   for (let i = 0; i < keys.length - CACHE_MAX; i++) delete cache[keys[i]];
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify(cache)); } catch { /* stockage plein : le cache reste en mémoire */ }
+  saveCache(CACHE_KEY, cache);
 }
 
 const r5 = p => `${p[0].toFixed(5)},${p[1].toFixed(5)}`;

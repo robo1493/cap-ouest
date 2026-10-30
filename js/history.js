@@ -1,6 +1,7 @@
 // Histoire des villes-étapes, tirée de Wikipédia en français (API publique, sans clé).
 // On garde l'introduction de l'article et le début de sa section « Histoire ».
 
+import { loadCache, saveCache } from './kv.js';
 const CACHE_KEY = 'capouest.history.v1';
 const API = 'https://fr.wikipedia.org/w/api.php';
 
@@ -10,8 +11,9 @@ const REGION = {
 };
 
 let cache = {};
-try { cache = JSON.parse(localStorage.getItem(CACHE_KEY)) || {}; } catch { cache = {}; }
-const persist = () => { try { localStorage.setItem(CACHE_KEY, JSON.stringify(cache)); } catch {} };
+// Chargé depuis IndexedDB (kv.js) : attendre « ready » avant d'utiliser le cache
+export const ready = loadCache(CACHE_KEY).then(c => { cache = { ...c, ...cache }; });
+const persist = () => { saveCache(CACHE_KEY, cache); };
 
 // « Kakabeka Falls (Thunder Bay), ON » → « Kakabeka Falls Ontario »
 function searchText(name) {

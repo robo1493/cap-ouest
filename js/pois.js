@@ -9,6 +9,7 @@
 //
 // Les lieux bruts de chaque tronçon sont gardés en cache ; le classement est recalculé à l'affichage.
 
+import { loadCache, saveCache } from './kv.js';
 import { hav } from './geo.js';
 import { overpass, boxes, project } from './overpass.js';
 
@@ -33,12 +34,13 @@ export const stopRadiusKm = s => leaveRigAt(s) ? 25 : 10;
 export const leaveRigAt = s => s.leaveRig ?? (s.type === 'c' || s.type === 'dest');
 
 let cache = {};
-try { cache = JSON.parse(localStorage.getItem(CACHE_KEY)) || {}; } catch { cache = {}; }
+// Chargé depuis IndexedDB (kv.js) : attendre « ready » avant d'utiliser le cache
+export const ready = loadCache(CACHE_KEY).then(c => { cache = { ...c, ...cache }; });
 
 function persist() {
   const keys = Object.keys(cache);
   for (let i = 0; i < keys.length - CACHE_MAX; i++) delete cache[keys[i]];
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify(cache)); } catch { /* stockage plein : le cache reste en mémoire */ }
+  saveCache(CACHE_KEY, cache);
 }
 
 const r5 = p => `${p[0].toFixed(5)},${p[1].toFixed(5)}`;

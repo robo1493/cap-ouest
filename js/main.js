@@ -16,6 +16,14 @@ import { clearancesAlong, fetchMissingClearances, clearanceProgress, clearCleara
 import { addPoint, trailKm, trailSegments, onTrailChange, clearTrail } from './trail.js';
 import { isNight as sunDown } from './night.js';
 import { getFills, addFill, delFill, fuelStats, onFuelChange } from './fuel.js';
+import { ready as routesReady } from './routing.js';
+import { ready as stationsReady } from './stations.js';
+import { ready as poisReady } from './pois.js';
+import { ready as clearancesReady } from './clearances.js';
+import { ready as historyReady } from './history.js';
+
+// Les caches (trajets, stations, découvertes, passages bas, histoire) sont dans IndexedDB : les charger d'abord
+await Promise.all([routesReady, stationsReady, poisReady, clearancesReady, historyReady]);
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
