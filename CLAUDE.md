@@ -21,7 +21,7 @@ L'utilisateur travaille avec Claude tantôt sur son portable, tantôt depuis sa 
 - [x] Budget complet (v1.9) : 💲 dans la fiche (`extra.price` prévu/nuit, `extra.paid`, `extra.ferryCost`, `extra.ferryPaid`), tableau au tableau de bord ; `settings.campRate` / `ferryRate` par défaut
 - [x] Export GPX (v1.10) : ⚙ Paramètres › Données, « 7 prochains jours » ou « tout le voyage » (wpt + rte des étapes, trk du tracé calculé)
 - [x] Journal de voyage (v1.11) : 📔 dans la fiche (`extra.journal`), liste et export texte au tableau de bord
-- [ ] Photos dans le journal (demande un bucket Supabase Storage + règles : action SQL de l'utilisateur)
+- [ ] Page « Suivez-nous » pour la famille (idée validée, à reprendre quand l'utilisateur le demande) : page séparée en lecture seule sur GitHub Pages (`suivi.html`), carte du trajet, position, journal et photos ; photos ajoutées depuis la fiche (réduites ~300 Ko) dans Supabase Storage (gratuit 1 Go) ; SQL à fournir à l'utilisateur. Deux choix encore à lui demander : accès par lien secret ou mot de passe ; position = étape du soir seulement ou en direct.
 - [x] Fiabilité (v1.12) : caches trajets / stations / découvertes / passages bas / histoire dans IndexedDB (`kv.js`, `ready` attendu par main.js au démarrage ; reprise automatique de l'ancien localStorage)
 - [ ] Tronçon Theodore Roosevelt → Badlands (520 km) ; position exacte de Charlevoix
 - [ ] Autres guides (Arizona, FQCC, NPS, boucle des parcs, reste d'Authentik) — fichiers dans `Data/`, donc sur le portable seulement
