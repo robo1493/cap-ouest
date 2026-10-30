@@ -1534,6 +1534,50 @@ document.querySelectorAll('[data-veh]').forEach(inp => inp.onchange = () => {
 });
 renderVehicle();
 
+// Export GPX : étapes (waypoints + route) et tracé calculé (track), pour une appli de navigation VR
+const xml = s => String(s).replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' }[c]));
+function exportGpx(days) {
+  const steps = trip.steps;
+  let from = 0, to = steps.length - 1;
+  if (days) {
+    // Avant le départ : les 7 premiers jours du voyage
+    const now = parseIso(toIso(new Date())), start = parseIso(trip.startIso);
+    const today = now < start ? start : now, until = addDays(today, days);
+    // Étape où l'on dort ce soir (ou le départ si le voyage n'est pas commencé), jusqu'à J+days
+    from = now < start ? 0 : Math.max(0, steps.findIndex((s, i) => addDays(arrival(i), s.nights) > today));
+    to = steps.findIndex((s, i) => i > from && arrival(i) > until);
+    to = to < 0 ? steps.length - 1 : Math.max(from + 1, to);
+  }
+  const sel = steps.slice(from, to + 1);
+  const desc = (s, i) => [`Arrivée ${toIso(arrival(i))}`, isNight(s) ? `${s.nights} nuit${s.nights > 1 ? 's' : ''} (${TYPE_LABEL[s.type]})` : '',
+    s.extra?.addr || '', s.extra?.resName ? 'Réservation : ' + s.extra.resName : ''].filter(Boolean).join(' · ');
+  const pt = (tag, s, i) => `<${tag} lat="${s.lat.toFixed(6)}" lon="${s.lng.toFixed(6)}"><name>${xml(s.name)}</name><desc>${xml(desc(s, i))}</desc></${tag}>`;
+  const trk = legs.slice(from, to).filter(l => l.provider !== 'ferry').map(l => {
+    let last = null;
+    const kept = l.coords.filter((p, k) => { if (k && k < l.coords.length - 1 && last && hav(last, p) < 0.3) return false; last = p; return true; });
+    return `<trkseg>${kept.map(p => `<trkpt lat="${p[0].toFixed(5)}" lon="${p[1].toFixed(5)}"/>`).join('')}</trkseg>`;
+  }).join('\n');
+  const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Cap Ouest" xmlns="http://www.topografix.com/GPX/1/1">
+<metadata><name>${xml(`Cap Ouest : ${sel[0].name.split(',')[0]} → ${sel[sel.length - 1].name.split(',')[0]}`)}</name></metadata>
+${sel.map((s, k) => pt('wpt', s, from + k)).join('\n')}
+<rte><name>${xml('Cap Ouest – étapes')}</name>
+${sel.map((s, k) => pt('rtept', s, from + k)).join('\n')}
+</rte>
+<trk><name>${xml('Cap Ouest – trajet calculé')}</name>
+${trk}
+</trk>
+</gpx>`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([gpx], { type: 'application/gpx+xml' }));
+  a.download = `cap-ouest-${days ? days + '-jours-' : ''}${toIso(new Date())}.gpx`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  $('dataMsg').textContent = `✔ GPX créé : ${sel.length} étapes (${sel[0].name.split(',')[0]} → ${sel[sel.length - 1].name.split(',')[0]}).`;
+}
+$('gpxWeek').onclick = () => exportGpx(7);
+$('gpxAll').onclick = () => exportGpx(0);
+
 $('exportBtn').onclick = () => {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([exportTrip()], { type: 'application/json' }));

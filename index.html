@@ -17,7 +17,7 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v1.9</small></div>
+  <div class="logo">Cap Ouest <small>v1.10</small></div>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
     <button data-t="dash">Tableau de bord</button>
@@ -498,6 +498,11 @@
             <button class="btn" id="exportBtn">Exporter l'itinéraire</button>
             <label class="btn">Importer… <input type="file" id="importFile" accept="application/json,.json" hidden></label>
           </div>
+          <div class="row mt">
+            <button class="btn" id="gpxWeek">🧭 GPX : 7 prochains jours</button>
+            <button class="btn" id="gpxAll">🧭 GPX : tout le voyage</button>
+          </div>
+          <div class="src">Fichier GPX (étapes, trajet calculé) à ouvrir dans votre application de navigation pour VR (RV Life, CoPilot, Sygic…) : elle recalcule le guidage selon votre gabarit.</div>
           <div class="row mt">
             <button class="btn" id="clearRoutes">Vider le cache des trajets</button>
           </div>
