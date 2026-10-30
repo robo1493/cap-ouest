@@ -6,6 +6,11 @@
 <meta name="theme-color" content="#222222">
 <title>Cap Ouest</title>
 <link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<script>
+  // Chrome peut proposer l'installation avant le chargement des modules : on garde l'invitation
+  addEventListener('beforeinstallprompt', e => { e.preventDefault(); window.installPrompt = e; document.dispatchEvent(new Event('installable')); });
+</script>
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="css/app.css">
@@ -17,7 +22,8 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v1.12</small></div>
+  <div class="logo">Cap Ouest <small>v1.13</small></div>
+  <button class="btn sm pri" id="installBtn" hidden>📲 Installer l'application</button>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
     <button data-t="dash">Tableau de bord</button>
@@ -458,6 +464,14 @@
           <div class="field"><span>Poids combiné</span><span class="ftin"><input class="inp wide" type="number" min="0" step="100" id="weightLb" data-veh="weightT"> lb</span></div>
           <div class="src" id="vehMetric"></div>
           <div class="src">Un changement recalcule les tronçons avec ORS.</div>
+        </div>
+
+        <div class="box real">
+          <h2>📲 Application sur la tablette</h2>
+          <div id="appState" class="src"></div>
+          <button class="btn pri mt" id="installBtn2" hidden>📲 Installer l'application</button>
+          <div class="src mt">Installée, Cap Ouest s'ouvre par son icône sur l'écran d'accueil, sans la barre d'adresse de Chrome : la carte prend plus de place. Mêmes données et mêmes réglages que dans Chrome.</div>
+          <div class="src mt">Si le bouton n'apparaît pas : menu <b>⋮</b> de Chrome › <b>Ajouter à l'écran d'accueil</b> › <b>Installer</b>.</div>
         </div>
 
         <div class="box real">

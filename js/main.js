@@ -1755,6 +1755,28 @@ document.querySelectorAll('[name=base]').forEach(r => r.addEventListener('change
 applyNight();
 setInterval(applyNight, 60000);
 
+// ---------- Installer l'application (sans la barre de Chrome) ----------
+// Le bouton n'apparaît que si Chrome permet l'installation (pas déjà installée)
+const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+const showInstall = () => {
+  const can = !!window.installPrompt && !standalone;
+  $('installBtn').hidden = $('installBtn2').hidden = !can;
+  $('appState').textContent = standalone ? '✔ Vous utilisez l’application installée.'
+    : can ? 'Cap Ouest peut être installée sur cet appareil.' : 'Cap Ouest est ouverte dans le navigateur.';
+};
+const install = async () => {
+  const p = window.installPrompt;
+  if (!p) return;
+  p.prompt();
+  const { outcome } = await p.userChoice;
+  if (outcome === 'accepted') window.installPrompt = null;
+  showInstall();
+};
+$('installBtn').onclick = $('installBtn2').onclick = install;
+document.addEventListener('installable', showInstall);
+addEventListener('appinstalled', () => { window.installPrompt = null; showInstall(); });
+showInstall();
+
 // ---------- Démarrage ----------
 map.setView([47, -92], 4);
 renderMarkers();
