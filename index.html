@@ -17,7 +17,7 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v1.7.1</small></div>
+  <div class="logo">Cap Ouest <small>v1.8</small></div>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
     <button data-t="dash">Tableau de bord</button>
@@ -144,6 +144,7 @@
         <div class="box real kpi"><b id="kAvg">—</b><span>km / jour de route</span></div>
         <div class="box real kpi"><b id="kL">—</b><span>diesel (tout le voyage)</span></div>
         <div class="box real kpi"><b id="kCost">—</b><span>carburant (tout le voyage)</span></div>
+        <div class="box real kpi"><b id="kSpent">—</b><span>diesel payé à ce jour</span></div>
         <div class="box real kpi"><b id="kNightsB">—</b><span>nuits en boondock</span></div>
         <div class="box real kpi"><b id="kNightsC">—</b><span>nuits en camping</span></div>
       </div>
@@ -254,10 +255,29 @@
         <div class="field"><span>Réservoir</span><b>189 L</b></div>
         <div class="field"><span>Plein déclenché à</span><b>50 % (94 L)</b></div>
         <div class="field"><span>Conso. en remorquage (L/100 km)</span><input class="inp" type="number" id="lPer100" min="10" max="60" step="0.5"></div>
+        <label class="field chk"><input type="checkbox" id="fuelAuto"> <span id="fuelAutoTxt">Utiliser ma consommation et mon prix réels (journal des pleins)</span></label>
         <div class="field"><span>Autonomie avant seuil</span><b id="fuelRange">—</b></div>
         <div class="field"><span>Pleins calculés sur le trajet</span><b id="kFuel">—</b></div>
         <div style="margin: 22px 0 6px;"><div class="gauge"></div></div>
-        <button class="btn" style="margin-top:10px" disabled>+ Saisir un plein réel (à venir)</button>
+      </div>
+      <div class="box real mt" id="fillBox">
+        <h2>⛽ Mes pleins réels</h2>
+        <div class="fillform">
+          <label>Date et heure <input class="inp" type="datetime-local" id="fDate"></label>
+          <label>Odomètre (km) <input class="inp" type="number" id="fOdo" inputmode="numeric" min="0" step="1"></label>
+          <label>Quantité <span class="row"><input class="inp" type="number" id="fQty" inputmode="decimal" min="0" step="0.01">
+            <select class="inp" id="fUnit"><option value="L">litres</option><option value="gal">gallons US</option></select></span></label>
+          <label>Montant payé <span class="row"><input class="inp" type="number" id="fAmt" inputmode="decimal" min="0" step="0.01">
+            <select class="inp" id="fCur"><option value="CAD">$ CA</option><option value="USD">$ US</option></select></span></label>
+          <label id="fRateBox" hidden>Taux de change : 1 $ US = <input class="inp" type="number" id="fRate" inputmode="decimal" min="0.5" max="3" step="0.01"> $ CA</label>
+          <label>Lieu <input class="inp" id="fPlace" placeholder="Station, ville"></label>
+          <label class="chk"><input type="checkbox" id="fFull" checked> Plein complet (réservoir rempli jusqu'au déclic)</label>
+          <div class="row"><button class="btn sm" id="fGps" type="button">📍 Prendre ma position</button><span id="fGpsTxt" class="src"></span></div>
+          <div class="row"><button class="btn" id="fSave" type="button">Enregistrer le plein</button><span id="fMsg" class="src"></span></div>
+        </div>
+        <div id="fillStats" class="mt"></div>
+        <div class="scroll"><table id="fillTable"></table></div>
+        <div class="src">La consommation se calcule entre deux <b>pleins complets</b> : notez l'odomètre à chaque plein, même partiel. Aux États-Unis, saisissez les gallons et les $ US : Cap Ouest convertit en litres et en $ CA.</div>
       </div>
       <div class="box real mt">
         <div class="row between" style="margin-bottom: 8px;">
@@ -265,7 +285,7 @@
           <button class="btn" data-open="map">Voir sur la carte</button>
         </div>
         <div class="scroll"><table id="fuelTable"></table></div>
-        <div class="src">Position calculée sur le trajet ; la station précise sera choisie à proximité (étape suivante). Prix : moyenne provisoire 1,85 $ CA/L.</div>
+        <div class="src">Positions comptées depuis votre dernier plein complet (s'il a été pris près du trajet avec « Prendre ma position »), sinon depuis le départ. Coût : prix moyen de vos pleins, sinon 1,85 $ CA/L provisoire.</div>
       </div>
       <div class="box real mt">
         <div class="row between" style="margin-bottom: 8px;">

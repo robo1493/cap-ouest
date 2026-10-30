@@ -4,6 +4,9 @@
 
 import { CATS } from './pois.js';
 import { PACK_ID } from './ioverlander.js';
+import { FUEL_ID } from './fuel.js';
+// Lignes de la table places qui ne sont pas des lieux des guides (lot iOverlander, journal des pleins)
+const RESERVED = [PACK_ID, FUEL_ID];
 
 const KEY = 'capouest.places.v1';
 const DIRTY_KEY = 'capouest.places.dirty';
@@ -61,13 +64,13 @@ export async function syncPlaces(sb) {
     const rows = places.map(p => ({ id: p.id, data: p, updated_at: new Date().toISOString() }));
     let { error } = await sb.from('places').upsert(rows);
     if (error) throw error;
-    // Le lot iOverlander (ligne PACK_ID) n'est pas un lieu des guides : on ne l'efface jamais ici
-    ({ error } = await sb.from('places').delete().not('id', 'in', `(${[...rows.map(r => r.id), PACK_ID].map(id => `"${id}"`).join(',')})`));
+    // Les lignes réservées (iOverlander, pleins) ne sont pas des lieux des guides : on ne les efface jamais ici
+    ({ error } = await sb.from('places').delete().not('id', 'in', `(${[...rows.map(r => r.id), ...RESERVED].map(id => `"${id}"`).join(',')})`));
     if (error) throw error;
     store(places, false);
     return;
   }
-  const { data, error } = await sb.from('places').select('data').neq('id', PACK_ID);
+  const { data, error } = await sb.from('places').select('data').not('id', 'in', `(${RESERVED.map(id => `"${id}"`).join(',')})`);
   if (error) throw error;
   const list = data.map(r => clean(r.data));
   if (JSON.stringify(list.map(p => p.id).sort()) !== JSON.stringify(places.map(p => p.id).sort())

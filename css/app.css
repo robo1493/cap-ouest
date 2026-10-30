@@ -197,3 +197,13 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; }
 .stage.night .drive span, .stage.night .drive small, .stage.night .drive .src { color: #a9b0b6; }
 .stage.night .drive .big span { color: #e8e8e8; }
 .stage.night .tools .btn:not(.on) { background: #1f2326; color: #e8e8e8; border-color: #3a3f44; }
+/* Journal des pleins */
+.fillform { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px 14px; align-items: end; }
+.fillform label { display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+.fillform label.chk { flex-direction: row; align-items: center; gap: 6px; }
+.fillform .row { display: flex; gap: 6px; align-items: center; }
+.fillform .row .inp { flex: 1; min-width: 0; }
+.fillform select.inp { flex: 0 0 auto; }
+#fillStats .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-bottom: 6px; }
+#fillTable small { color: var(--muted); }
+.field.chk { justify-content: flex-start; gap: 6px; }

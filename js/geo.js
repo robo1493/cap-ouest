@@ -37,9 +37,10 @@ export function decodePolyline(str, precision = 5) {
 // Un point tous les `everyKm` km routiers le long des tronçons.
 // Chaque tronçon est { coords, km } : la distance géométrique est remise à l'échelle de km
 // (utile pour les estimations à vol d'oiseau × 1,2).
-export function pointsAlong(legs, everyKm) {
+// startKm : position (km) du point de départ du décompte (ex. dernier plein réel), 0 = départ du voyage
+export function pointsAlong(legs, everyKm, startKm = 0) {
   const pts = [];
-  let total = 0, next = everyKm;
+  let total = 0, next = startKm + everyKm;
   legs.forEach((leg, li) => {
     const geom = lineKm(leg.coords) || 1;
     const scale = leg.km / geom;

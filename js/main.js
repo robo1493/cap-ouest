@@ -15,6 +15,7 @@ import { BY_K, GROUPS, getIo, onIoChange, importIoCsv, clearIo, ioNear } from '.
 import { clearancesAlong, fetchMissingClearances, clearanceProgress, clearClearanceCache, feet } from './clearances.js';
 import { addPoint, trailKm, trailSegments, onTrailChange, clearTrail } from './trail.js';
 import { isNight as sunDown } from './night.js';
+import { getFills, addFill, delFill, fuelStats, onFuelChange } from './fuel.js';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -30,8 +31,12 @@ const shortDate = d => d.toLocaleDateString('fr-CA', { day: 'numeric', month: 's
 
 const routeOpts = () => ({ orsKey: settings.orsKey, vehicle: settings.vehicle });
 
-// Consommation (réglable dans Carburant) et distance avant le seuil de plein (50 % du réservoir)
-const lPer100 = () => settings.lPer100 || FUEL.lPer100;
+// Consommation et prix : réels (journal des pleins) si l'option est cochée et qu'il y a assez de mesures,
+// sinon la valeur saisie dans Carburant ; distance avant le seuil de plein (50 % du réservoir)
+let fstats = fuelStats();
+const useReal = () => settings.fuelAuto !== false;
+const lPer100 = () => useReal() && fstats.lPer100 ? Math.round(fstats.lPer100 * 10) / 10 : settings.lPer100 || FUEL.lPer100;
+const priceL = () => useReal() && fstats.priceL ? fstats.priceL : FUEL.priceCad;
 // Distance maximale par jour (réglable) ; un tronçon peut être accepté plus long (route facile)
 const maxKm = () => settings.maxKmDay || 400;
 const tooLong = (leg, s) => leg.provider !== 'ferry' && leg.km > maxKm() && !s.extra?.longOk;
@@ -157,11 +162,14 @@ function renderLines() {
     L.polyline(leg.coords, style).addTo(layers.lines);
   });
 
-  fuelPts = pointsAlong(legs, fuelKm());
+  // Pleins prévus : décomptés depuis le dernier plein complet réel s'il est près du trajet
+  const real = lastFullOnRoute();
+  fuelPts = pointsAlong(legs, fuelKm(), real ? real.km : 0);
   fuelPts.forEach((p, k) => {
     const a = trip.steps[p.leg], b = trip.steps[p.leg + 1];
     L.marker([p.lat, p.lng], { icon: L.divIcon({ className: '', html: '<div class="fu"></div>', iconSize: [14, 14], iconAnchor: [7, 7] }) })
       .bindPopup(`<div class="pop"><b>■ Plein #${k + 1}</b><div>km ~${fmt(p.km)} · réservoir à 50 %</div>
+        ${real ? `<div class="src">Compté depuis votre plein du ${esc(real.fill.at.slice(0, 10))}${real.fill.place ? ' (' + esc(real.fill.place) + ')' : ''}</div>` : ''}
         <div class="src">Entre ${esc(a.name.split(',')[0])} et ${esc(b.name.split(',')[0])}. Chercher une station facile dans un rayon de 30 km.</div>
         <div class="row"><button class="btn sm" onclick="openView('fuel')">Détails carburant →</button></div></div>`)
       .addTo(layers.fuel);
@@ -679,6 +687,84 @@ $('lPer100').onchange = e => {
   renderLines();   // pleins, litres et coûts recalculés
 };
 
+// ---------- Journal des pleins réels ----------
+const GAL = 3.785411784;   // litres par gallon US
+// Dernier plein complet, situé sur le trajet (km depuis le départ) : point de départ des pleins prévus
+function lastFullOnRoute() {
+  const f = fstats.lastFull;
+  if (!f || f.lat == null || !legs.length) return null;
+  let best = { off: Infinity }, before = 0;
+  legs.forEach(leg => {
+    const pr = project(f, leg.coords);
+    if (pr.off < best.off) best = { off: pr.off, km: before + pr.along * (leg.km / (pr.total || 1)) };
+    before += leg.km;
+  });
+  return best.off <= 25 ? { km: best.km, fill: f } : null;
+}
+
+function renderFuelLog() {
+  const st = fstats, fills = st.fills;
+  $('fuelAuto').checked = useReal();
+  $('fuelAutoTxt').textContent = st.lPer100
+    ? `Utiliser ma consommation réelle : ${String(Math.round(st.lPer100 * 10) / 10).replace('.', ',')} L/100 km, mesurée sur ${fmt(st.measuredKm)} km, et mon prix moyen (${st.priceL.toFixed(3).replace('.', ',')} $ CA/L)`
+    : 'Utiliser ma consommation et mon prix réels (il faut au moins deux pleins complets avec l’odomètre)';
+  const next = st.lastFull ? st.lastFull.odo + fuelKm() : 0;
+  $('fillStats').innerHTML = fills.length ? `<div class="kpis">
+      <div class="kpi"><b>${st.lPer100 ? String(Math.round(st.lPer100 * 10) / 10).replace('.', ',') : '—'}</b><span>L/100 km réels</span></div>
+      <div class="kpi"><b>${fmt(st.totalL)} L</b><span>${fills.length} plein${fills.length > 1 ? 's' : ''}</span></div>
+      <div class="kpi"><b>${fmt(st.totalCost)} $</b><span>payé (en $ CA)</span></div>
+      <div class="kpi"><b>${st.priceL ? st.priceL.toFixed(3).replace('.', ',') : '—'}</b><span>$ CA / L en moyenne</span></div>
+    </div>${next ? `<div class="src">Prochain plein conseillé (réservoir à 50 %) vers l'odomètre <b>${fmt(next)} km</b>.</div>` : ''}` : '<div class="src">Aucun plein saisi pour l’instant.</div>';
+  $('fillTable').innerHTML = fills.length ? '<tr><th>Date</th><th>Lieu</th><th>Odomètre</th><th>Litres</th><th>$ CA</th><th>$/L</th><th>L/100</th><th></th></tr>' +
+    [...fills].reverse().map(f => {
+      const c = st.spans.get(f.id);
+      return `<tr><td>${esc(f.at.slice(0, 10))}</td><td>${esc(f.place || '')}${f.full ? '' : ' <small>(partiel)</small>'}</td><td>${fmt(f.odo)}</td>
+        <td>${String(Math.round(f.litres * 10) / 10).replace('.', ',')}${f.unit === 'gal' ? ` <small>(${String(f.qty).replace('.', ',')} gal)</small>` : ''}</td>
+        <td>${f.cost.toFixed(2).replace('.', ',')}${f.cur === 'USD' ? ` <small>(${f.amt.toFixed(2).replace('.', ',')} $ US)</small>` : ''}</td>
+        <td>${(f.cost / f.litres).toFixed(3).replace('.', ',')}</td><td>${c ? String(Math.round(c * 10) / 10).replace('.', ',') : ''}</td>
+        <td><button class="btn sm" onclick="delFillUi('${f.id}')" title="Supprimer">🗑</button></td></tr>`;
+    }).join('') : '';
+}
+
+let fPos = null;
+const resetFillForm = () => {
+  const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  $('fDate').value = d.toISOString().slice(0, 16);
+  ['fOdo', 'fQty', 'fAmt', 'fPlace'].forEach(id => { $(id).value = ''; });
+  $('fFull').checked = true; fPos = null; $('fGpsTxt').textContent = '';
+};
+$('fCur').onchange = () => { $('fRateBox').hidden = $('fCur').value !== 'USD'; };
+$('fRate').value = settings.usdCad || 1.38;
+$('fRate').onchange = () => { const v = parseFloat($('fRate').value); if (v > 0.5 && v < 3) { settings.usdCad = v; saveSettings(); } };
+$('fGps').onclick = () => {
+  $('fGpsTxt').textContent = 'Recherche…';
+  navigator.geolocation.getCurrentPosition(p => {
+    fPos = { lat: +p.coords.latitude.toFixed(5), lng: +p.coords.longitude.toFixed(5) };
+    // Lieu proposé : étape la plus proche
+    const near = trip.steps.map(s => ({ s, d: hav(s, fPos) })).sort((a, b) => a.d - b.d)[0];
+    if (!$('fPlace').value && near) $('fPlace').value = near.d < 40 ? `près de ${near.s.name.split(',')[0]}` : '';
+    $('fGpsTxt').textContent = `✔ position prise (précision ${Math.round(p.coords.accuracy)} m)`;
+  }, e => { $('fGpsTxt').textContent = '✖ ' + e.message; }, { enableHighAccuracy: true, timeout: 30000, maximumAge: 60000 });
+};
+$('fSave').onclick = () => {
+  const odo = parseInt($('fOdo').value, 10), qty = parseFloat($('fQty').value), amt = parseFloat($('fAmt').value);
+  const unit = $('fUnit').value, cur = $('fCur').value, rate = parseFloat($('fRate').value) || 1.38;
+  if (!(odo > 0) || !(qty > 0) || !(amt > 0)) { $('fMsg').textContent = '✖ Odomètre, quantité et montant sont requis.'; return; }
+  const litres = unit === 'gal' ? qty * GAL : qty;
+  if (litres > 400) { $('fMsg').textContent = '✖ Quantité trop grande : vérifiez l’unité (litres ou gallons).'; return; }
+  const prev = getFills().filter(f => f.odo < odo).pop();
+  addFill({ at: $('fDate').value || new Date().toISOString().slice(0, 16), odo, qty, unit, litres: Math.round(litres * 100) / 100,
+    amt, cur, cost: Math.round((cur === 'USD' ? amt * rate : amt) * 100) / 100, full: $('fFull').checked,
+    place: $('fPlace').value.trim().slice(0, 80), ...(fPos || {}) });
+  $('fMsg').textContent = `✔ Plein enregistré${prev ? ` (${fmt(odo - prev.odo)} km depuis le précédent)` : ''}.`;
+  resetFillForm();
+};
+window.delFillUi = id => { if (confirm('Supprimer ce plein ?')) delFill(id); };
+$('fuelAuto').onchange = e => { settings.fuelAuto = e.target.checked; saveSettings(); renderLines(); renderFuelLog(); };
+onFuelChange(() => { fstats = fuelStats(); renderFuelLog(); renderLines(); syncNow(); });
+resetFillForm();
+renderFuelLog();
+
 // Centre la carte sur la station, en vue satellite, pour juger l'entrée et la sortie
 // On retient la vue d'avant (fond de carte, position, zoom) pour le bouton « Retour »
 let viewBefore = null;
@@ -968,7 +1054,8 @@ function renderKpis() {
   set('kDays', nights);
   set('kAvg', fmt(km / Math.max(1, legs.length)));
   set('kL', fmt(litres) + ' L');
-  set('kCost', fmt(litres * FUEL.priceCad) + ' $');
+  set('kCost', fmt(litres * priceL()) + ' $');
+  set('kSpent', fstats.totalCost ? fmt(fstats.totalCost) + ' $' : '—');
   const nc = trip.steps.filter(s => s.type === 'c').reduce((t, s) => t + s.nights, 0);
   const pct = n => nb + nc ? ` (${Math.round(n / (nb + nc) * 100)} %)` : '';
   set('kNightsB', nb + pct(nb));
@@ -978,14 +1065,15 @@ function renderKpis() {
   $('routeMaxTxt').textContent = `${fmt(maxKm())} km`;
   if (document.activeElement !== $('maxKmDay')) $('maxKmDay').value = maxKm();
   if (document.activeElement !== $('lPer100')) $('lPer100').value = lPer100();
+  $('lPer100').disabled = useReal() && !!fstats.lPer100;
   renderDays();
   renderCatchup();
   const p = providerOf(routeOpts());
-  $('dashNote').textContent = `Distances : ${PROVIDER_LABEL[p]}. Consommation ${String(lPer100()).replace('.', ',')} L/100 km et prix ${FUEL.priceCad.toFixed(2).replace('.', ',')} $ CA/L provisoires. Tous les montants en $ CA.`;
+  $('dashNote').textContent = `Distances : ${PROVIDER_LABEL[p]}. Consommation ${String(lPer100()).replace('.', ',')} L/100 km et prix ${priceL().toFixed(2).replace('.', ',')} $ CA/L ${useReal() && fstats.priceL ? '(moyenne de vos pleins)' : 'provisoires'}. Tous les montants en $ CA.`;
 }
 
 function renderFuelTable() {
-  const cost = FUEL.tankL * FUEL.threshold * FUEL.priceCad;
+  const cost = FUEL.tankL * FUEL.threshold * priceL();
   $('fuelTable').innerHTML = '<tr><th>#</th><th>Km</th><th>Secteur</th><th>Plein</th><th>Coût ~</th></tr>' +
     fuelPts.map((p, k) => {
       const a = trip.steps[p.leg], b = trip.steps[p.leg + 1];

@@ -16,7 +16,7 @@ L'utilisateur travaille avec Claude tantôt sur son portable, tantôt depuis sa 
 
 ## À faire (liste acceptée par l'utilisateur, 2026-10-30)
 - [ ] Cartes hors réseau : bouton dans ⚙ Paramètres pour télécharger d'avance la carte du corridor du trajet (respecter les conditions du fournisseur de tuiles)
-- [ ] Journal des pleins réels (litres, prix, lieu) → prochain plein calculé depuis le vrai réservoir, budget diesel réel
+- [x] Journal des pleins réels (v1.8) : odomètre, litres ou gallons US, $ CA ou $ US, lieu GPS → conso réelle, prix moyen, pleins prévus recomptés depuis le dernier plein complet, diesel payé au tableau de bord
 - [ ] Budget complet : nuitées (prix par étape), diesel, traversiers ; prévu vs réel, en $ CA
 - [ ] Export GPX du trajet et des étapes pour l'appli de navigation VR (RV Life, CoPilot, Sygic)
 - [ ] Journal de voyage : note (et photos) par étape, synchronisé
@@ -44,6 +44,7 @@ L'utilisateur travaille avec Claude tantôt sur son portable, tantôt depuis sa 
 - `places.js` : « Mes guides » (lieux importés d'un JSON privé, synchronisés dans la table `places`).
 - `ioverlander.js` : import CSV iOverlander (corridor de 40 km), stocké dans **IndexedDB** (base `capouest`, magasin `kv`), synchronisé comme une seule ligne `places` d'id `__ioverlander__`. Catégorie « Overnight Prohibited » exclue.
 - `days.js` : compteurs de jours (États-Unis 182 j sur 12 mois glissants ; absence du Québec / RAMQ 183 j par année civile).
+- `fuel.js` : journal des pleins (localStorage `capouest.fuel.v1`), synchronisé dans la ligne `places` d'id `__fuel__` (fusion par id, la modification la plus récente gagne, suppressions en pierres tombales). `places.js` ne doit jamais effacer les lignes réservées (`__ioverlander__`, `__fuel__`).
 - `catchup.js` : propositions pour rattraper un retard (sauter un arrêt de transit, raccourcir un séjour non réservé).
 - `clearances.js` : ponts et passages bas (`maxheight` OSM via Overpass) sur la route même (≤ 60 m et même orientation : la route qui passe sous notre pont est ignorée), signalés sous la hauteur du rig + 1' 6" ; cache par tronçon.
 - `trail.js` : chemin parcouru (GPS du mode conduite, un point / ~50 m), IndexedDB clé `trail`, par jour ; sur l'appareil seulement (pas synchronisé).
