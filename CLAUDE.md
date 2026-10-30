@@ -16,6 +16,7 @@ L'utilisateur travaille avec Claude tantôt sur son portable, tantôt depuis sa 
 
 ## À faire (liste acceptée par l'utilisateur, 2026-10-30)
 - [ ] Cartes hors réseau : bouton dans ⚙ Paramètres pour télécharger d'avance la carte du corridor du trajet (respecter les conditions du fournisseur de tuiles)
+  - Constat (2026-10-30) : les tuiles Esri actuelles ne permettent pas le téléchargement en masse. Piste : OpenFreeMap (vectoriel, téléchargement hors ligne permis jusqu'à 3 000 tuiles / 50 Mo par téléchargement, 4 requêtes parallèles) → afficher avec MapLibre GL dans Leaflet, télécharger « 7 prochains jours » (corridor), mise en cache par le service worker. Change l'apparence du plan ; pas de satellite hors ligne. En attente de l'accord de l'utilisateur.
 - [x] Journal des pleins réels (v1.8) : odomètre, litres ou gallons US, $ CA ou $ US, lieu GPS → conso réelle, prix moyen, pleins prévus recomptés depuis le dernier plein complet, diesel payé au tableau de bord
 - [x] Budget complet (v1.9) : 💲 dans la fiche (`extra.price` prévu/nuit, `extra.paid`, `extra.ferryCost`, `extra.ferryPaid`), tableau au tableau de bord ; `settings.campRate` / `ferryRate` par défaut
 - [x] Export GPX (v1.10) : ⚙ Paramètres › Données, « 7 prochains jours » ou « tout le voyage » (wpt + rte des étapes, trk du tracé calculé)
