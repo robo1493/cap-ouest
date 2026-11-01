@@ -24,7 +24,7 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v1.13.1</small></div>
+  <div class="logo">Cap Ouest <small>v1.14</small></div>
   <button class="btn sm pri" id="installBtn" hidden>📲 Installer l'application</button>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
@@ -58,7 +58,8 @@
   <!-- ============ CARTE (ancre) ============ -->
   <div class="mapwrap">
     <div id="map"></div>
-    <div class="hint" id="hint">Cliquez sur la carte pour placer la nouvelle étape · Échap pour annuler</div>
+    <div class="hint" id="hint">Cliquez sur la carte pour placer la nouvelle étape · Échap pour annuler
+      <div class="hint-gps">ou position GPS : <input id="hintGps" placeholder="48.4284, -123.3656" autocomplete="off"><button class="btn sm" id="hintGo">Placer</button></div></div>
     <button class="btn back-view" id="backView" hidden>← Retour à la vue normale</button>
 
     <details class="layers">

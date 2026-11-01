@@ -99,6 +99,33 @@ function markerIcon(s, n) {
 // Itinéraire dans Google Maps (application si installée) : vers l'adresse saisie, sinon vers le point de l'étape
 const goUrl = s => 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(s.extra?.addr?.trim() || `${s.lat},${s.lng}`);
 
+// Position GPS saisie à la main : « 48.4284, -123.3656 », « 48.4284 N 123.3656 O »,
+// degrés-minutes-secondes « 48°25'42"N 123°21'56"W » ou lien Google Maps (…@48.42,-123.36…)
+const gpsText = s => `${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}`;
+function parseGps(str) {
+  const t = String(str || '').trim();
+  const at = t.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || t.match(/[?&](?:q|query|destination|ll)=(-?\d+\.\d+)(?:,|%2C)(-?\d+\.\d+)/i);
+  let lat, lng;
+  if (at) { lat = +at[1]; lng = +at[2]; }
+  else {
+    // Chaque coordonnée : nombre signé, puis minutes / secondes facultatives, puis lettre N S E W O facultative
+    const re = /([-+]?\d+(?:[.,]\d+)?)\s*°?\s*(?:(\d+(?:[.,]\d+)?)\s*['′]\s*)?(?:(\d+(?:[.,]\d+)?)\s*(?:["″]|''))?\s*([NSEWO])?/gi;
+    const parts = [...t.matchAll(re)].filter(m => m[0].trim());
+    if (parts.length < 2) return null;
+    const val = m => {
+      const num = x => x ? +x.replace(',', '.') : 0;
+      let v = Math.abs(num(m[1])) + num(m[2]) / 60 + num(m[3]) / 3600;
+      if (m[1].startsWith('-') || /[SWO]/i.test(m[4] || '')) v = -v;
+      return v;
+    };
+    lat = val(parts[0]); lng = val(parts[1]);
+    // « 123.36 O, 48.42 N » : longitude écrite en premier
+    if (/[EWO]/i.test(parts[0][4] || '') && /[NS]/i.test(parts[1][4] || '')) [lat, lng] = [lng, lat];
+  }
+  return Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 ? { lat, lng } : null;
+}
+const GPS_HELP = 'Exemples : 48.4284, -123.3656 · 48°25\'42"N 123°21\'56"W · lien Google Maps';
+
 function popupHtml(i) {
   const s = trip.steps[i], prev = trip.steps[i - 1], leg = legs[i - 1];
   const km = !prev || !leg ? 'Point de départ'
@@ -128,6 +155,7 @@ function popupHtml(i) {
       <textarea rows="3" placeholder="Souvenirs, coups de cœur, à éviter, conseils pour la prochaine fois…" onchange="act('journal', ${i}, this.value)">${esc(s.extra?.journal || '')}</textarea></details>` : ''}
     ${s.type !== 'start' ? `<div class="addr"><input placeholder="Adresse (camping, rue, ville…)" value="${esc(s.extra?.addr || '')}" onchange="act('addr', ${i}, this.value)">
       <a class="btn sm" href="${goUrl(s)}" target="_blank" rel="noopener" title="Itinéraire dans Google Maps">🧭 Y aller</a></div>` : ''}
+    <label class="gps">GPS <input value="${gpsText(s)}" title="${esc(GPS_HELP)}" onchange="act('gps', ${i}, this.value)"></label>
     ${s.type !== 'start' ? `<label style="display:block;margin-top:4px"><input type="checkbox" ${leaveRigAt(s) ? 'checked' : ''} onchange="act('leaveRig', ${i}, this.checked)">
       La fifth wheel peut rester sur place <span class="src">(découvertes à ${stopRadiusKm(s)} km)</span></label>` : ''}
     <div class="row">
@@ -878,6 +906,7 @@ function renderList() {
       <span class="n ${s.type}">${s.type === 'start' ? '⌂' : s.type === 'dest' ? '★' : n}</span>
       <div class="d"><b onclick="focusStep(${i})">${esc(s.name)}</b>
         <small>${s.type === 'start' ? 'Départ ' : s.type === 'dest' ? 'Arrivée ' : ''}${dateInput}${nightsInput}</small>
+        <small class="gps">GPS <input value="${gpsText(s)}" title="${esc(GPS_HELP)}" onchange="act('gps', ${i}, this.value)"></small>
         ${milestoneHtml(i)}${s.extra?.note ? `<small>ℹ ${esc(s.extra.note)}</small>` : ''}${s.extra?.addr ? `<small>📍 <a href="${goUrl(s)}" target="_blank" rel="noopener">${esc(s.extra.addr)}</a></small>` : ''}</div>
       ${isNight(s) ? `<div class="ctl"><button onclick="act('up', ${i})" title="Monter">↑</button><button onclick="act('down', ${i})" title="Descendre">↓</button></div>` : ''}
     </div>`;
@@ -1172,6 +1201,12 @@ window.act = (what, i, v) => {
   }
   if (what === 'resName') s.extra = { ...(s.extra || {}), resName: v };
   if (what === 'addr') s.extra = { ...(s.extra || {}), addr: v.trim() };
+  if (what === 'gps') {
+    const p = parseGps(v);
+    if (!p) { alert('Position GPS non reconnue.\n' + GPS_HELP); renderList(); markers.get(s.id)?.openPopup(); return; }
+    s.lat = p.lat; s.lng = p.lng; geometry = true;
+    map.panTo([p.lat, p.lng]);
+  }
   if (what === 'journal') {
     const { journal, ...rest } = s.extra || {};
     s.extra = v.trim() ? { ...rest, journal: v.trim().slice(0, 4000), journalAt: toIso(new Date()) } : rest;
@@ -1196,7 +1231,7 @@ window.act = (what, i, v) => {
     if (s.extra?.reserved) s.extra = { ...s.extra, from: toIso(arrival(i)), by: toIso(arrival(i)) };
   }
   refresh(geometry);
-  if (hadPopup && ['nights', 'type', 'date', 'leaveRig', 'longOk', 'reserve', 'resName', 'addr', 'money', 'journal'].includes(what)) markers.get(s.id)?.openPopup();
+  if (hadPopup && ['nights', 'type', 'date', 'leaveRig', 'longOk', 'reserve', 'resName', 'addr', 'gps', 'money', 'journal'].includes(what)) markers.get(s.id)?.openPopup();
 };
 
 window.focusStep = i => {
@@ -1219,7 +1254,19 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') setAdding(fa
 
 map.on('click', e => {
   if (!adding) { openView('map'); return; }   // clic sur la carte = rentrer le tiroir
-  const p = { lat: e.latlng.lat, lng: e.latlng.lng };
+  addStepAt({ lat: e.latlng.lat, lng: e.latlng.lng });
+});
+// … ou par sa position GPS saisie dans le bandeau
+$('hintGo').onclick = () => {
+  const p = parseGps($('hintGps').value);
+  if (!p) { alert('Position GPS non reconnue.\n' + GPS_HELP); return; }
+  $('hintGps').value = '';
+  map.setView([p.lat, p.lng], Math.max(map.getZoom(), 9));
+  addStepAt(p);
+};
+$('hintGps').onkeydown = e => { if (e.key === 'Enter') $('hintGo').click(); };
+
+function addStepAt(p) {
   const steps = trip.steps;
   let best = 1, bestCost = Infinity;
   for (let i = 1; i < steps.length; i++) {
@@ -1231,7 +1278,7 @@ map.on('click', e => {
   setAdding(false);
   refresh(true);
   markers.get(s.id).openPopup();
-});
+}
 
 $('resetBtn').onclick = () => {
   if (!confirm('Revenir à l\'itinéraire par défaut ?')) return;
