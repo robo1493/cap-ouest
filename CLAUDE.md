@@ -45,7 +45,7 @@ L'utilisateur travaille avec Claude tantôt sur son portable, tantôt depuis sa 
 - `stations.js` / `overpass.js` : stations diesel via Overpass (file d'attente, serveur public lent).
 - `pois.js` / `history.js` : découvertes OSM (en pause : `POI_OSM_ENABLED=false`) et histoire des villes (Wikipédia FR).
 - `places.js` : « Mes guides » (lieux importés d'un JSON privé, synchronisés dans la table `places`).
-- `ioverlander.js` : import CSV iOverlander (corridor de 40 km), stocké dans **IndexedDB** (base `capouest`, magasin `kv`), synchronisé comme une seule ligne `places` d'id `__ioverlander__`. Catégorie « Overnight Prohibited » exclue.
+- `ioverlander.js` : import CSV iOverlander (corridor de 40 km), stocké dans **IndexedDB** (base `capouest`, magasin `kv`), synchronisé comme une seule ligne `places` d'id `__ioverlander__`. Catégorie « Overnight Prohibited » exclue. Élément `[lat, lng, nom, code, 1 si big rig friendly]` (colonne « Big Rig Friendly » ou case « fichier filtré Big Rig » à l'import) ; calque « 🚛 gros équipement seulement » (`settings.ioBigOnly`).
 - `days.js` : compteurs de jours (États-Unis 182 j sur 12 mois glissants ; absence du Québec / RAMQ 183 j par année civile).
 - `fuel.js` : journal des pleins (localStorage `capouest.fuel.v1`), synchronisé dans la ligne `places` d'id `__fuel__` (fusion par id, la modification la plus récente gagne, suppressions en pierres tombales). `places.js` ne doit jamais effacer les lignes réservées (`__ioverlander__`, `__fuel__`).
 - `catchup.js` : propositions pour rattraper un retard (sauter un arrêt de transit, raccourcir un séjour non réservé).
@@ -54,7 +54,7 @@ L'utilisateur travaille avec Claude tantôt sur son portable, tantôt depuis sa 
 - `night.js` : hauteur du soleil ; mode nuit de la carte (`settings.night` auto / on / off, filtre CSS sur les tuiles).
 
 ### Données d'une étape
-`{ id, name, lat, lng, type: 'start'|'b'(boondock)|'c'(camping)|'dest', nights, leaveRig, extra }`. `extra` (jsonb côté Supabase) : `by`/`from` (jalons de date), `label`, `ferry`, `note`, `longOk`, `reserved`/`resName`/`resNights` (réservation : date et nuits fixes), `addr` (adresse, bouton « Y aller » Google Maps). La région (États-Unis ou non) se déduit du code « , XX » à la fin du nom.
+`{ id, name, lat, lng, type: 'start'|'b'(boondock)|'c'(camping)|'dest', nights, leaveRig, extra }`. `extra` (jsonb côté Supabase) : `by`/`from` (jalons de date), `label`, `ferry`, `note`, `longOk`, `reserved`/`resName`/`resNights` (réservation : date et nuits fixes), `addr` (adresse, bouton « Y aller » Google Maps), `alts` (choix de rechange : `[{ name, lat?, lng?, addr? }]`, bouton ⇄ pour en faire l'endroit prévu ; ajout aussi depuis un lieu iOverlander). Position GPS modifiable dans la fiche et la liste (`parseGps` : décimal, DMS, lien Google Maps). La région (États-Unis ou non) se déduit du code « , XX » à la fin du nom.
 
 ## Publier une version
 1. Augmenter `VERSION` dans `sw.js` **et** l'étiquette `<small>vX.Y</small>` de `index.html` (l'utilisateur vérifie la version à l'écran).

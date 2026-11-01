@@ -1,5 +1,5 @@
 // Lieux iOverlander : export CSV personnel de l'utilisateur (abonné), jamais publié.
-// Colonnes du fichier : Latitude, Longitude, Name, Category.
+// Colonnes du fichier : Latitude, Longitude, Name, Category (+ « Big Rig Friendly » dans l'export complet).
 // À l'import, on ne garde que les catégories utiles au voyage et les lieux proches du trajet
 // (corridor de 40 km), puis le lot est synchronisé de façon privée par Supabase (table places).
 
@@ -35,7 +35,7 @@ export const GROUPS = {
 
 // Les lieux sont gardés dans IndexedDB : localStorage (~5 Mo, partagé avec les caches de trajets
 // et de stations) se remplissait, et le lot était alors perdu au rechargement sans partir au serveur.
-let items = [];   // [lat, lng, nom, code]
+let items = [];   // [lat, lng, nom, code, 1 si « gros équipement » (big rig friendly)]
 const listeners = [];
 export const getIo = () => items;
 export const onIoChange = cb => listeners.push(cb);
@@ -131,17 +131,19 @@ function corridorTest(legs, steps, km) {
 
 // Import d'un export CSV : fusionné avec les lieux déjà importés (ex. Canada puis États-Unis).
 // legs : tronçons du trajet ({ coords }) ; steps : étapes.
-export function importIoCsv(text, legs, steps) {
+// allBig : le fichier vient d'une recherche iOverlander filtrée « Big Rig Friendly » (tous les lieux le sont).
+export function importIoCsv(text, legs, steps, allBig = false) {
   const rows = parseCsv(text.replace(/^﻿/, ''));
   const head = rows.shift()?.map(h => h.trim().toLowerCase()) || [];
   const col = name => head.indexOf(name);
   const iLat = col('latitude'), iLng = col('longitude'), iName = col('name'), iCat = col('category');
+  const iBig = head.findIndex(h => h.includes('big rig'));
   if (iLat < 0 || iLng < 0 || iCat < 0) throw new Error('Colonnes Latitude, Longitude et Category introuvables : est-ce bien un export iOverlander ?');
 
-  let read = 0, kept = 0;
+  let read = 0, kept = 0, big = 0;
   const near = corridorTest(legs, steps, CORRIDOR_KM);
 
-  const seen = new Set(items.map(x => `${x[0]},${x[1]},${x[3]}`));
+  const seen = new Map(items.map(x => [`${x[0]},${x[1]},${x[3]}`, x]));
   const out = items.slice();
   rows.forEach(r => {
     const cat = IO_CATS[r[iCat]?.trim()];
@@ -149,14 +151,20 @@ export function importIoCsv(text, legs, steps) {
     read++;
     const lat = +r[iLat], lng = +r[iLng];
     if (!isFinite(lat) || !isFinite(lng) || !near({ lat, lng })) return;
+    const isBig = allBig || (iBig >= 0 && /^(yes|oui|true|1|y)$/i.test((r[iBig] || '').trim()));
     const x = [Math.round(lat * 1e5) / 1e5, Math.round(lng * 1e5) / 1e5, (r[iName] || '').trim().slice(0, 80), cat.k];
+    if (isBig) { x[4] = 1; big++; }
     const key = `${x[0]},${x[1]},${x[3]}`;
-    if (seen.has(key)) return;
-    seen.add(key); out.push(x); kept++;
+    const had = seen.get(key);
+    if (had) { if (isBig) had[4] = 1; return; }   // déjà importé : on garde l'info « gros équipement »
+    seen.set(key, x); out.push(x); kept++;
   });
   store(out, true);
-  return { read, kept, total: out.length };
+  return { read, kept, big, hasBigCol: iBig >= 0, total: out.length };
 }
+
+// Nombre de lieux marqués « gros équipement »
+export const ioBigCount = () => items.filter(x => x[4] === 1).length;
 
 export function clearIo() { store([], true); }
 
@@ -179,5 +187,6 @@ export async function syncIo(sb) {
   const { data, error } = await sb.from('places').select('data').eq('id', PACK_ID).maybeSingle();
   if (error) throw error;
   const remote = data?.data?.items;
-  if (Array.isArray(remote) && keep(remote).length !== items.length) store(remote, false);
+  const bigs = list => list.filter(x => x[4] === 1).length;
+  if (Array.isArray(remote) && (keep(remote).length !== items.length || bigs(keep(remote)) !== bigs(items))) store(remote, false);
 }

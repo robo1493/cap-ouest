@@ -11,7 +11,7 @@ import { PLACE_CATS, DIFF, getPlaces, onPlacesChange, importPlaces } from './pla
 import { project } from './overpass.js';
 import { dayLog, usPeriods, usRollingMax, latestUsExit, qcAbsence, US_LIMIT, QC_LIMIT } from './days.js';
 import { proposals, simulate } from './catchup.js';
-import { BY_K, GROUPS, getIo, onIoChange, importIoCsv, clearIo, ioNear } from './ioverlander.js';
+import { BY_K, GROUPS, getIo, onIoChange, importIoCsv, clearIo, ioNear, ioBigCount } from './ioverlander.js';
 import { clearancesAlong, fetchMissingClearances, clearanceProgress, clearClearanceCache, feet } from './clearances.js';
 import { addPoint, trailKm, trailSegments, onTrailChange, clearTrail } from './trail.js';
 import { isNight as sunDown } from './night.js';
@@ -126,6 +126,23 @@ function parseGps(str) {
 }
 const GPS_HELP = 'Exemples : 48.4284, -123.3656 · 48°25\'42"N 123°21\'56"W · lien Google Maps';
 
+// Choix de rechange d'une étape (extra.alts) : autres campings ou boondocks si l'endroit prévu est
+// complet ou ne convient pas au rig. { name, lat?, lng?, addr?, note? }
+const altGo = a => 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(a.addr || (a.lat != null ? `${a.lat},${a.lng}` : a.name));
+function altsHtml(s, i) {
+  const alts = s.extra?.alts || [];
+  return `<details class="alts"${alts.length ? ' open' : ''}><summary>🔁 Choix de rechange${alts.length ? ` (${alts.length})` : ''}</summary>
+    ${alts.map((a, k) => `<div class="alt"><b>${k + 1}.</b><div>${esc(a.name)}
+      <small>${a.lat != null ? `${fmt(hav(s, a))} km de l’étape` : ''}${a.addr ? ` · ${esc(a.addr)}` : ''}${a.note ? ` · ${esc(a.note)}` : ''}</small></div>
+      <a class="btn sm" href="${altGo(a)}" target="_blank" rel="noopener" title="Itinéraire dans Google Maps">🧭</a>
+      <button class="btn sm" onclick="act('altUse', ${i}, ${k})" title="En faire l’endroit prévu (l’actuel passe en rechange)">⇄</button>
+      <button class="btn sm" onclick="if (confirm('Retirer ce choix de rechange ?')) act('altDel', ${i}, ${k})" title="Retirer">✕</button></div>`).join('')}
+    <div class="alt-add"><input id="altName" placeholder="Nom (camping, BLM…)">
+      <input id="altWhere" placeholder="GPS ou adresse (facultatif)" title="${esc(GPS_HELP)}">
+      <button class="btn sm" onclick="act('altAdd', ${i}, [document.getElementById('altName').value, document.getElementById('altWhere').value])">Ajouter</button></div>
+  </details>`;
+}
+
 function popupHtml(i) {
   const s = trip.steps[i], prev = trip.steps[i - 1], leg = legs[i - 1];
   const km = !prev || !leg ? 'Point de départ'
@@ -146,6 +163,7 @@ function popupHtml(i) {
     ${s.type !== 'start' ? `<div class="resv"><label><input type="checkbox" ${s.extra?.reserved ? 'checked' : ''} onchange="act('reserve', ${i}, this.checked)">
       📌 Réservation (date et nuits fixes)</label>
       ${s.extra?.reserved ? `<input placeholder="Camping, n° de réservation…" value="${esc(s.extra.resName || '')}" onchange="act('resName', ${i}, this.value)">` : ''}</div>` : ''}
+    ${s.type !== 'start' ? altsHtml(s, i) : ''}
     ${isNight(s) || s.extra?.ferry ? `<div class="money">💲
       ${isNight(s) ? `<label>Prévu/nuit <input type="number" min="0" step="1" placeholder="${s.type === 'c' ? settings.campRate : 0}" value="${s.extra?.price ?? ''}" onchange="act('money', ${i}, ['price', this.value])"></label>
       <label>Payé <input type="number" min="0" step="0.01" value="${s.extra?.paid ?? ''}" onchange="act('money', ${i}, ['paid', this.value])"></label>` : ''}
@@ -388,6 +406,8 @@ const IO_MIN_ZOOM = 8;
 const ioRenderer = L.canvas({ padding: 0.5 });
 const ioLayer = L.layerGroup();
 const ioGroupOn = g => document.querySelector(`[data-io=${g}]`)?.checked;
+// « Gros équipement seulement » : les nuits non marquées big rig friendly sont cachées (services et avertissements restent)
+const ioShown = x => !settings.ioBigOnly || BY_K[x[3]]?.g !== 'night' || x[4] === 1;
 
 function ioPopup(x) {
   const c = BY_K[x[3]], p = { lat: x[0], lng: x[1] };
@@ -396,7 +416,9 @@ function ioPopup(x) {
   return `<div class="pop">
     <span class="chip" style="border-color:${c.color};color:${c.color}">${c.icon} ${c.label}</span>
     <div><b>${esc(x[2] || 'Sans nom')}</b></div>
+    ${x[4] === 1 ? '<div>🚛 Gros équipement (big rig friendly)</div>' : ''}
     <div class="src">À ${fmt(d)} km de ${esc(trip.steps[near].name.split(',')[0])} · source : iOverlander</div>
+    ${c.g === 'night' && trip.steps[near].type !== 'start' ? `<button class="btn sm" onclick="act('altAdd', ${near}, [${esc(JSON.stringify(x[2] || c.label))}, '${x[0]}, ${x[1]}'])">🔁 Choix de rechange pour ${esc(trip.steps[near].name.split(',')[0])}</button>` : ''}
     <div class="row">
       <button class="btn sm" onclick="viewAt(${x[0]}, ${x[1]}, 17)">Vue satellite</button>
       <a class="btn sm" target="_blank" rel="noopener" href="https://www.google.com/maps/@${x[0]},${x[1]},300m/data=!3m1!1e3">Google Maps ↗</a>
@@ -409,9 +431,11 @@ function renderIo() {
   const list = getIo();
   $('ioCount').textContent = list.length ? `(${fmt(list.length)})` : '(aucun : importer dans ⚙)';
   $('ioInfo').textContent = list.length ? `${fmt(list.length)} lieux sur cet appareil` : '';
+  $('ioBigOnly').checked = !!settings.ioBigOnly;
+  $('ioBigNote').textContent = settings.ioBigOnly ? `${fmt(ioBigCount())} lieux marqués 🚛` : '';
   list.forEach(x => {
     const c = BY_K[x[3]];
-    if (!c || !ioGroupOn(c.g)) return;
+    if (!c || !ioGroupOn(c.g) || !ioShown(x)) return;
     L.circleMarker([x[0], x[1]], { renderer: ioRenderer, radius: 6, color: '#fff', weight: 1.5, fillColor: c.color, fillOpacity: .9 })
       .bindPopup(() => ioPopup(x), { minWidth: 220 })
       .addTo(ioLayer);
@@ -426,11 +450,12 @@ const toggleIo = () => {
 };
 map.on('zoomend', toggleIo);
 document.querySelectorAll('[data-io]').forEach(cb => cb.onchange = renderIo);
+$('ioBigOnly').onchange = e => { settings.ioBigOnly = e.target.checked; saveSettings(); renderIo(); };
 onIoChange(renderIo);
 
 // Résumé des lieux iOverlander proches d'une étape (fiche de l'étape)
 function ioSummary(s) {
-  const near = ioNear(s, 15);
+  const near = ioNear(s, 15).filter(({ x }) => ioShown(x));
   if (!near.length) return '';
   const n = k => near.filter(({ x }) => BY_K[x[3]].g === k).length;
   const by = k => near.filter(({ x }) => x[3] === k).length;
@@ -449,8 +474,10 @@ $('ioFile').onchange = async e => {
   $('dataMsg').textContent = 'Lecture du fichier iOverlander…';
   await new Promise(r => setTimeout(r, 30));
   try {
-    const r = importIoCsv(await file.text(), legs, trip.steps);
-    $('dataMsg').textContent = `✔ ${fmt(r.kept)} lieux gardés près du trajet (sur ${fmt(r.read)} utiles) · ${fmt(r.total)} au total. Ils seront envoyés à votre compte.`;
+    const r = importIoCsv(await file.text(), legs, trip.steps, $('ioAllBig').checked);
+    $('dataMsg').textContent = `✔ ${fmt(r.kept)} lieux gardés près du trajet (sur ${fmt(r.read)} utiles) · ${fmt(r.total)} au total. Ils seront envoyés à votre compte.`
+      + (r.big ? ` 🚛 ${fmt(r.big)} marqués gros équipement.` : r.hasBigCol ? '' : ' (Ce fichier ne dit pas quels lieux conviennent aux gros équipements : voir l’aide sous le bouton.)');
+    $('ioAllBig').checked = false;
     syncNow();
   } catch (err) {
     $('dataMsg').textContent = `✖ ${err.message}`;
@@ -566,7 +593,7 @@ function renderDiscoverLists() {
     : `<div class="src">${getPlaces().length ? 'Aucun lieu de vos guides près de cette étape.' : 'Importez vos lieux dans ⚙ Paramètres.'}</div>`;
 
   // iOverlander : les plus proches de l'étape, par groupe
-  const io = ioNear(s, 15);
+  const io = ioNear(s, 15).filter(({ x }) => ioShown(x));
   $('dcIo').innerHTML = !getIo().length ? '<div class="src">Importez votre export iOverlander dans ⚙ Paramètres.</div>'
     : !io.length ? '<div class="src">Aucun lieu iOverlander à 15 km de cette étape.</div>'
     : Object.entries(GROUPS).map(([g, title]) => {
@@ -907,7 +934,7 @@ function renderList() {
       <div class="d"><b onclick="focusStep(${i})">${esc(s.name)}</b>
         <small>${s.type === 'start' ? 'Départ ' : s.type === 'dest' ? 'Arrivée ' : ''}${dateInput}${nightsInput}</small>
         <small class="gps">GPS <input value="${gpsText(s)}" title="${esc(GPS_HELP)}" onchange="act('gps', ${i}, this.value)"></small>
-        ${milestoneHtml(i)}${s.extra?.note ? `<small>ℹ ${esc(s.extra.note)}</small>` : ''}${s.extra?.addr ? `<small>📍 <a href="${goUrl(s)}" target="_blank" rel="noopener">${esc(s.extra.addr)}</a></small>` : ''}</div>
+        ${milestoneHtml(i)}${s.extra?.note ? `<small>ℹ ${esc(s.extra.note)}</small>` : ''}${s.extra?.addr ? `<small>📍 <a href="${goUrl(s)}" target="_blank" rel="noopener">${esc(s.extra.addr)}</a></small>` : ''}${s.extra?.alts?.length ? `<small>🔁 Rechange : ${s.extra.alts.map(a => esc(a.name)).join(' · ')}</small>` : ''}</div>
       ${isNight(s) ? `<div class="ctl"><button onclick="act('up', ${i})" title="Monter">↑</button><button onclick="act('down', ${i})" title="Descendre">↓</button></div>` : ''}
     </div>`;
   });
@@ -1201,6 +1228,28 @@ window.act = (what, i, v) => {
   }
   if (what === 'resName') s.extra = { ...(s.extra || {}), resName: v };
   if (what === 'addr') s.extra = { ...(s.extra || {}), addr: v.trim() };
+  if (what === 'altAdd') {
+    const [name, where] = v.map(x => (x || '').trim());
+    if (!name && !where) return;
+    const p = parseGps(where);
+    const a = { name: name || (p ? 'Choix de rechange' : where), ...(p || {}), ...(!p && where && name ? { addr: where } : {}) };
+    s.extra = { ...(s.extra || {}), alts: [...(s.extra?.alts || []), a] };
+  }
+  if (what === 'altDel') {
+    const alts = (s.extra?.alts || []).filter((_, k) => k !== v);
+    const { alts: _, ...rest } = s.extra || {};
+    s.extra = alts.length ? { ...rest, alts } : rest;
+  }
+  // L'endroit de rechange devient l'endroit prévu ; l'endroit prévu passe en tête des rechanges
+  if (what === 'altUse') {
+    const alts = [...(s.extra?.alts || [])], a = alts.splice(v, 1)[0];
+    if (!a) return;
+    const old = { name: s.name, lat: s.lat, lng: s.lng, ...(s.extra?.addr ? { addr: s.extra.addr } : {}) };
+    const { addr, ...rest } = s.extra || {};
+    s.name = a.name;
+    if (a.lat != null) { s.lat = a.lat; s.lng = a.lng; geometry = true; }
+    s.extra = { ...rest, ...(a.addr ? { addr: a.addr } : {}), alts: [old, ...alts] };
+  }
   if (what === 'gps') {
     const p = parseGps(v);
     if (!p) { alert('Position GPS non reconnue.\n' + GPS_HELP); renderList(); markers.get(s.id)?.openPopup(); return; }
@@ -1231,7 +1280,7 @@ window.act = (what, i, v) => {
     if (s.extra?.reserved) s.extra = { ...s.extra, from: toIso(arrival(i)), by: toIso(arrival(i)) };
   }
   refresh(geometry);
-  if (hadPopup && ['nights', 'type', 'date', 'leaveRig', 'longOk', 'reserve', 'resName', 'addr', 'gps', 'money', 'journal'].includes(what)) markers.get(s.id)?.openPopup();
+  if (hadPopup && ['nights', 'type', 'date', 'leaveRig', 'longOk', 'reserve', 'resName', 'addr', 'gps', 'money', 'journal', 'altAdd', 'altDel', 'altUse'].includes(what)) markers.get(s.id)?.openPopup();
 };
 
 window.focusStep = i => {

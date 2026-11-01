@@ -24,7 +24,7 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v1.14</small></div>
+  <div class="logo">Cap Ouest <small>v1.15</small></div>
   <button class="btn sm pri" id="installBtn" hidden>📲 Installer l'application</button>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
@@ -105,6 +105,7 @@
       <label><input type="checkbox" data-io="night" checked> ⛺ Nuits (sauvage, informel, campings)</label>
       <label><input type="checkbox" data-io="serv" checked> 💧 Services (eau, vidange, propane…)</label>
       <label><input type="checkbox" data-io="warn" checked> ⚠ Avertissements, état des routes</label>
+      <label><input type="checkbox" id="ioBigOnly"> 🚛 Nuits pour gros équipement seulement <span id="ioBigNote" class="src"></span></label>
       <div class="legend"><span>Visibles en zoomant (niveau 8 et plus)</span></div>
     </details>
 
@@ -541,6 +542,8 @@
             <button class="btn sm" id="ioClear">Retirer les lieux iOverlander</button>
             <span class="src" id="ioInfo"></span>
           </div>
+          <label class="src" style="display:block"><input type="checkbox" id="ioAllBig"> 🚛 Ce fichier vient d’une recherche iOverlander filtrée « Big Rig Friendly » (tous ses lieux conviennent aux gros équipements)</label>
+          <div class="src">Gros équipement : sur ioverlander.com, faites la recherche avec le filtre <b>Big Rig Friendly</b> coché, téléchargez le CSV, cochez la case ci-dessus puis importez. Les lieux déjà importés sont alors marqués 🚛 ; dans ☰ Calques, cochez « Nuits pour gros équipement seulement ».</div>
           <div class="src">Seuls les lieux à 40 km ou moins du trajet sont gardés (camping, eau, vidange, propane, nuit interdite…). Plusieurs fichiers (Canada, États-Unis) s’additionnent. Réimportez si le trajet change beaucoup.</div>
           <div class="src">Fichier privé <b>Data/mes-lieux.json</b> préparé à partir de vos guides : importé une fois, il se synchronise ensuite avec vos autres appareils.</div>
           <div class="row mt">

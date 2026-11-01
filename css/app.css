@@ -223,3 +223,10 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; }
 .pop .journal textarea { width: 100%; box-sizing: border-box; font: inherit; font-size: 13px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 4px; }
 .jr { padding: 8px 0; border-bottom: 1px solid var(--line); }
 .jr b { cursor: pointer; }
+.pop .alts { margin-top: 4px; }
+.pop .alts summary { cursor: pointer; font-weight: 600; }
+.pop .alt { display: flex; gap: 4px; align-items: center; margin-top: 4px; }
+.pop .alt > div { flex: 1; min-width: 0; }
+.pop .alt small { display: block; color: var(--muted); }
+.pop .alt-add { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.pop .alt-add input { margin: 0; flex: 1 1 120px; }
