@@ -406,6 +406,21 @@ const IO_MIN_ZOOM = 8;
 const ioRenderer = L.canvas({ padding: 0.5 });
 const ioLayer = L.layerGroup();
 const ioGroupOn = g => document.querySelector(`[data-io=${g}]`)?.checked;
+// Pastille ronde de la couleur de la catégorie, avec son icône (⛺ 🏕 💧 🚽…), dessinée sur le canevas
+// (des milliers de points : pas d'éléments HTML). Taille selon le zoom ; anneau orange = gros équipement.
+const ioRadius = () => { const z = map.getZoom(); return z >= 13 ? 13 : z >= 11 ? 11 : z >= 10 ? 9 : 7; };
+const IoMarker = L.CircleMarker.extend({
+  _updatePath() {
+    this._renderer._updateCircle(this);
+    const ctx = this._renderer._ctx, p = this._point, r = this._radius;
+    if (!ctx || !this.options.icon || r < 8) return;
+    ctx.save();
+    ctx.font = `${Math.round(r * 1.15)}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(this.options.icon, p.x, p.y + 1);
+    ctx.restore();
+  },
+});
 // « Gros équipement seulement » : les nuits non marquées big rig friendly sont cachées (services et avertissements restent)
 const ioShown = x => !settings.ioBigOnly || BY_K[x[3]]?.g !== 'night' || x[4] === 1;
 
@@ -436,7 +451,8 @@ function renderIo() {
   list.forEach(x => {
     const c = BY_K[x[3]];
     if (!c || !ioGroupOn(c.g) || !ioShown(x)) return;
-    L.circleMarker([x[0], x[1]], { renderer: ioRenderer, radius: 6, color: '#fff', weight: 1.5, fillColor: c.color, fillOpacity: .9 })
+    const big = x[4] === 1;
+    new IoMarker([x[0], x[1]], { renderer: ioRenderer, radius: ioRadius(), icon: c.icon, color: big ? '#ff8f00' : '#fff', weight: big ? 3 : 1.5, fillColor: c.color, fillOpacity: .9 })
       .bindPopup(() => ioPopup(x), { minWidth: 220 })
       .addTo(ioLayer);
   });
@@ -448,7 +464,11 @@ const toggleIo = () => {
   if (show && !map.hasLayer(ioLayer)) ioLayer.addTo(map);
   if (!show && map.hasLayer(ioLayer)) map.removeLayer(ioLayer);
 };
-map.on('zoomend', toggleIo);
+map.on('zoomend', () => {
+  toggleIo();
+  const r = ioRadius();
+  ioLayer.eachLayer(m => m.getRadius() !== r && m.setRadius(r));
+});
 document.querySelectorAll('[data-io]').forEach(cb => cb.onchange = renderIo);
 $('ioBigOnly').onchange = e => { settings.ioBigOnly = e.target.checked; saveSettings(); renderIo(); };
 onIoChange(renderIo);
