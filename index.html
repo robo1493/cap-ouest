@@ -33,7 +33,8 @@
     }
     b.textContent = '⚠ Erreur dans Cap Ouest (photo d’écran à Claude, toucher pour fermer) : ' + msg;
   };
-  addEventListener('error', e => window.showStartError(e.message + (e.filename ? ` (${e.filename.split('/').pop()}:${e.lineno})` : ''), e.error));
+  // « Script error. » : erreur d'un fichier externe ou d'une extension du navigateur, sans détail utile
+  addEventListener('error', e => e.message !== 'Script error.' && window.showStartError(e.message + (e.filename ? ` (${e.filename.split('/').pop()}:${e.lineno})` : ''), e.error));
   addEventListener('unhandledrejection', e => window.showStartError(String(e.reason?.message || e.reason), e.reason));
 </script>
 <script type="module" src="js/main.js"></script>
@@ -41,7 +42,7 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v1.16.3</small></div>
+  <div class="logo">Cap Ouest <small>v1.16.4</small></div>
   <button class="btn sm pri" id="installBtn" hidden>📲 Installer l'application</button>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
