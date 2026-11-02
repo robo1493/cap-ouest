@@ -409,16 +409,31 @@ const ioGroupOn = g => document.querySelector(`[data-io=${g}]`)?.checked;
 // Pastille ronde de la couleur de la catégorie, avec son icône (⛺ 🏕 💧 🚽…), dessinée sur le canevas
 // (des milliers de points : pas d'éléments HTML). Taille selon le zoom ; anneau orange = gros équipement.
 const ioRadius = () => { const z = map.getZoom(); return z >= 13 ? 13 : z >= 11 ? 11 : z >= 10 ? 9 : 7; };
+// Une icône emoji se dessine lentement (fillText) : chaque icône est dessinée une fois par taille dans
+// une petite image réutilisée, et seulement pour les points à l'écran (sinon la carte gelait des secondes).
+const ioSprites = new Map();
+function ioSprite(icon, r) {
+  const key = icon + r;
+  if (!ioSprites.has(key)) {
+    const px = Math.round(r * 1.15), size = px * 2, dpr = window.devicePixelRatio || 1;
+    const c = document.createElement('canvas');
+    c.width = c.height = Math.ceil(size * dpr);
+    const g = c.getContext('2d');
+    g.scale(dpr, dpr);
+    g.font = `${px}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(icon, size / 2, size / 2 + 1);
+    ioSprites.set(key, { c, size });
+  }
+  return ioSprites.get(key);
+}
 const IoMarker = L.CircleMarker.extend({
   _updatePath() {
     this._renderer._updateCircle(this);
     const ctx = this._renderer._ctx, p = this._point, r = this._radius;
-    if (!ctx || !this.options.icon || r < 8) return;
-    ctx.save();
-    ctx.font = `${Math.round(r * 1.15)}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(this.options.icon, p.x, p.y + 1);
-    ctx.restore();
+    if (!ctx || !this.options.icon || r < 8 || this._empty()) return;
+    const { c, size } = ioSprite(this.options.icon, r);
+    ctx.drawImage(c, p.x - size / 2, p.y - size / 2, size, size);
   },
 });
 // « Gros équipement seulement » : les nuits non marquées big rig friendly sont cachées (services et avertissements restent)
