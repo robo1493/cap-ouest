@@ -19,12 +19,29 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <!-- Rotation de la carte (route devant en mode conduite) -->
 <script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js"></script>
+<script>
+  // Erreur au démarrage : affichée en haut de l'écran pour pouvoir la signaler (photo d'écran à Claude)
+  window.showStartError = (msg, err) => {
+    console.error(msg, err);
+    let b = document.getElementById('startError');
+    if (!b) {
+      b = document.createElement('div');
+      b.id = 'startError';
+      b.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:99999;background:#b71c1c;color:#fff;padding:8px 12px;border-radius:6px;font:13px system-ui;box-shadow:0 2px 8px rgba(0,0,0,.4)';
+      b.onclick = () => b.remove();
+      (document.body || document.documentElement).appendChild(b);
+    }
+    b.textContent = '⚠ Erreur dans Cap Ouest (photo d’écran à Claude, toucher pour fermer) : ' + msg;
+  };
+  addEventListener('error', e => window.showStartError(e.message + (e.filename ? ` (${e.filename.split('/').pop()}:${e.lineno})` : ''), e.error));
+  addEventListener('unhandledrejection', e => window.showStartError(String(e.reason?.message || e.reason), e.reason));
+</script>
 <script type="module" src="js/main.js"></script>
 </head>
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v1.16.2</small></div>
+  <div class="logo">Cap Ouest <small>v1.16.3</small></div>
   <button class="btn sm pri" id="installBtn" hidden>📲 Installer l'application</button>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>

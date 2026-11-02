@@ -101,7 +101,7 @@ const goUrl = s => 'https://www.google.com/maps/dir/?api=1&destination=' + encod
 
 // Position GPS saisie à la main : « 48.4284, -123.3656 », « 48.4284 N 123.3656 O »,
 // degrés-minutes-secondes « 48°25'42"N 123°21'56"W » ou lien Google Maps (…@48.42,-123.36…)
-const gpsText = s => `${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}`;
+const gpsText = s => `${(+s.lat).toFixed(5)}, ${(+s.lng).toFixed(5)}`;
 function parseGps(str) {
   const t = String(str || '').trim();
   const at = t.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || t.match(/[?&](?:q|query|destination|ll)=(-?\d+\.\d+)(?:,|%2C)(-?\d+\.\d+)/i);
@@ -1914,10 +1914,10 @@ showInstall();
 
 // ---------- Démarrage ----------
 map.setView([47, -92], 4);
-renderMarkers();
-recompute();
-renderGuides();
-renderIo();
+// Une erreur d'affichage (donnée inattendue) ne doit jamais empêcher la synchronisation de démarrer
+for (const [label, fn] of [['étapes', renderMarkers], ['trajet', recompute], ['guides', renderGuides], ['iOverlander', renderIo]]) {
+  try { fn(); } catch (e) { window.showStartError?.(`Affichage des ${label} : ${e.message}`, e); }
+}
 initSync();
 // La carte n'a sa taille réelle qu'après la mise en page (et parfois plus tard si l'onglet est caché) :
 // on suit sa taille et on cadre le trajet dès qu'elle est connue.
