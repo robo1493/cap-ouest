@@ -113,7 +113,10 @@ export async function syncNow() {
     } else {
       const remoteTs = Date.parse(remote.updated_at);
       const firstSyncHere = trip.id !== remote.id;    // cet appareil n'a jamais été synchronisé
-      const remoteNewer = remoteTs > trip.syncedAt && !(dirty && trip.updatedAt > remoteTs);
+      // Le serveur a changé depuis notre dernière synchro si sa date diffère de celle qu'on a notée
+      // (comparer avec « plus grand que » échouait quand les horloges des appareils ne sont pas à la même heure)
+      const remoteChanged = remoteTs !== trip.syncedAt;
+      const remoteNewer = remoteChanged && !(dirty && trip.updatedAt > remoteTs);
       if (firstSyncHere || remoteNewer) await pull(remote);
       else if (dirty) await push();
     }
@@ -127,7 +130,7 @@ export async function syncNow() {
       setStatus('synced', 'Lieux des guides non synchronisés : exécuter la mise à jour SQL (table places)');
       return;
     }
-    setStatus('synced');
+    setStatus('synced', 'Dernière synchro : ' + new Date().toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' }));
   } catch (e) {
     console.warn('Synchronisation', e);
     setStatus('error', e.message || String(e));
