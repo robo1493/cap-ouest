@@ -230,3 +230,5 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; }
 .pop .alt small { display: block; color: var(--muted); }
 .pop .alt-add { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .pop .alt-add input { margin: 0; flex: 1 1 120px; }
+.pop .after { display: flex; gap: 6px; align-items: center; margin: 4px 0; font-size: 12px; }
+.pop .after select { flex: 1; min-width: 0; font-size: 12px; }

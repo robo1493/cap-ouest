@@ -143,6 +143,15 @@ function altsHtml(s, i) {
   </details>`;
 }
 
+// « Placer après » : déplacer l'étape n'importe où dans le voyage (une nouvelle étape près de Montréal
+// peut tomber sur le retour de mars plutôt qu'au départ de juin)
+function placeAfterHtml(i) {
+  const steps = trip.steps, last = steps.length - 1;
+  const opts = steps.map((x, j) => j === i || j === last ? ''
+    : `<option value="${j}"${j === i - 1 ? ' selected' : ''}>${j ? j + '. ' : '⌂ '}${esc(x.name.split(',')[0])} (${arrival(j).toLocaleDateString('fr-CA', { day: 'numeric', month: 'short', year: 'numeric' })})</option>`).join('');
+  return `<label class="after">Placer après <select onchange="act('moveAfter', ${i}, +this.value)">${opts}</select></label>`;
+}
+
 function popupHtml(i) {
   const s = trip.steps[i], prev = trip.steps[i - 1], leg = legs[i - 1];
   const km = !prev || !leg ? 'Point de départ'
@@ -157,6 +166,7 @@ function popupHtml(i) {
     ${leg && leg.provider !== 'ferry' && leg.km > maxKm() ? `<label style="display:block"><input type="checkbox" ${s.extra?.longOk ? 'checked' : ''} onchange="act('longOk', ${i}, this.checked)">
       Tronçon long accepté (${fmt(leg.km)} km, route facile)</label>` : ''}
     <div>${s.type === 'start' ? 'Départ' : 'Arrivée'} : <input type="date" style="width:auto" value="${toIso(arrival(i))}" onchange="act('date', ${i}, this.value)"></div>
+    ${canType ? placeAfterHtml(i) : ''}
     ${canType ? `<div>Nuits ici : <b>${s.nights}</b>
       <button class="btn sm" onclick="act('nights', ${i}, -1)">−</button>
       <button class="btn sm" onclick="act('nights', ${i}, 1)">+</button></div>` : ''}
@@ -1303,6 +1313,11 @@ window.act = (what, i, v) => {
   }
   if (what === 'del') { steps.splice(i, 1); map.closePopup(); geometry = true; }
   if (what === 'up' && steps[i - 1].type !== 'start') { [steps[i - 1], steps[i]] = [steps[i], steps[i - 1]]; geometry = true; }
+  if (what === 'moveAfter' && v !== i && v !== i - 1) {
+    steps.splice(i, 1);
+    steps.splice(v < i ? v + 1 : v, 0, s);
+    geometry = true;
+  }
   if (what === 'down' && steps[i + 1].type !== 'dest') { [steps[i + 1], steps[i]] = [steps[i], steps[i + 1]]; geometry = true; }
   // Changer une date d'arrivée allonge ou raccourcit le séjour à l'étape précédente
   // (pour la première étape ou le départ : décale la date de départ)
@@ -1310,12 +1325,14 @@ window.act = (what, i, v) => {
     const delta = dayDiff(arrival(i), parseIso(v));
     const prev = steps[i - 1];
     if (i === 0 || prev.type === 'start') trip.startIso = toIso(addDays(parseIso(trip.startIso), delta));
-    else if (prev.nights + delta < 1) alert(`Impossible : ${prev.name} doit garder au moins 1 nuit. Date la plus tôt : ${addDays(arrival(i - 1), 1).toLocaleDateString('fr-CA')}`);
+    else if (prev.nights + delta < 1) alert(`Impossible : ${prev.name} doit garder au moins 1 nuit. Date la plus tôt : ${addDays(arrival(i - 1), 1).toLocaleDateString('fr-CA')}
+
+Si l'étape n'est pas au bon endroit dans le voyage, choisissez « Placer après » dans sa fiche.`);
     else prev.nights += delta;
     if (s.extra?.reserved) s.extra = { ...s.extra, from: toIso(arrival(i)), by: toIso(arrival(i)) };
   }
   refresh(geometry);
-  if (hadPopup && ['nights', 'type', 'date', 'leaveRig', 'longOk', 'reserve', 'resName', 'addr', 'gps', 'money', 'journal', 'altAdd', 'altDel', 'altUse'].includes(what)) markers.get(s.id)?.openPopup();
+  if (hadPopup && ['nights', 'type', 'date', 'leaveRig', 'longOk', 'reserve', 'resName', 'addr', 'gps', 'money', 'journal', 'altAdd', 'altDel', 'altUse', 'moveAfter'].includes(what)) markers.get(s.id)?.openPopup();
 };
 
 window.focusStep = i => {
