@@ -102,7 +102,7 @@ function parseCsv(text) {
 
 // Test « à moins de km du trajet », rapide : points du tracé tous les ~5 km rangés dans une grille
 // de cases de 0,5°, puis comparaison avec les seules cases voisines.
-function corridorTest(legs, steps, km) {
+export function corridorTest(legs, steps, km) {
   const CELL = 0.5, grid = new Map();
   const add = p => {
     const k = `${Math.floor(p[0] / CELL)},${Math.floor(p[1] / CELL)}`;

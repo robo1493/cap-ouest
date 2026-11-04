@@ -103,7 +103,17 @@ function classify(s, urban) {
 }
 
 // Liste ordonnée des stations diesel le long du trajet, avec km, distance et niveau
+// Le calcul (projection de chaque station sur le tracé) est lourd : refait seulement si un tronçon
+// ou ses stations ont changé (changer des nuits ou le type d'une étape ne touche pas au tracé)
+let memo = { key: [], out: [] };
 export function stationsAlong(legs) {
+  const key = legs.flatMap(l => [l.coords, l.km, cachedStations(l)]);
+  if (key.length === memo.key.length && key.every((k, i) => k === memo.key[i])) return memo.out;
+  memo = { key, out: alongUncached(legs) };
+  return memo.out;
+}
+
+function alongUncached(legs) {
   const byId = new Map();
   let kmBefore = 0;
   legs.forEach((leg, li) => {

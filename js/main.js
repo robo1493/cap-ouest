@@ -12,6 +12,7 @@ import { project } from './overpass.js';
 import { dayLog, usPeriods, usRollingMax, latestUsExit, qcAbsence, US_LIMIT, QC_LIMIT } from './days.js';
 import { proposals, simulate } from './catchup.js';
 import { BY_K, GROUPS, getIo, onIoChange, importIoCsv, clearIo, ioNear, ioBigCount } from './ioverlander.js';
+import { CHAINS, loadChains, chainsNear } from './chains.js';
 import { clearancesAlong, fetchMissingClearances, clearanceProgress, clearClearanceCache, feet } from './clearances.js';
 import { addPoint, trailKm, trailSegments, onTrailChange, clearTrail } from './trail.js';
 import { isNight as sunDown } from './night.js';
@@ -222,10 +223,15 @@ function previewDrag(i, ll) {
   L.polyline(pts, { color: '#b4733d', weight: 3, dashArray: '6 6' }).addTo(layers.preview);
 }
 
+// Tracé redessiné seulement s'il a changé (changer des nuits ou le type d'une étape n'y touche pas)
+let drawnKey = [];
 function renderLines() {
-  layers.lines.clearLayers();
+  const key = legs.flatMap(l => [l.coords, l.provider]);
+  const same = key.length === drawnKey.length && key.every((k, i) => k === drawnKey[i]);
+  drawnKey = key;
+  if (!same) layers.lines.clearLayers();
   layers.fuel.clearLayers();
-  legs.forEach(leg => {
+  if (!same) legs.forEach(leg => {
     const style = leg.provider === 'ferry' ? { color: '#3d6fb4', weight: 3, opacity: .9, dashArray: '2 8' }
       : leg.provider === 'estimate' ? { color: '#777', weight: 3, opacity: .8, dashArray: '6 8' }
       : leg.provider === 'ors-car' ? { color: '#b4733d', weight: 4, opacity: .9 }
@@ -248,7 +254,7 @@ function renderLines() {
 
   renderList();
   renderCalendar();
-  renderKpis();
+  queueKpis();
   renderFuelTable();
   renderStations();
   renderClearances();
@@ -257,6 +263,7 @@ function renderLines() {
   loadStations();
   loadClearances();
   loadPois();
+  queueChains();
 }
 
 let linesQueued = false;
@@ -497,6 +504,66 @@ map.on('zoomend', () => {
 document.querySelectorAll('[data-io]').forEach(cb => cb.onchange = renderIo);
 $('ioBigOnly').onchange = e => { settings.ioBigOnly = e.target.checked; saveSettings(); renderIo(); };
 onIoChange(renderIo);
+
+// ---------- Nuits possibles : Walmart, relais routiers, grandes chaînes (OpenStreetMap) ----------
+const CHAIN_MIN_ZOOM = 7;
+const chainLayer = L.layerGroup();
+const chainOn = k => document.querySelector(`[data-chain=${k}]`)?.checked;
+
+function chainPopup(x) {
+  const c = CHAINS[x[2]], p = { lat: x[0], lng: x[1] };
+  let near = -1, d = Infinity;
+  trip.steps.forEach((s, i) => { const k = hav(s, p); if (k < d) { d = k; near = i; } });
+  const name = x[3] || c.label;
+  return `<div class="pop">
+    <span class="chip" style="border-color:${c.color};color:${c.color}">${c.icon} ${c.label}</span>
+    <div><b>${esc(name)}</b></div>
+    <div class="src">⚠ ${c.tip}</div>
+    <div class="src">À ${fmt(d)} km de ${esc(trip.steps[near].name.split(',')[0])} · source : OpenStreetMap</div>
+    ${trip.steps[near].type !== 'start' ? `<button class="btn sm" onclick="act('altAdd', ${near}, [${esc(JSON.stringify(name))}, '${x[0]}, ${x[1]}'])">🔁 Choix de rechange pour ${esc(trip.steps[near].name.split(',')[0])}</button>` : ''}
+    <div class="row">
+      <button class="btn sm" onclick="viewAt(${x[0]}, ${x[1]}, 18)">Vue satellite</button>
+      <a class="btn sm" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${x[0]},${x[1]}">Google Maps ↗</a>
+    </div>
+  </div>`;
+}
+
+function renderChains() {
+  chainLayer.clearLayers();
+  const list = chainsNear(legs, trip.steps);
+  if (!list) { $('chainCount').textContent = ''; return; }
+  const counts = {};
+  list.forEach(x => {
+    const c = CHAINS[x[2]];
+    if (!c) return;
+    counts[x[2]] = (counts[x[2]] || 0) + 1;
+    if (!chainOn(x[2])) return;
+    new IoMarker([x[0], x[1]], { renderer: ioRenderer, radius: Math.max(ioRadius(), 9), icon: c.icon, color: '#fff', weight: 2, fillColor: c.color, fillOpacity: .95 })
+      .bindPopup(() => chainPopup(x), { minWidth: 230 })
+      .addTo(chainLayer);
+  });
+  document.querySelectorAll('[data-chain]').forEach(cb => {
+    const n = cb.parentElement.querySelector('.src');
+    if (n) n.textContent = counts[cb.dataset.chain] ? `(${counts[cb.dataset.chain]})` : '';
+  });
+  $('chainCount').textContent = `(${fmt(list.length)} près du trajet)`;
+  toggleChains();
+}
+const toggleChains = () => {
+  const show = map.getZoom() >= CHAIN_MIN_ZOOM;
+  if (show && !map.hasLayer(chainLayer)) chainLayer.addTo(map);
+  if (!show && map.hasLayer(chainLayer)) map.removeLayer(chainLayer);
+};
+// Le trajet change souvent pendant son calcul : on attend qu'il se calme avant de refiltrer
+let chainTimer = 0;
+const queueChains = () => { clearTimeout(chainTimer); chainTimer = setTimeout(renderChains, 1500); };
+map.on('zoomend', () => {
+  toggleChains();
+  const r = Math.max(ioRadius(), 9);
+  chainLayer.eachLayer(m => m.getRadius() !== r && m.setRadius(r));
+});
+document.querySelectorAll('[data-chain]').forEach(cb => cb.onchange = renderChains);
+loadChains().then(queueChains).catch(e => console.warn('Chaînes : fichier introuvable', e));
 
 // Résumé des lieux iOverlander proches d'une étape (fiche de l'étape)
 function ioSummary(s) {
@@ -1202,6 +1269,15 @@ $('cuUndo').onclick = () => {
 };
 
 // ---------- Indicateurs ----------
+// Tableau de bord : tout de suite s'il est ouvert, sinon un peu plus tard (la fiche d'étape s'affiche
+// d'abord ; plusieurs clics de suite = un seul calcul)
+let kpisTimer = 0;
+function queueKpis() {
+  clearTimeout(kpisTimer);
+  if (drawer.classList.contains('open') && $('dash').classList.contains('on')) renderKpis();
+  else kpisTimer = setTimeout(renderKpis, 400);
+}
+
 function renderKpis() {
   const km = legs.reduce((t, l) => t + l.km, 0);
   const hours = legs.reduce((t, l) => t + (l.h || 0), 0);

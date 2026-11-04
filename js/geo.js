@@ -38,7 +38,16 @@ export function decodePolyline(str, precision = 5) {
 // Chaque tronçon est { coords, km } : la distance géométrique est remise à l'échelle de km
 // (utile pour les estimations à vol d'oiseau × 1,2).
 // startKm : position (km) du point de départ du décompte (ex. dernier plein réel), 0 = départ du voyage
+// Recalculé seulement si le tracé ou l'intervalle change (sinon chaque modification d'étape le refaisait)
+let alongMemo = { key: [], pts: [] };
 export function pointsAlong(legs, everyKm, startKm = 0) {
+  const key = [everyKm, startKm, ...legs.flatMap(l => [l.coords, l.km])];
+  if (key.length === alongMemo.key.length && key.every((k, i) => k === alongMemo.key[i])) return alongMemo.pts;
+  alongMemo = { key, pts: pointsAlongUncached(legs, everyKm, startKm) };
+  return alongMemo.pts;
+}
+
+function pointsAlongUncached(legs, everyKm, startKm) {
   const pts = [];
   let total = 0, next = startKm + everyKm;
   legs.forEach((leg, li) => {
