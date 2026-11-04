@@ -253,6 +253,7 @@ function renderLines() {
   });
 
   renderList();
+  renderTripTitle();
   renderCalendar();
   queueKpis();
   renderFuelTable();
@@ -1269,6 +1270,15 @@ $('cuUndo').onclick = () => {
 };
 
 // ---------- Indicateurs ----------
+// En-tête : départ → destination · mois de départ → mois d'arrivée (durée), tiré du voyage lui-même
+function renderTripTitle() {
+  const st = trip.steps, city = s => s.name.split(/[,(–]/)[0].trim();
+  const a = arrival(0), b = arrival(st.length - 1);
+  const mo = d => d.toLocaleDateString('fr-CA', { month: 'short', year: 'numeric' });
+  const months = Math.max(1, Math.round((b - a) / 864e5 / 30.4));
+  $('tripTitle').textContent = `${city(st[0])} → ${city(st[st.length - 1])} · ${mo(a)} → ${mo(b)} (${months} mois)`;
+}
+
 // Tableau de bord : tout de suite s'il est ouvert, sinon un peu plus tard (la fiche d'étape s'affiche
 // d'abord ; plusieurs clics de suite = un seul calcul)
 let kpisTimer = 0;
