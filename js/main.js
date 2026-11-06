@@ -13,6 +13,7 @@ import { dayLog, usPeriods, usRollingMax, latestUsExit, qcAbsence, US_LIMIT, QC_
 import { proposals, simulate } from './catchup.js';
 import { BY_K, GROUPS, getIo, onIoChange, importIoCsv, clearIo, ioNear, ioBigCount } from './ioverlander.js';
 import { CHAINS, loadChains, chainsNear } from './chains.js';
+import { CAMP_KINDS, CAMP_FLAGS, loadCamps, campsNear } from './camps.js';
 import { clearancesAlong, fetchMissingClearances, clearanceProgress, clearClearanceCache, feet } from './clearances.js';
 import { addPoint, trailKm, trailSegments, onTrailChange, clearTrail } from './trail.js';
 import { isNight as sunDown } from './night.js';
@@ -265,6 +266,7 @@ function renderLines() {
   loadClearances();
   loadPois();
   queueChains();
+  queueCamps();
 }
 
 let linesQueued = false;
@@ -565,6 +567,72 @@ map.on('zoomend', () => {
 });
 document.querySelectorAll('[data-chain]').forEach(cb => cb.onchange = renderChains);
 loadChains().then(queueChains).catch(e => console.warn('Chaînes : fichier introuvable', e));
+
+// ---------- Campings et parcs VR, privés et publics (OpenStreetMap) ----------
+const CAMP_MIN_ZOOM = 8;
+const campLayer = L.layerGroup();
+const campOn = k => document.querySelector(`[data-camp=${k}]`)?.checked;
+const campWho = () => document.querySelector('[name=campWho]:checked')?.value || 'all';
+
+function campPopup(x) {
+  const c = CAMP_KINDS[x[2]], p = { lat: x[0], lng: x[1] }, flags = x[6] || '';
+  let near = -1, d = Infinity;
+  trip.steps.forEach((s, i) => { const k = hav(s, p); if (k < d) { d = k; near = i; } });
+  const name = x[3] || c.label;
+  const who = flags.includes('p') ? 'Public' : flags.includes('x') ? 'Privé' : '';
+  const serv = [...flags].map(f => CAMP_FLAGS[f]).filter(Boolean).join(' · ');
+  return `<div class="pop">
+    <span class="chip" style="border-color:${c.color};color:${c.color}">${c.icon} ${c.label}${who ? ' · ' + who : ''}</span>
+    <div><b>${esc(name)}</b></div>
+    ${serv ? `<div>${serv}</div>` : ''}
+    ${x[7] ? `<div>📏 Longueur max. : ${esc(x[7])}</div>` : ''}
+    ${x[4] ? `<div>📞 <a href="tel:${esc(x[4].replace(/[^\d+]/g, ''))}">${esc(x[4])}</a></div>` : ''}
+    ${x[5] ? `<div>🌐 <a href="${esc(x[5])}" target="_blank" rel="noopener">Site web ↗</a></div>` : ''}
+    <div class="src">⚠ Vérifier la place pour 55 pi (camion + fifth wheel) et l'ouverture en saison.</div>
+    <div class="src">À ${fmt(d)} km de ${esc(trip.steps[near].name.split(',')[0])} · source : OpenStreetMap</div>
+    ${trip.steps[near].type !== 'start' ? `<button class="btn sm" onclick="act('altAdd', ${near}, [${esc(JSON.stringify(name))}, '${x[0]}, ${x[1]}'])">🔁 Choix de rechange pour ${esc(trip.steps[near].name.split(',')[0])}</button>` : ''}
+    <div class="row">
+      <button class="btn sm" onclick="viewAt(${x[0]}, ${x[1]}, 17)">Vue satellite</button>
+      <a class="btn sm" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}%20${x[0]},${x[1]}">Google Maps ↗</a>
+    </div>
+  </div>`;
+}
+
+function renderCamps() {
+  campLayer.clearLayers();
+  const list = campsNear(legs, trip.steps);
+  if (!list) { $('campCount').textContent = ''; return; }
+  const who = campWho(), counts = {};
+  list.forEach(x => {
+    const c = CAMP_KINDS[x[2]], f = x[6] || '';
+    if (!c) return;
+    counts[x[2]] = (counts[x[2]] || 0) + 1;
+    if (!campOn(x[2]) || (who === 'x' && !f.includes('x')) || (who === 'p' && !f.includes('p'))) return;
+    new IoMarker([x[0], x[1]], { renderer: ioRenderer, radius: Math.max(ioRadius(), 9), icon: c.icon, color: f.includes('e') ? '#ffd54f' : '#fff', weight: 2, fillColor: c.color, fillOpacity: .95 })
+      .bindPopup(() => campPopup(x), { minWidth: 230 })
+      .addTo(campLayer);
+  });
+  document.querySelectorAll('[data-camp]').forEach(cb => {
+    const n = cb.parentElement.querySelector('.src');
+    if (n) n.textContent = counts[cb.dataset.camp] ? `(${counts[cb.dataset.camp]})` : '';
+  });
+  $('campCount').textContent = `(${fmt(list.length)} près du trajet)`;
+  toggleCamps();
+}
+const toggleCamps = () => {
+  const show = map.getZoom() >= CAMP_MIN_ZOOM;
+  if (show && !map.hasLayer(campLayer)) campLayer.addTo(map);
+  if (!show && map.hasLayer(campLayer)) map.removeLayer(campLayer);
+};
+let campTimer = 0;
+const queueCamps = () => { clearTimeout(campTimer); campTimer = setTimeout(renderCamps, 1600); };
+map.on('zoomend', () => {
+  toggleCamps();
+  const r = Math.max(ioRadius(), 9);
+  campLayer.eachLayer(m => m.getRadius() !== r && m.setRadius(r));
+});
+document.querySelectorAll('[data-camp], [name=campWho]').forEach(cb => cb.onchange = renderCamps);
+loadCamps().then(queueCamps).catch(e => console.warn('Campings : fichier introuvable', e));
 
 // Résumé des lieux iOverlander proches d'une étape (fiche de l'étape)
 function ioSummary(s) {

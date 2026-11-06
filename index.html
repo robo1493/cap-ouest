@@ -42,7 +42,7 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v1.19</small></div>
+  <div class="logo">Cap Ouest <small>v1.20</small></div>
   <button class="btn sm pri" id="installBtn" hidden>📲 Installer l'application</button>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
@@ -134,6 +134,15 @@
       <label><input type="checkbox" data-chain="r" checked> 🚐 Camping World <span class="src"></span></label>
       <label><input type="checkbox" data-chain="a" checked> 🍁 Canadian Tire <span class="src"></span></label>
       <div class="legend"><span>Visibles à partir du zoom 7 · source OpenStreetMap · ⚠ toujours demander la permission au gérant</span></div>
+      <hr style="border:0; border-top:1px solid var(--fill); margin:4px 0">
+      <b style="font-size:12px">🏕 Campings et parcs VR (à 20 km du trajet) <span id="campCount" class="src"></span></b>
+      <label><input type="checkbox" data-camp="v" checked> 🔌 Parcs VR <span class="src"></span></label>
+      <label><input type="checkbox" data-camp="c" checked> 🏕 Campings <span class="src"></span></label>
+      <div class="row" style="gap:10px; font-size:13px">
+        <label><input type="radio" name="campWho" value="all" checked> Tous</label>
+        <label><input type="radio" name="campWho" value="x"> Privés</label>
+        <label><input type="radio" name="campWho" value="p"> Publics</label></div>
+      <div class="legend"><span>Visibles à partir du zoom 8 · <i style="background:#fff;border:2px solid #ffd54f"></i>anneau jaune = électricité · source OpenStreetMap · ⚠ vérifier la place pour 55 pi</span></div>
     </details>
 
     <div class="drive" id="drive" hidden></div>
