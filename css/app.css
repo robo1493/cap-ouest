@@ -241,3 +241,15 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; }
 .fav-list li { padding: 2px 0; }
 .fav-box .alt-add { display: flex; flex-wrap: wrap; gap: 4px; }
 .fav-box .alt-add input { flex: 1 1 120px; min-width: 0; }
+
+/* 🔍 Recherche sur la carte */
+.search { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 1001; width: min(420px, calc(100% - 120px)); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,.3); padding: 6px; }
+.search[hidden] { display: none; }
+.search-row { display: flex; gap: 6px; }
+.search-row input { flex: 1; min-width: 0; margin: 0; padding: 8px; font-size: 16px; }
+.search-res { max-height: 55vh; overflow: auto; }
+.search-res h4 { margin: 8px 4px 2px; font-size: 11px; text-transform: uppercase; color: var(--muted); }
+.search-res button { display: block; width: 100%; text-align: left; border: 0; background: none; color: var(--ink); padding: 7px 6px; border-radius: 4px; cursor: pointer; font: inherit; font-size: 14px; }
+.search-res button:hover, .search-res button:focus { background: var(--fill); }
+.search-res small { display: block; color: var(--muted); font-size: 11px; }
+@media (max-width: 600px) { .search { left: 10px; right: 60px; width: auto; transform: none; } }

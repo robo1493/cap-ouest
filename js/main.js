@@ -686,7 +686,7 @@ function renderFavs() {
   if (show) list.forEach(f => L.marker([f.lat, f.lng], { icon: favIcon, zIndexOffset: 1000, title: f.name })
     .bindPopup(() => favPopup(f), { minWidth: 230 }).addTo(favLayer));
   const ul = $('favList');
-  if (ul) ul.innerHTML = list.map(f => `<li><a href="#" onclick="viewAt(${f.lat}, ${f.lng}, 12); return false">⭐ ${esc(f.name)}</a></li>`).join('');
+  if (ul) ul.innerHTML = list.map(f => `<li><a href="#" onclick="goTo(${f.lat}, ${f.lng}, 12); return false">⭐ ${esc(f.name)}</a></li>`).join('');
 }
 $('favShow').onchange = renderFavs;
 $('favAdd').onclick = () => {
@@ -694,7 +694,7 @@ $('favAdd').onclick = () => {
   if (!p) { alert('Position GPS non reconnue.\n' + GPS_HELP); return; }
   addFav({ name: name || 'Camping', ...p });
   $('favName').value = $('favWhere').value = '';
-  viewAt(p.lat, p.lng, 12);
+  goTo(p.lat, p.lng, 12);
 };
 onFavsChange(() => { renderFavs(); syncNow(); });
 renderFavs();
@@ -708,11 +708,116 @@ function favFromHash() {
   if (!p) return;
   const had = favAt(p.lat, p.lng);
   addFav({ name, ...p, note: note || '' });
-  viewAt(p.lat, p.lng, 11);
+  goTo(p.lat, p.lng, 11);
   setTimeout(() => alert(had ? `⭐ ${name} est déjà dans vos campings favoris.` : `⭐ ${name} est ajouté à vos campings favoris.`), 300);
 }
 window.addEventListener('hashchange', favFromHash);
-setTimeout(favFromHash, 0);   // après la définition de viewAt plus bas
+setTimeout(favFromHash, 0);   // après la définition de goTo / openView plus bas
+
+// Aller à un point sur le plan (sans passer en satellite, contrairement à viewAt)
+window.goTo = (lat, lng, zoom) => {
+  openView('map');
+  map.setView([lat, lng], Math.max(zoom, map.getZoom()));
+};
+
+// ---------- 🔍 Recherche : étapes, favoris, guides, iOverlander, campings (tout le continent), villes / adresses, GPS ----------
+const norm = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+let campsAll = null;
+const searchHits = [];
+function placePopup(r) {
+  const { i: near, d } = nearestStep(r), st = trip.steps[near], city = esc(st.name.split(',')[0]);
+  return `<div class="pop">
+    <div><b>${esc(r.name)}</b></div>
+    ${r.sub ? `<div class="src">${esc(r.sub)}</div>` : ''}
+    <div class="src">${r.lat.toFixed(5)}, ${r.lng.toFixed(5)} · à ${fmt(d)} km de ${city}</div>
+    ${favBtn({ name: r.name, lat: r.lat, lng: r.lng, note: r.sub || '' })}
+    ${st.type !== 'start' ? `<button class="btn sm" onclick="act('altAdd', ${near}, [${esc(JSON.stringify(r.name))}, '${r.lat}, ${r.lng}'])">🔁 Choix de rechange pour ${city}</button>` : ''}
+    <div class="row">
+      <button class="btn sm" onclick="viewAt(${r.lat}, ${r.lng}, 17)">Vue satellite</button>
+      <a class="btn sm" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${r.lat},${r.lng}">Google Maps ↗</a>
+    </div>
+  </div>`;
+}
+let searchPin = null;
+window.searchGo = k => {
+  const r = searchHits[k];
+  if (!r) return;
+  goTo(r.lat, r.lng, r.zoom || 12);
+  if (searchPin) { map.removeLayer(searchPin); searchPin = null; }
+  if (r.step != null) setTimeout(() => markers.get(trip.steps[r.step]?.id)?.openPopup(), 50);
+  else {
+    if (!r.fav) searchPin = L.circleMarker([r.lat, r.lng], { radius: 14, color: '#e53935', weight: 3, fill: false, interactive: false }).addTo(map);
+    L.popup({ minWidth: 240 }).setLatLng([r.lat, r.lng]).setContent(r.html()).openOn(map);
+  }
+  $('searchBox').hidden = true;   // la fiche reste visible ; 🔍 rouvre la recherche avec le même texte
+};
+function localHits(q) {
+  const words = norm(q).split(/\s+/).filter(Boolean);
+  const has = t => { const n = norm(t); return words.every(w => n.includes(w)); };
+  const out = [];
+  trip.steps.forEach((s, i) => has(s.name) && out.push({ g: 'Mes étapes', name: s.name, sub: i ? `Étape ${i}` : 'Départ', lat: s.lat, lng: s.lng, step: i, zoom: 11 }));
+  getFavs().forEach(f => has(f.name + ' ' + f.note) && out.push({ g: '⭐ Mes favoris', name: f.name, sub: f.note, lat: f.lat, lng: f.lng, fav: true, html: () => favPopup(f) }));
+  getPlaces().forEach(p => has(p.name) && out.push({ g: '📘 Mes guides', name: p.name, sub: PLACE_CATS[p.cat]?.label, lat: p.lat, lng: p.lng, html: () => guidePopup(p) }));
+  getIo().filter(x => has(x[2])).slice(0, 15)
+    .forEach(x => out.push({ g: '⛺ iOverlander', name: x[2], sub: BY_K[x[3]]?.label, lat: x[0], lng: x[1], html: () => ioPopup(x) }));
+  if (campsAll) campsAll.filter(x => has(x[3])).slice(0, 25).forEach(x => {
+    const f = x[6] || '', who = f.includes('p') ? 'public' : f.includes('x') ? 'privé' : '';
+    out.push({ g: '🏕 Campings et parcs VR', name: x[3], lat: x[0], lng: x[1], html: () => campPopup(x),
+      sub: [CAMP_KINDS[x[2]]?.label, who, `à ${fmt(nearestStep({ lat: x[0], lng: x[1] }).d)} km d’une étape`].filter(Boolean).join(' · ') });
+  });
+  return out;
+}
+let geoHits = [], geoQ = '', geoTimer = 0, searchTimer = 0;
+function renderSearch() {
+  const q = $('searchQ').value.trim();
+  searchHits.length = 0;
+  if (q.length < 2) { $('searchRes').innerHTML = '<div class="src" style="padding:6px">Nom d’un camping, d’une étape, d’une ville, une adresse ou une position GPS.</div>'; return; }
+  const gps = parseGps(q);
+  const hits = [
+    ...(gps ? [{ g: 'Position GPS', name: `${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)}`, lat: gps.lat, lng: gps.lng, zoom: 14 }] : []),
+    ...localHits(q),
+    ...(geoQ === q ? geoHits : []),
+  ];
+  hits.forEach(h => { h.html ||= () => placePopup(h); searchHits.push(h); });
+  let g = '';
+  $('searchRes').innerHTML = hits.map((h, k) => (h.g !== g ? `<h4>${esc(g = h.g)}</h4>` : '')
+    + `<button onclick="searchGo(${k})">${esc(h.name)}${h.sub ? `<small>${esc(h.sub)}</small>` : ''}</button>`).join('')
+    + (geoQ !== q && q.length >= 3 && !gps ? '<div class="src" style="padding:6px">Recherche des villes et adresses…</div>'
+      : !hits.length ? '<div class="src" style="padding:6px">Aucun résultat.</div>' : '');
+}
+// Villes et adresses : OpenStreetMap (Nominatim), États-Unis et Canada ; une requête après une pause de frappe
+async function geoSearch(q) {
+  if (q.length < 3 || parseGps(q)) { geoQ = q; geoHits = []; return; }
+  try {
+    const u = 'https://nominatim.openstreetmap.org/search?' + new URLSearchParams({ q, format: 'json', limit: 6, countrycodes: 'us,ca', 'accept-language': 'fr' });
+    const list = await fetch(u).then(r => r.json());
+    geoHits = list.map(x => ({ g: '📍 Villes et adresses (OpenStreetMap)', name: x.display_name.split(',').slice(0, 2).join(','),
+      sub: x.display_name.split(',').slice(2).join(',').trim(), lat: +x.lat, lng: +x.lon,
+      zoom: x.class === 'place' || x.class === 'boundary' ? 11 : 15 }));
+  } catch { geoHits = []; }
+  geoQ = q;
+  if ($('searchQ').value.trim() === q) renderSearch();
+}
+$('searchQ').oninput = () => {
+  clearTimeout(searchTimer); clearTimeout(geoTimer);
+  searchTimer = setTimeout(renderSearch, 200);
+  const q = $('searchQ').value.trim();
+  geoTimer = setTimeout(() => geoSearch(q), 900);
+};
+$('searchQ').onkeydown = e => {
+  if (e.key === 'Enter') { clearTimeout(geoTimer); renderSearch(); if (searchHits.length === 1) searchGo(0); else geoSearch($('searchQ').value.trim()); }
+  if (e.key === 'Escape') $('searchBox').hidden = true;
+};
+$('searchBtn').onclick = () => {
+  const box = $('searchBox');
+  box.hidden = !box.hidden;
+  if (box.hidden) return;
+  openView('map');
+  loadCamps().then(list => { campsAll = list; if (!box.hidden) renderSearch(); }).catch(() => {});
+  renderSearch();
+  $('searchQ').focus(); $('searchQ').select();
+};
+$('searchClose').onclick = () => { $('searchBox').hidden = true; if (searchPin) { map.removeLayer(searchPin); searchPin = null; } };
 
 // Résumé des lieux iOverlander proches d'une étape (fiche de l'étape)
 function ioSummary(s) {

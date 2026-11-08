@@ -42,7 +42,7 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v1.21</small></div>
+  <div class="logo">Cap Ouest <small>v1.22</small></div>
   <button class="btn sm pri" id="installBtn" hidden>📲 Installer l'application</button>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
@@ -79,6 +79,11 @@
     <div class="hint" id="hint">Cliquez sur la carte pour placer la nouvelle étape · Échap pour annuler
       <div class="hint-gps">ou position GPS : <input id="hintGps" placeholder="48.4284, -123.3656" autocomplete="off"><button class="btn sm" id="hintGo">Placer</button></div></div>
     <button class="btn back-view" id="backView" hidden>← Retour à la vue normale</button>
+    <div class="search" id="searchBox" hidden>
+      <div class="search-row"><input id="searchQ" type="search" placeholder="Camping, ville, adresse ou GPS…" autocomplete="off" enterkeyhint="search">
+        <button class="btn sm" id="searchClose" title="Fermer">✕</button></div>
+      <div id="searchRes" class="search-res"></div>
+    </div>
 
     <details class="layers">
       <summary><b>Calques</b></summary>
@@ -156,6 +161,7 @@
     <div class="drive" id="drive" hidden></div>
 
     <div class="tools">
+      <button class="btn" id="searchBtn" title="Rechercher un camping, une ville, une adresse">🔍</button>
       <button class="btn" id="toggleSteps" title="Afficher / masquer les étapes">☰</button>
       <button class="btn" id="zin" title="Zoom avant">＋</button>
       <button class="btn" id="zout" title="Zoom arrière">－</button>
