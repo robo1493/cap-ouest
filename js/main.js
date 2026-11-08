@@ -18,6 +18,7 @@ import { clearancesAlong, fetchMissingClearances, clearanceProgress, clearCleara
 import { addPoint, trailKm, trailSegments, onTrailChange, clearTrail } from './trail.js';
 import { isNight as sunDown } from './night.js';
 import { getFills, addFill, delFill, fuelStats, onFuelChange } from './fuel.js';
+import { getFavs, addFav, editFav, delFav, favAt, onFavsChange } from './favs.js';
 import { ready as routesReady } from './routing.js';
 import { ready as stationsReady } from './stations.js';
 import { ready as poisReady } from './pois.js';
@@ -468,6 +469,7 @@ function ioPopup(x) {
     <div><b>${esc(x[2] || 'Sans nom')}</b></div>
     ${x[4] === 1 ? '<div>🚛 Gros équipement (big rig friendly)</div>' : ''}
     <div class="src">À ${fmt(d)} km de ${esc(trip.steps[near].name.split(',')[0])} · source : iOverlander</div>
+    ${c.g === 'night' ? favBtn({ name: x[2] || c.label, lat: x[0], lng: x[1], note: c.label + (x[4] === 1 ? ' · 🚛 gros équipement' : '') + ' · iOverlander' }) : ''}
     ${c.g === 'night' && trip.steps[near].type !== 'start' ? `<button class="btn sm" onclick="act('altAdd', ${near}, [${esc(JSON.stringify(x[2] || c.label))}, '${x[0]}, ${x[1]}'])">🔁 Choix de rechange pour ${esc(trip.steps[near].name.split(',')[0])}</button>` : ''}
     <div class="row">
       <button class="btn sm" onclick="viewAt(${x[0]}, ${x[1]}, 17)">Vue satellite</button>
@@ -589,6 +591,7 @@ function campPopup(x) {
     ${x[4] ? `<div>📞 <a href="tel:${esc(x[4].replace(/[^\d+]/g, ''))}">${esc(x[4])}</a></div>` : ''}
     ${x[5] ? `<div>🌐 <a href="${esc(x[5])}" target="_blank" rel="noopener">Site web ↗</a></div>` : ''}
     <div class="src">⚠ Vérifier la place pour 55 pi (camion + fifth wheel) et l'ouverture en saison.</div>
+    ${favBtn({ name, lat: x[0], lng: x[1], note: [who, serv].filter(Boolean).join(' · '), web: x[5] || '', tel: x[4] || '' })}
     <div class="src">À ${fmt(d)} km de ${esc(trip.steps[near].name.split(',')[0])} · source : OpenStreetMap</div>
     ${trip.steps[near].type !== 'start' ? `<button class="btn sm" onclick="act('altAdd', ${near}, [${esc(JSON.stringify(name))}, '${x[0]}, ${x[1]}'])">🔁 Choix de rechange pour ${esc(trip.steps[near].name.split(',')[0])}</button>` : ''}
     <div class="row">
@@ -633,6 +636,83 @@ map.on('zoomend', () => {
 });
 document.querySelectorAll('[data-camp], [name=campWho]').forEach(cb => cb.onchange = renderCamps);
 loadCamps().then(queueCamps).catch(e => console.warn('Campings : fichier introuvable', e));
+
+// ---------- ⭐ Mes campings favoris (toujours visibles, synchronisés) ----------
+const favLayer = L.layerGroup().addTo(map);
+const favIcon = L.divIcon({ className: 'fav-ico', html: '⭐', iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -12] });
+// Données des boutons ⭐ des fiches (trop longues pour un attribut onclick)
+const favPending = new Map();
+function favBtn(f) {
+  const key = `${f.lat},${f.lng}`;
+  favPending.set(key, f);
+  const on = favAt(f.lat, f.lng);
+  return `<button class="btn sm fav-btn${on ? ' on' : ''}" onclick="favToggle('${key}')">${on ? '⭐ Dans mes favoris (retirer)' : '☆ Ajouter à mes campings favoris'}</button>`;
+}
+window.favToggle = key => {
+  const f = favPending.get(key), on = f && favAt(f.lat, f.lng);
+  if (!f) return;
+  if (on) delFav(on.id); else addFav(f);
+  map.closePopup();
+};
+function favPopup(f) {
+  const { i: near, d } = nearestStep(f), st = trip.steps[near], city = esc(st.name.split(',')[0]);
+  return `<div class="pop">
+    <span class="chip" style="border-color:#f9a825;color:#b07800">⭐ Mon camping favori</span>
+    <div><b>${esc(f.name)}</b></div>
+    ${f.note ? `<div>${esc(f.note)}</div>` : ''}
+    ${f.tel ? `<div>📞 <a href="tel:${esc(f.tel.replace(/[^\d+]/g, ''))}">${esc(f.tel)}</a></div>` : ''}
+    ${f.web ? `<div>🌐 <a href="${esc(f.web)}" target="_blank" rel="noopener">Site web ↗</a></div>` : ''}
+    <div class="src">${f.lat.toFixed(5)}, ${f.lng.toFixed(5)} · à ${fmt(d)} km de ${city}</div>
+    ${st.type !== 'start' ? `<button class="btn sm" onclick="act('altAdd', ${near}, [${esc(JSON.stringify(f.name))}, '${f.lat}, ${f.lng}'])">🔁 Choix de rechange pour ${city}</button>` : ''}
+    <div class="row">
+      <button class="btn sm" onclick="favNote('${f.id}')">✏ Note</button>
+      <button class="btn sm" onclick="viewAt(${f.lat}, ${f.lng}, 17)">Vue satellite</button>
+      <a class="btn sm" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${f.lat},${f.lng}">Y aller ↗</a>
+      <button class="btn sm" onclick="if (confirm('Retirer ce camping de mes favoris ?')) favDel('${f.id}')">✕</button>
+    </div>
+  </div>`;
+}
+window.favNote = id => {
+  const f = getFavs().find(x => x.id === id);
+  if (!f) return;
+  const note = prompt('Note pour ' + f.name, f.note || '');
+  if (note !== null) editFav(id, { note: note.trim().slice(0, 600) });
+};
+window.favDel = id => { delFav(id); map.closePopup(); };
+function renderFavs() {
+  favLayer.clearLayers();
+  const list = getFavs(), show = $('favShow')?.checked !== false;
+  $('favCount').textContent = list.length ? `(${list.length})` : '';
+  if (show) list.forEach(f => L.marker([f.lat, f.lng], { icon: favIcon, zIndexOffset: 1000, title: f.name })
+    .bindPopup(() => favPopup(f), { minWidth: 230 }).addTo(favLayer));
+  const ul = $('favList');
+  if (ul) ul.innerHTML = list.map(f => `<li><a href="#" onclick="viewAt(${f.lat}, ${f.lng}, 12); return false">⭐ ${esc(f.name)}</a></li>`).join('');
+}
+$('favShow').onchange = renderFavs;
+$('favAdd').onclick = () => {
+  const name = $('favName').value.trim(), p = parseGps($('favWhere').value);
+  if (!p) { alert('Position GPS non reconnue.\n' + GPS_HELP); return; }
+  addFav({ name: name || 'Camping', ...p });
+  $('favName').value = $('favWhere').value = '';
+  viewAt(p.lat, p.lng, 12);
+};
+onFavsChange(() => { renderFavs(); syncNow(); });
+renderFavs();
+// Lien d'ajout : …/cap-ouest/#fav=Nom|lat,lng|note (ex. envoyé par Claude) : ajoute le favori à l'ouverture
+function favFromHash() {
+  const m = location.hash.match(/^#fav=(.*)$/);
+  if (!m) return;
+  history.replaceState(null, '', location.pathname + location.search);
+  const [name, where, note] = decodeURIComponent(m[1].replace(/\+/g, ' ')).split('|');
+  const p = parseGps(where || '');
+  if (!p) return;
+  const had = favAt(p.lat, p.lng);
+  addFav({ name, ...p, note: note || '' });
+  viewAt(p.lat, p.lng, 11);
+  setTimeout(() => alert(had ? `⭐ ${name} est déjà dans vos campings favoris.` : `⭐ ${name} est ajouté à vos campings favoris.`), 300);
+}
+window.addEventListener('hashchange', favFromHash);
+setTimeout(favFromHash, 0);   // après la définition de viewAt plus bas
 
 // Résumé des lieux iOverlander proches d'une étape (fiche de l'étape)
 function ioSummary(s) {

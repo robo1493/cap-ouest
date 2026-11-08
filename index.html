@@ -42,7 +42,7 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v1.20</small></div>
+  <div class="logo">Cap Ouest <small>v1.21</small></div>
   <button class="btn sm pri" id="installBtn" hidden>📲 Installer l'application</button>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
@@ -118,6 +118,14 @@
       <label><input type="checkbox" data-poi="history" checked> 📜 Histoire</label>
       <label><input type="checkbox" id="poiCheck"> Inclure les accès rig à vérifier</label>
       <label><input type="checkbox" data-lyr="guides" checked> 📘 Mes guides <span id="guidesCount" class="src"></span></label>
+      <label><input type="checkbox" id="favShow" checked> ⭐ Mes campings favoris <span id="favCount" class="src"></span></label>
+      <details class="fav-box"><summary class="src">Voir la liste · ajouter par GPS</summary>
+        <ul id="favList" class="fav-list"></ul>
+        <div class="alt-add"><input id="favName" placeholder="Nom du camping">
+          <input id="favWhere" placeholder="GPS ou lien Google Maps">
+          <button class="btn sm" id="favAdd">Ajouter</button></div>
+        <div class="legend"><span>Aussi : bouton ☆ dans la fiche d'un camping ou d'un lieu iOverlander</span></div>
+      </details>
       <hr style="border:0; border-top:1px solid var(--fill); margin:4px 0">
       <b style="font-size:12px">iOverlander <span id="ioCount" class="src"></span></b>
       <label><input type="checkbox" data-io="night" checked> ⛺ Nuits (sauvage, informel, campings)</label>

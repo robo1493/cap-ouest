@@ -9,6 +9,7 @@ import { trip, markSynced, replaceTrip, onTripSaved } from './store.js';
 import { syncPlaces } from './places.js';
 import { syncIo } from './ioverlander.js';
 import { syncFuel } from './fuel.js';
+import { syncFavs } from './favs.js';
 
 const LIB = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/+esm';
 const PUSH_DELAY = 2000;
@@ -125,6 +126,7 @@ export async function syncNow() {
       await syncPlaces(sb);
       await syncIo(sb);
       await syncFuel(sb);
+      await syncFavs(sb);
     } catch (e) {
       console.warn('Synchronisation des lieux', e);
       setStatus('synced', 'Lieux des guides non synchronisés : exécuter la mise à jour SQL (table places)');

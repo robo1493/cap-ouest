@@ -232,3 +232,12 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; }
 .pop .alt-add input { margin: 0; flex: 1 1 120px; }
 .pop .after { display: flex; gap: 6px; align-items: center; margin: 4px 0; font-size: 12px; }
 .pop .after select { flex: 1; min-width: 0; font-size: 12px; }
+
+/* ⭐ Mes campings favoris */
+.fav-ico { font-size: 24px; line-height: 30px; text-align: center; filter: drop-shadow(0 0 2px #000) drop-shadow(0 0 1px #fff); }
+.fav-btn { margin: 4px 0; }
+.fav-btn.on { background: #fff4c2; border-color: #f9a825; }
+.fav-list { margin: 4px 0; padding-left: 4px; list-style: none; max-height: 160px; overflow: auto; font-size: 13px; }
+.fav-list li { padding: 2px 0; }
+.fav-box .alt-add { display: flex; flex-wrap: wrap; gap: 4px; }
+.fav-box .alt-add input { flex: 1 1 120px; min-width: 0; }
