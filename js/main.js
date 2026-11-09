@@ -14,6 +14,7 @@ import { proposals, simulate } from './catchup.js';
 import { BY_K, GROUPS, getIo, onIoChange, importIoCsv, clearIo, ioNear, ioBigCount } from './ioverlander.js';
 import { CHAINS, loadChains, chainsNear } from './chains.js';
 import { CAMP_KINDS, CAMP_FLAGS, loadCamps, campsNear } from './camps.js';
+import { loadCoe, coeNear, coeAll } from './coe.js';
 import { clearancesAlong, fetchMissingClearances, clearanceProgress, clearClearanceCache, feet } from './clearances.js';
 import { addPoint, trailKm, trailSegments, onTrailChange, clearTrail } from './trail.js';
 import { isNight as sunDown } from './night.js';
@@ -268,6 +269,7 @@ function renderLines() {
   loadPois();
   queueChains();
   queueCamps();
+  queueCoe();
 }
 
 let linesQueued = false;
@@ -637,6 +639,53 @@ map.on('zoomend', () => {
 document.querySelectorAll('[data-camp], [name=campWho]').forEach(cb => cb.onchange = renderCamps);
 loadCamps().then(queueCamps).catch(e => console.warn('Campings : fichier introuvable', e));
 
+// ---------- 🏛 Campings du Corps of Engineers (recreation.gov), à 40 km du trajet ----------
+const COE_MIN_ZOOM = 6, COE_COLOR = '#1565c0';
+const coeLayer = L.layerGroup();
+const coePrice = x => x[6] == null ? '' : x[6] === x[7] || x[7] == null ? `${x[6]} $ US / nuit` : `${x[6]} à ${x[7]} $ US / nuit`;
+function coePopup(x) {
+  const { i: near, d } = nearestStep({ lat: x[0], lng: x[1] }), st = trip.steps[near], city = esc(st.name.split(',')[0]);
+  const note = ['Corps of Engineers', x[3], coePrice(x), 'recreation.gov'].filter(Boolean).join(' · ');
+  return `<div class="pop">
+    <span class="chip" style="border-color:${COE_COLOR};color:${COE_COLOR}">🏛 Corps of Engineers · public</span>
+    <div><b>${esc(x[2])}</b></div>
+    <div>${esc(x[3])}${x[4] ? ', ' + esc(x[4]) : ''}</div>
+    ${coePrice(x) ? `<div>💲 ${coePrice(x)}</div>` : ''}
+    <div>📅 <a href="https://www.recreation.gov/camping/campgrounds/${esc(x[5])}" target="_blank" rel="noopener">Fiche et réservation (recreation.gov) ↗</a></div>
+    <div class="src">⚠ Plusieurs ferment l'hiver : vérifier la saison et la place pour 55 pi.</div>
+    ${favBtn({ name: x[2] + ' (Corps of Engineers)', lat: x[0], lng: x[1], note, web: 'https://www.recreation.gov/camping/campgrounds/' + x[5] })}
+    <div class="src">À ${fmt(d)} km de ${city}</div>
+    ${st.type !== 'start' ? `<button class="btn sm" onclick="act('altAdd', ${near}, [${esc(JSON.stringify(x[2]))}, '${x[0]}, ${x[1]}'])">🔁 Choix de rechange pour ${city}</button>` : ''}
+    <div class="row">
+      <button class="btn sm" onclick="viewAt(${x[0]}, ${x[1]}, 17)">Vue satellite</button>
+      <a class="btn sm" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${x[0]},${x[1]}">Google Maps ↗</a>
+    </div>
+  </div>`;
+}
+function renderCoe() {
+  coeLayer.clearLayers();
+  const list = coeNear(legs, trip.steps);
+  if (!list) { $('coeCount').textContent = ''; return; }
+  list.forEach(x => new IoMarker([x[0], x[1]], { renderer: ioRenderer, radius: Math.max(ioRadius(), 9), icon: '🏛', color: '#fff', weight: 2, fillColor: COE_COLOR, fillOpacity: .95 })
+    .bindPopup(() => coePopup(x), { minWidth: 230 }).addTo(coeLayer));
+  $('coeCount').textContent = `(${fmt(list.length)})`;
+  toggleCoe();
+}
+const toggleCoe = () => {
+  const show = $('coeShow').checked && map.getZoom() >= COE_MIN_ZOOM;
+  if (show && !map.hasLayer(coeLayer)) coeLayer.addTo(map);
+  if (!show && map.hasLayer(coeLayer)) map.removeLayer(coeLayer);
+};
+let coeTimer = 0;
+const queueCoe = () => { clearTimeout(coeTimer); coeTimer = setTimeout(renderCoe, 1700); };
+map.on('zoomend', () => {
+  toggleCoe();
+  const r = Math.max(ioRadius(), 9);
+  coeLayer.eachLayer(m => m.getRadius() !== r && m.setRadius(r));
+});
+$('coeShow').onchange = toggleCoe;
+loadCoe().then(queueCoe).catch(e => console.warn('Corps of Engineers : fichier introuvable', e));
+
 // ---------- ⭐ Mes campings favoris (toujours visibles, synchronisés) ----------
 const favLayer = L.layerGroup().addTo(map);
 const favIcon = L.divIcon({ className: 'fav-ico', html: '⭐', iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -12] });
@@ -760,6 +809,8 @@ function localHits(q) {
   getPlaces().forEach(p => has(p.name) && out.push({ g: '📘 Mes guides', name: p.name, sub: PLACE_CATS[p.cat]?.label, lat: p.lat, lng: p.lng, html: () => guidePopup(p) }));
   getIo().filter(x => has(x[2])).slice(0, 15)
     .forEach(x => out.push({ g: '⛺ iOverlander', name: x[2], sub: BY_K[x[3]]?.label, lat: x[0], lng: x[1], html: () => ioPopup(x) }));
+  (coeAll() || []).filter(x => has(x[2] + ' ' + x[3])).slice(0, 15).forEach(x => out.push({ g: '🏛 Corps of Engineers', name: x[2], lat: x[0], lng: x[1], html: () => coePopup(x),
+    sub: [x[3], x[4], `à ${fmt(nearestStep({ lat: x[0], lng: x[1] }).d)} km d’une étape`].filter(Boolean).join(' · ') }));
   if (campsAll) campsAll.filter(x => has(x[3])).slice(0, 25).forEach(x => {
     const f = x[6] || '', who = f.includes('p') ? 'public' : f.includes('x') ? 'privé' : '';
     out.push({ g: '🏕 Campings et parcs VR', name: x[3], lat: x[0], lng: x[1], html: () => campPopup(x),
