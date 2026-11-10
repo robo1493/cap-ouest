@@ -865,44 +865,73 @@ window.searchGo = k => {
   }
   $('searchBox').hidden = true;   // la fiche reste visible ; 🔍 rouvre la recherche avec le même texte
 };
-function localHits(q) {
+// Catégories de la recherche (puces sous le champ) ; sans texte, une catégorie liste ce qui est près du centre de la carte
+const SEARCH_CATS = [['all', 'Tout'], ['step', 'Étapes'], ['fav', '⭐ Favoris'], ['coe', '🏛 Corps'], ['pub', '🏕 Publics'],
+  ['priv', '🔌 Parcs VR privés'], ['io', '⛺ iOverlander'], ['guide', '📘 Guides'], ['city', '📍 Villes']];
+let searchCat = 'all';
+const campPriv = x => { const f = x[6] || ''; return f.includes('x') || (x[2] === 'v' && !f.includes('p')); };
+function localHits(q, cat = 'all') {
+  const nearMode = q.length < 2, c = map.getCenter(), here = { lat: c.lat, lng: c.lng };
   const words = norm(q).split(/\s+/).filter(Boolean);
-  const has = t => { const n = norm(t); return words.every(w => n.includes(w)); };
+  const has = nearMode ? () => true : t => { const n = norm(t); return words.every(w => n.includes(w)); };
+  const on = k => cat === 'all' || cat === k;
+  // Près d'ici : tri par distance au centre de la carte, sinon ordre naturel
+  const pick = (list, n, ll) => nearMode
+    ? list.map(x => [hav(here, ll(x)), x]).sort((a, b) => a[0] - b[0]).slice(0, n)
+    : list.slice(0, n).map(x => [null, x]);
+  const dist = (dh, ll) => dh != null ? `à ${fmt(dh)} km d’ici` : `à ${fmt(nearestStep(ll).d)} km d’une étape`;
   const out = [];
-  trip.steps.forEach((s, i) => has(s.name) && out.push({ g: 'Mes étapes', name: s.name, sub: i ? `Étape ${i}` : 'Départ', lat: s.lat, lng: s.lng, step: i, zoom: 11 }));
-  getFavs().forEach(f => has(f.name + ' ' + f.note) && out.push({ g: '⭐ Mes favoris', name: f.name, sub: f.note, lat: f.lat, lng: f.lng, fav: true, html: () => favPopup(f) }));
-  getPlaces().forEach(p => has(p.name) && out.push({ g: '📘 Mes guides', name: p.name, sub: PLACE_CATS[p.cat]?.label, lat: p.lat, lng: p.lng, html: () => guidePopup(p) }));
-  getIo().filter(x => has(x[2])).slice(0, 15)
-    .forEach(x => out.push({ g: '⛺ iOverlander', name: x[2], sub: BY_K[x[3]]?.label, lat: x[0], lng: x[1], html: () => ioPopup(x) }));
-  (coeAll() || []).filter(x => has(x[2] + ' ' + x[3])).slice(0, 15).forEach(x => out.push({ g: '🏛 Corps of Engineers', name: x[2], lat: x[0], lng: x[1], html: () => coePopup(x),
-    sub: [x[3], x[4], `à ${fmt(nearestStep({ lat: x[0], lng: x[1] }).d)} km d’une étape`].filter(Boolean).join(' · ') }));
-  if (campsAll) campsAll.filter(x => has(x[3])).slice(0, 25).forEach(x => {
-    const f = x[6] || '', who = f.includes('p') ? 'public' : f.includes('x') ? 'privé' : '';
-    out.push({ g: '🏕 Campings et parcs VR', name: x[3], lat: x[0], lng: x[1], html: () => campPopup(x),
-      sub: [CAMP_KINDS[x[2]]?.label, who, `à ${fmt(nearestStep({ lat: x[0], lng: x[1] }).d)} km d’une étape`].filter(Boolean).join(' · ') });
-  });
+  if (on('step')) pick(trip.steps.map((s, i) => [s, i]).filter(([s]) => has(s.name)), 40, ([s]) => s).forEach(([dh, [s, i]]) =>
+    out.push({ g: 'Mes étapes', name: s.name, sub: [i ? `Étape ${i}` : 'Départ', dh != null ? `à ${fmt(dh)} km d’ici` : ''].filter(Boolean).join(' · '), lat: s.lat, lng: s.lng, step: i, zoom: 11 }));
+  if (on('fav')) pick(getFavs().filter(f => has(f.name + ' ' + f.note)), 40, f => f).forEach(([dh, f]) =>
+    out.push({ g: '⭐ Mes favoris', name: f.name, sub: [dh != null ? `à ${fmt(dh)} km d’ici` : '', f.note].filter(Boolean).join(' · '), lat: f.lat, lng: f.lng, fav: true, html: () => favPopup(f) }));
+  if (on('guide')) pick(getPlaces().filter(p => has(p.name)), 25, p => p).forEach(([dh, p]) =>
+    out.push({ g: '📘 Mes guides', name: p.name, sub: [PLACE_CATS[p.cat]?.label, dh != null ? `à ${fmt(dh)} km d’ici` : ''].filter(Boolean).join(' · '), lat: p.lat, lng: p.lng, html: () => guidePopup(p) }));
+  if (on('io')) pick(getIo().filter(x => has(x[2])), cat === 'io' ? 30 : 15, x => ({ lat: x[0], lng: x[1] })).forEach(([dh, x]) =>
+    out.push({ g: '⛺ iOverlander', name: x[2], sub: [BY_K[x[3]]?.label, dh != null ? `à ${fmt(dh)} km d’ici` : ''].filter(Boolean).join(' · '), lat: x[0], lng: x[1], html: () => ioPopup(x) }));
+  if (on('coe')) pick((coeAll() || []).filter(x => has(x[2] + ' ' + x[3])), cat === 'coe' ? 30 : 15, x => ({ lat: x[0], lng: x[1] })).forEach(([dh, x]) =>
+    out.push({ g: '🏛 Corps of Engineers', name: x[2], lat: x[0], lng: x[1], html: () => coePopup(x),
+      sub: [x[3], x[4], dist(dh, { lat: x[0], lng: x[1] })].filter(Boolean).join(' · ') }));
+  if (campsAll && (on('pub') || on('priv'))) {
+    const keep = x => (cat === 'pub' ? (x[6] || '').includes('p') : cat === 'priv' ? campPriv(x) : true) && has(x[3]);
+    pick(campsAll.filter(keep), 30, x => ({ lat: x[0], lng: x[1] })).forEach(([dh, x]) => {
+      const f = x[6] || '', who = f.includes('p') ? 'public' : campPriv(x) ? 'privé' : '';
+      out.push({ g: cat === 'priv' ? '🔌 Parcs VR privés' : cat === 'pub' ? '🏕 Campings publics' : '🏕 Campings et parcs VR', name: x[3] || `${CAMP_KINDS[x[2]]?.label || 'Camping'} sans nom`, lat: x[0], lng: x[1], html: () => campPopup(x),
+        sub: [CAMP_KINDS[x[2]]?.label, who, x[4] ? '📞 ' + x[4] : '', dist(dh, { lat: x[0], lng: x[1] })].filter(Boolean).join(' · ') });
+    });
+  }
   return out;
 }
 let geoHits = [], geoQ = '', geoTimer = 0, searchTimer = 0;
 function renderSearch() {
-  const q = $('searchQ').value.trim();
+  const q = $('searchQ').value.trim(), cat = searchCat, geoOn = cat === 'all' || cat === 'city';
+  $('searchCats').innerHTML = SEARCH_CATS.map(([k, t]) => `<button class="${k === cat ? 'on' : ''}" onclick="searchCatSet('${k}')">${t}</button>`).join('');
   searchHits.length = 0;
-  if (q.length < 2) { $('searchRes').innerHTML = '<div class="src" style="padding:6px">Nom d’un camping, d’une étape, d’une ville, une adresse ou une position GPS.</div>'; return; }
-  const gps = parseGps(q);
+  if (q.length < 2 && geoOn) { $('searchRes').innerHTML = '<div class="src" style="padding:6px">Nom d’un camping, d’une étape, d’une ville, une adresse ou une position GPS. Ou choisissez une catégorie pour voir ce qui est près du centre de la carte.</div>'; return; }
+  const gps = geoOn ? parseGps(q) : null;
   const hits = [
     ...(gps ? [{ g: 'Position GPS', name: `${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)}`, lat: gps.lat, lng: gps.lng, zoom: 14 }] : []),
-    ...localHits(q),
-    ...(geoQ === q ? geoHits : []),
+    ...(cat === 'city' ? [] : localHits(q, cat)),
+    ...(geoOn && geoQ === q ? geoHits : []),
   ];
   hits.forEach(h => { h.html ||= () => placePopup(h); searchHits.push(h); });
   let g = '';
-  $('searchRes').innerHTML = hits.map((h, k) => (h.g !== g ? `<h4>${esc(g = h.g)}</h4>` : '')
+  $('searchRes').innerHTML = (q.length < 2 ? '<div class="src" style="padding:4px 6px">Les plus proches du centre de la carte. Déplacez la carte puis touchez de nouveau la catégorie pour rafraîchir.</div>' : '')
+    + hits.map((h, k) => (h.g !== g ? `<h4>${esc(g = h.g)}</h4>` : '')
     + `<button onclick="searchGo(${k})">${esc(h.name)}${h.sub ? `<small>${esc(h.sub)}</small>` : ''}</button>`).join('')
-    + (geoQ !== q && q.length >= 3 && !gps ? '<div class="src" style="padding:6px">Recherche des villes et adresses…</div>'
-      : !hits.length ? '<div class="src" style="padding:6px">Aucun résultat.</div>' : '');
+    + (geoOn && geoQ !== q && q.length >= 3 && !gps ? '<div class="src" style="padding:6px">Recherche des villes et adresses…</div>'
+      : !hits.length ? `<div class="src" style="padding:6px">Aucun résultat${(cat === 'pub' || cat === 'priv') && !campsAll ? ' (liste des campings en chargement…)' : ''}.</div>` : '');
 }
+window.searchCatSet = k => {
+  searchCat = k;
+  if ((k === 'pub' || k === 'priv' || k === 'all') && !campsAll) loadCamps().then(list => { campsAll = list; renderSearch(); }).catch(() => {});
+  renderSearch();
+  const q = $('searchQ').value.trim();
+  if ((k === 'all' || k === 'city') && q.length >= 3 && geoQ !== q) geoSearch(q);
+};
 // Villes et adresses : OpenStreetMap (Nominatim), États-Unis et Canada ; une requête après une pause de frappe
 async function geoSearch(q) {
+  if (searchCat !== 'all' && searchCat !== 'city') return;
   if (q.length < 3 || parseGps(q)) { geoQ = q; geoHits = []; return; }
   try {
     const u = 'https://nominatim.openstreetmap.org/search?' + new URLSearchParams({ q, format: 'json', limit: 6, countrycodes: 'us,ca', 'accept-language': 'fr' });
