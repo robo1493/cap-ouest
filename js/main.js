@@ -654,6 +654,7 @@ function coePopup(x) {
     <div>${esc(x[3])}${x[4] ? ', ' + esc(x[4]) : ''}</div>
     ${coePrice(x) ? `<div>💲 ${coePrice(x)}</div>` : ''}
     <div>📅 <a href="https://www.recreation.gov/camping/campgrounds/${esc(x[5])}" target="_blank" rel="noopener">Fiche et réservation (recreation.gov) ↗</a></div>
+    ${resvPlaceHtml({ name: `${x[2]} (Corps of Engineers), ${x[3]}`, lat: x[0], lng: x[1] })}
     <div class="src">⚠ Plusieurs ferment l'hiver : vérifier la saison et la place pour 55 pi.</div>
     ${favBtn({ name: x[2] + ' (Corps of Engineers)', lat: x[0], lng: x[1], note, web: 'https://www.recreation.gov/camping/campgrounds/' + x[5] })}
     <div class="src">À ${fmt(d)} km de ${city}</div>
@@ -712,6 +713,31 @@ window.resvCopy = async (i, btn) => {
   try { await navigator.clipboard.writeText(txt); btn.textContent = '✔ Copié'; }
   catch { prompt('Copiez ce texte :', txt); }
 };
+// Même aide pour un endroit hors itinéraire (camping du Corps, favori) : dates choisies dans la fiche,
+// proposées d'après l'étape la plus proche.
+const resvPlaces = [];
+function resvPlaceHtml(pl) {
+  const k = resvPlaces.push(pl) - 1, { i: near } = nearestStep(pl), st = trip.steps[near];
+  const nights = isNight(st) ? st.nights : 1, p = settings.resv;
+  const eq = RESV_EQUIP[p.equip]?.[0] || '', amps = RESV_AMPS[p.amps]?.[0] || '';
+  const sites = resvSites(pl, coeAll());
+  return `<details class="resv-help"><summary>📅 Réserver cet endroit</summary>
+    <div>Arrivée <input type="date" id="resvA${k}" style="width:auto" value="${toIso(arrival(near))}">
+      Nuits <input type="number" id="resvN${k}" min="1" max="60" style="width:56px" value="${nights}"></div>
+    <div class="src">Dates proposées d'après l'étape la plus proche (${esc(st.name.split(',')[0])}).</div>
+    <div class="src">${esc(eq)} ${p.trailerFt} pi (total ${p.totalFt} pi) · ${esc(amps)} · ${p.adults} adulte${p.adults > 1 ? 's' : ''}${p.pets ? ` · ${p.pets} animal${p.pets > 1 ? 'aux' : ''}` : ''} ·
+      <a href="#" onclick="openResvSettings(); return false">modifier les paramètres</a></div>
+    <button class="btn sm" onclick="resvCopyPlace(${k}, this)">📋 Copier les infos de réservation</button>
+    <div class="row">${sites.map(([t, u]) => `<a class="btn sm" target="_blank" rel="noopener" href="${esc(u)}">${esc(t)} ↗</a>`).join('')}</div>
+  </details>`;
+}
+window.resvCopyPlace = async (k, btn) => {
+  const pl = resvPlaces[k], a = $('resvA' + k)?.value, n = Math.max(1, parseInt($('resvN' + k)?.value) || 1);
+  if (!pl || !a) return;
+  const txt = resvText(pl, a, toIso(addDays(parseIso(a), n)), n, settings.resv);
+  try { await navigator.clipboard.writeText(txt); btn.textContent = '✔ Copié'; }
+  catch { prompt('Copiez ce texte :', txt); }
+};
 window.openResvSettings = () => { openView('params'); setTimeout(() => $('resvBox')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100); };
 // ⚙ Paramètres : chaque champ data-resv modifie settings.resv
 document.querySelectorAll('[data-resv]').forEach(el => {
@@ -749,6 +775,7 @@ function favPopup(f) {
     ${f.note ? `<div>${esc(f.note)}</div>` : ''}
     ${f.tel ? `<div>📞 <a href="tel:${esc(f.tel.replace(/[^\d+]/g, ''))}">${esc(f.tel)}</a></div>` : ''}
     ${f.web ? `<div>🌐 <a href="${esc(f.web)}" target="_blank" rel="noopener">Site web ↗</a></div>` : ''}
+    ${resvPlaceHtml(f)}
     <div class="src">${f.lat.toFixed(5)}, ${f.lng.toFixed(5)} · à ${fmt(d)} km de ${city}</div>
     ${st.type !== 'start' ? `<button class="btn sm" onclick="act('altAdd', ${near}, [${esc(JSON.stringify(f.name))}, '${f.lat}, ${f.lng}'])">🔁 Choix de rechange pour ${city}</button>` : ''}
     <div class="row">
