@@ -580,16 +580,35 @@ const campLayer = L.layerGroup();
 const campOn = k => document.querySelector(`[data-camp=${k}]`)?.checked;
 const campWho = () => document.querySelector('[name=campWho]:checked')?.value || 'all';
 
+// Campings sans nom dans OpenStreetMap : nom « Parc VR sans nom », adresse approximative (gardée dans campings.json
+// pour ceux près du trajet, sinon demandée une fois à OpenStreetMap à l'ouverture de la fiche)
+const campName = x => x[3] || `${CAMP_KINDS[x[2]]?.label || 'Camping'} sans nom${x[8] ? ' – ' + x[8] : ''}`;
+let nnSeq = 0;
+function nnCheck(x) {
+  const id = 'nn' + (++nnSeq);
+  if (x[8] == null) setTimeout(async () => {
+    try {
+      const u = 'https://nominatim.openstreetmap.org/reverse?' + new URLSearchParams({ lat: x[0], lon: x[1], format: 'jsonv2', zoom: 17, 'accept-language': 'fr' });
+      const r = await fetch(u).then(r => r.json()), a = r.address || {};
+      x[8] = [a.road, a.city || a.town || a.village || a.hamlet || a.county, (a['ISO3166-2-lvl4'] || '').split('-')[1]].filter(Boolean).join(', ');
+    } catch { x[8] = ''; }
+    const el = $(id);
+    if (el) el.textContent = x[8] ? '📍 Près de : ' + x[8] : '📍 Adresse introuvable';
+  }, 50);
+  return `<div class="src" id="${id}">📍 ${x[8] ? 'Près de : ' + esc(x[8]) : x[8] === '' ? 'Adresse introuvable' : 'Recherche de l’adresse…'}</div>
+    <div class="src">⚠ Sans nom dans OpenStreetMap : souvent un petit terrain privé, un stationnement de VR ou un parc de maisons mobiles. Vérifiez (vue satellite, Google Maps, téléphone) avant d’y aller.</div>`;
+}
 function campPopup(x) {
   const c = CAMP_KINDS[x[2]], p = { lat: x[0], lng: x[1] }, flags = x[6] || '';
   let near = -1, d = Infinity;
   trip.steps.forEach((s, i) => { const k = hav(s, p); if (k < d) { d = k; near = i; } });
-  const name = x[3] || c.label;
+  const name = campName(x), nn = x[3] ? '' : nnCheck(x);
   const who = flags.includes('p') ? 'Public' : flags.includes('x') ? 'Privé' : '';
   const serv = [...flags].map(f => CAMP_FLAGS[f]).filter(Boolean).join(' · ');
   return `<div class="pop">
     <span class="chip" style="border-color:${c.color};color:${c.color}">${c.icon} ${c.label}${who ? ' · ' + who : ''}</span>
     <div><b>${esc(name)}</b></div>
+    ${nn}
     ${serv ? `<div>${serv}</div>` : ''}
     ${x[7] ? `<div>📏 Longueur max. : ${esc(x[7])}</div>` : ''}
     ${x[4] ? `<div>📞 <a href="tel:${esc(x[4].replace(/[^\d+]/g, ''))}">${esc(x[4])}</a></div>` : ''}
@@ -896,7 +915,7 @@ function localHits(q, cat = 'all') {
     const keep = x => (cat === 'pub' ? (x[6] || '').includes('p') : cat === 'priv' ? campPriv(x) : true) && has(x[3]);
     pick(campsAll.filter(keep), 30, x => ({ lat: x[0], lng: x[1] })).forEach(([dh, x]) => {
       const f = x[6] || '', who = f.includes('p') ? 'public' : campPriv(x) ? 'privé' : '';
-      out.push({ g: cat === 'priv' ? '🔌 Parcs VR privés' : cat === 'pub' ? '🏕 Campings publics' : '🏕 Campings et parcs VR', name: x[3] || `${CAMP_KINDS[x[2]]?.label || 'Camping'} sans nom`, lat: x[0], lng: x[1], html: () => campPopup(x),
+      out.push({ g: cat === 'priv' ? '🔌 Parcs VR privés' : cat === 'pub' ? '🏕 Campings publics' : '🏕 Campings et parcs VR', name: campName(x), lat: x[0], lng: x[1], html: () => campPopup(x),
         sub: [CAMP_KINDS[x[2]]?.label, who, x[4] ? '📞 ' + x[4] : '', dist(dh, { lat: x[0], lng: x[1] })].filter(Boolean).join(' · ') });
     });
   }
