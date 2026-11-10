@@ -42,11 +42,12 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v1.27</small></div>
+  <div class="logo">Cap Ouest <small>v1.28</small></div>
   <button class="btn sm pri" id="installBtn" hidden>📲 Installer l'application</button>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
     <button data-t="dash">Tableau de bord</button>
+    <button data-t="carnet">📒 Carnet</button>
     <button data-t="nuit">Nuitées</button>
     <button data-t="fuel">Carburant</button>
     <button data-t="decouv">🧭 Découvertes</button>
@@ -278,6 +279,33 @@
     </section>
 
     <!-- NUITÉES -->
+    <!-- CARNET -->
+    <section id="carnet" data-title="📒 Carnet et calendrier">
+      <div class="grid auto">
+        <div class="box real">
+          <div class="row between"><h2 style="margin:0">📅 Calendrier</h2>
+            <div class="row"><button class="btn sm" id="calAll">Montrer aussi ce qui est fait</button>
+              <button class="btn sm pri" id="calIcs">⬇ Exporter vers Google Agenda (.ics)</button></div></div>
+          <div class="src" style="margin:6px 0">Dates d’ouverture des réservations des étapes « Camping » (calculées d’après l’arrivée prévue) et vos notes avec une date.
+            Cochez ce qui est fait. « Ajouter à Google Agenda » crée un rappel sur la tablette et le téléphone.
+            Pour tout envoyer d’un coup : sur le portable, exportez le fichier .ics puis, dans Google Agenda (navigateur) › ⚙ Paramètres › Importer et exporter, importez-le.</div>
+          <div id="calList"></div>
+        </div>
+        <div class="box real" id="noteBox">
+          <h2>📒 Notes</h2>
+          <input id="noteTitle" class="inp" placeholder="Titre (ex. Carte America the Beautiful)">
+          <textarea id="noteText" class="inp" rows="4" placeholder="Infos, prix, liens, à faire…" style="margin-top:6px;width:100%"></textarea>
+          <div class="row" style="margin-top:6px">
+            <label>📅 Date (rappel) <input id="noteDate" type="date" style="width:auto"></label>
+            <label>📍 Étape <select id="noteStep"></select></label>
+          </div>
+          <div class="row" style="margin-top:6px"><button class="btn pri" id="noteSave">+ Ajouter la note</button>
+            <button class="btn" id="noteCancel" hidden>Annuler</button></div>
+          <div id="noteList" class="mt"></div>
+        </div>
+      </div>
+    </section>
+
     <section id="nuit" data-title="Nuitées">
       <div class="box">
         <div class="row between" style="margin-bottom: 8px;">

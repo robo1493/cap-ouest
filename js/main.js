@@ -15,7 +15,8 @@ import { BY_K, GROUPS, getIo, onIoChange, importIoCsv, clearIo, ioNear, ioBigCou
 import { CHAINS, loadChains, chainsNear } from './chains.js';
 import { CAMP_KINDS, CAMP_FLAGS, loadCamps, campsNear } from './camps.js';
 import { loadCoe, coeNear, coeAll } from './coe.js';
-import { RESV_EQUIP, RESV_AMPS, resvSites, resvText } from './resv.js';
+import { RESV_EQUIP, RESV_AMPS, resvSites, resvText, resvWindow } from './resv.js';
+import { getNotes, getNote, addNote, editNote, delNote, isDone, setDone, onNotesChange } from './notes.js';
 import { clearancesAlong, fetchMissingClearances, clearanceProgress, clearClearanceCache, feet } from './clearances.js';
 import { addPoint, trailKm, trailSegments, onTrailChange, clearTrail } from './trail.js';
 import { isNight as sunDown } from './night.js';
@@ -185,6 +186,7 @@ function popupHtml(i) {
       <label>Payé <input type="number" min="0" step="0.01" value="${s.extra?.paid ?? ''}" onchange="act('money', ${i}, ['paid', this.value])"></label>` : ''}
       ${s.extra?.ferry ? `<label>⛴ Prévu <input type="number" min="0" step="1" placeholder="${settings.ferryRate}" value="${s.extra?.ferryCost ?? ''}" onchange="act('money', ${i}, ['ferryCost', this.value])"></label>
       <label>⛴ Payé <input type="number" min="0" step="0.01" value="${s.extra?.ferryPaid ?? ''}" onchange="act('money', ${i}, ['ferryPaid', this.value])"></label>` : ''}</div>` : ''}
+    ${s.type !== 'start' ? stepNotesHtml(s, i) : ''}
     ${s.type !== 'start' ? `<details class="journal"${s.extra?.journal ? ' open' : ''}><summary>📔 Journal${s.extra?.journal ? ' ✔' : ''}</summary>
       <textarea rows="3" placeholder="Souvenirs, coups de cœur, à éviter, conseils pour la prochaine fois…" onchange="act('journal', ${i}, this.value)">${esc(s.extra?.journal || '')}</textarea></details>` : ''}
     ${s.type !== 'start' ? `<div class="addr"><input placeholder="Adresse (camping, rue, ville…)" value="${esc(s.extra?.addr || '')}" onchange="act('addr', ${i}, this.value)">
@@ -846,6 +848,148 @@ function favFromHash() {
 }
 window.addEventListener('hashchange', favFromHash);
 setTimeout(favFromHash, 0);   // après la définition de goTo / openView plus bas
+
+
+// ---------- 📒 Carnet : notes, calendrier (ouverture des réservations + notes datées), Google Agenda ----------
+const ymd = d => toIso(d).replace(/-/g, '');
+let carnetAll = false, noteEditId = null;
+const stepById = id => trip.steps.findIndex(s => s.id === id);
+
+// Éléments du calendrier : ouverture des réservations (campings de l'itinéraire) + notes avec une date
+function calItems() {
+  const out = [];
+  trip.steps.forEach((s, i) => {
+    if (s.type !== 'c' || !isNight(s)) return;
+    const arr = arrival(i), w = resvWindow(s, arr, coeAll()), key = 'resv:' + s.id;
+    out.push({ key, auto: true, date: w.date, i, site: w.site,
+      title: `Réservations ouvertes : ${s.name.split(',')[0]}`,
+      text: `Arrivée le ${longDate(arr)} (${s.nights} nuit${s.nights > 1 ? 's' : ''}) · ${w.label}${w.sure ? '' : ' (estimé, à vérifier)'}`,
+      done: isDone(key) || !!s.extra?.reserved });
+  });
+  getNotes().filter(n => n.date).forEach(n => out.push({ key: 'note:' + n.id, note: n, date: parseIso(n.date),
+    title: n.title || n.text.slice(0, 60), text: n.text, i: n.step ? stepById(n.step) : -1, done: n.done }));
+  return out.sort((a, b) => a.date - b.date);
+}
+
+const gcalUrl = it => 'https://calendar.google.com/calendar/render?' + new URLSearchParams({
+  action: 'TEMPLATE', text: '📅 ' + it.title, dates: `${ymd(it.date)}/${ymd(addDays(it.date, 1))}`,
+  details: [it.text, it.site ? `${it.site[0]} : ${it.site[1]}` : '', 'Cap Ouest : https://robo1493.github.io/cap-ouest/'].filter(Boolean).join('\n\n'),
+});
+
+function calRow(it, today) {
+  const late = !it.done && it.date <= today, soon = !it.done && !late && it.date - today < 14 * 864e5;
+  return `<div class="cal-item${it.done ? ' done' : ''}${late ? ' late' : ''}${soon ? ' soon' : ''}">
+    <label class="cal-check"><input type="checkbox" ${it.done ? 'checked' : ''} onchange="calDone('${esc(it.key)}', this.checked)"></label>
+    <div class="cal-body">
+      <div><b>${it.date.toLocaleDateString('fr-CA', { day: 'numeric', month: 'short' })}</b> · ${esc(it.title)}
+        ${late ? `<span class="chip warn">${it.auto ? 'déjà ouvert : réservez' : 'en retard'}</span>` : soon ? '<span class="chip">bientôt</span>' : ''}</div>
+      ${it.text ? `<div class="src">${esc(it.text)}</div>` : ''}
+      <div class="row">
+        ${it.site ? `<a class="btn sm" target="_blank" rel="noopener" href="${esc(it.site[1])}">${esc(it.site[0])} ↗</a>` : ''}
+        ${it.i >= 0 ? `<button class="btn sm" onclick="openView('map'); focusStep(${it.i})">Voir l’étape</button>` : ''}
+        ${it.note ? `<button class="btn sm" onclick="noteEdit('${it.note.id}')">✎ Modifier</button>` : ''}
+        <a class="btn sm" target="_blank" rel="noopener" href="${esc(gcalUrl(it))}">📅 Ajouter à Google Agenda</a>
+      </div>
+    </div></div>`;
+}
+
+function renderCarnet() {
+  if (!$('carnet')) return;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const items = calItems().filter(it => carnetAll || !it.done);
+  let month = '';
+  $('calList').innerHTML = items.length ? items.map(it => {
+    const m = it.date.toLocaleDateString('fr-CA', { month: 'long', year: 'numeric' });
+    return (m !== month ? `<h3 class="cal-month">${esc(month = m)}</h3>` : '') + calRow(it, today);
+  }).join('') : '<div class="src">Rien à venir. Ajoutez une note avec une date, ou des étapes « Camping » à l’itinéraire.</div>';
+  $('calAll').textContent = carnetAll ? 'Cacher ce qui est fait' : 'Montrer aussi ce qui est fait';
+  // Liste des notes
+  $('noteStep').innerHTML = '<option value="">— Tout le voyage —</option>' + trip.steps.map((s, i) =>
+    `<option value="${esc(s.id)}">${i ? i + '. ' : '⌂ '}${esc(s.name.split(',')[0])}</option>`).join('');
+  const ed = noteEditId && getNote(noteEditId);
+  if (ed) { $('noteTitle').value = ed.title; $('noteText').value = ed.text; $('noteDate').value = ed.date; $('noteStep').value = ed.step; }
+  $('noteSave').textContent = ed ? '✔ Enregistrer la modification' : '+ Ajouter la note';
+  $('noteCancel').hidden = !ed;
+  const notes = getNotes().sort((a, b) => (b.u || 0) - (a.u || 0));
+  $('noteList').innerHTML = notes.length ? notes.map(n => {
+    const i = n.step ? stepById(n.step) : -1;
+    return `<div class="note${n.done ? ' done' : ''}">
+      <div class="row between"><b>${esc(n.title || '(sans titre)')}</b>
+        <span>${n.date ? `<span class="chip">📅 ${esc(longDate(parseIso(n.date)))}</span>` : ''}${i >= 0 ? ` <a href="#" class="chip" onclick="openView('map'); focusStep(${i}); return false">📍 ${esc(trip.steps[i].name.split(',')[0])}</a>` : ''}</span></div>
+      ${n.text ? `<div class="note-text">${linkify(n.text)}</div>` : ''}
+      <div class="row"><button class="btn sm" onclick="noteEdit('${n.id}')">✎ Modifier</button>
+        <button class="btn sm" onclick="noteDel('${n.id}')">Supprimer</button></div></div>`;
+  }).join('') : '<div class="src">Aucune note pour l’instant.</div>';
+}
+// Texte d'une note : liens cliquables, retours à la ligne gardés
+const linkify = t => esc(t).replace(/https?:\/\/[^\s<]+/g, u => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`).replace(/\n/g, '<br>');
+
+window.calDone = (key, done) => {
+  if (key.startsWith('note:')) editNote(key.slice(5), { done });
+  else setDone(key, done);
+};
+window.noteEdit = id => { noteEditId = id; openView('carnet', true); renderCarnet(); $('noteTitle').focus(); $('noteBox').scrollIntoView({ block: 'start' }); };
+window.noteDel = id => { if (confirm('Supprimer cette note ?')) { if (noteEditId === id) noteEditId = null; delNote(id); } };
+// Depuis la fiche d'une étape : nouvelle note rattachée à cette étape
+window.noteForStep = i => {
+  noteEditId = null; openView('carnet', true); renderCarnet();
+  $('noteTitle').value = ''; $('noteText').value = ''; $('noteDate').value = ''; $('noteStep').value = trip.steps[i].id;
+  $('noteBox').scrollIntoView({ block: 'start' }); $('noteTitle').focus();
+};
+function noteFormClear() { noteEditId = null; ['noteTitle', 'noteText', 'noteDate', 'noteStep'].forEach(k => $(k).value = ''); }
+$('noteSave').onclick = () => {
+  const n = { title: $('noteTitle').value.trim(), text: $('noteText').value.trim(), date: $('noteDate').value, step: $('noteStep').value };
+  if (!n.title && !n.text) { alert('Écrivez au moins un titre ou un texte.'); return; }
+  if (noteEditId) editNote(noteEditId, n); else addNote(n);
+  noteFormClear(); renderCarnet();
+};
+$('noteCancel').onclick = () => { noteFormClear(); renderCarnet(); };
+$('calAll').onclick = () => { carnetAll = !carnetAll; renderCarnet(); };
+
+// Fichier .ics : tout le calendrier à venir, avec rappels la veille et le matin même
+$('calIcs').onclick = () => {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const items = calItems().filter(it => !it.done && it.date >= today);
+  if (!items.length) { alert('Rien à venir à exporter.'); return; }
+  const tx = s => String(s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+  const ev = items.map(it => [
+    'BEGIN:VEVENT', `UID:${it.key.replace(/[^\w:-]/g, '')}-${ymd(it.date)}@cap-ouest`, `DTSTAMP:${stamp}`,
+    `DTSTART;VALUE=DATE:${ymd(it.date)}`, `DTEND;VALUE=DATE:${ymd(addDays(it.date, 1))}`,
+    `SUMMARY:${tx('📅 ' + it.title)}`, `DESCRIPTION:${tx([it.text, it.site ? it.site[1] : ''].filter(Boolean).join('\n'))}`,
+    'BEGIN:VALARM', 'ACTION:DISPLAY', 'TRIGGER:-PT15H', `DESCRIPTION:${tx(it.title)}`, 'END:VALARM',
+    'BEGIN:VALARM', 'ACTION:DISPLAY', 'TRIGGER:PT8H', `DESCRIPTION:${tx(it.title)}`, 'END:VALARM',
+    'END:VEVENT'].join('\r\n'));
+  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Cap Ouest//FR', 'CALSCALE:GREGORIAN', 'X-WR-CALNAME:Cap Ouest', ...ev, 'END:VCALENDAR'].join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' }));
+  a.download = 'cap-ouest-rappels.ics';
+  document.body.appendChild(a); a.click(); a.remove();
+};
+document.querySelector('nav [data-t=carnet]').addEventListener('click', renderCarnet);
+onNotesChange(() => { if ($('carnet').classList.contains('on')) renderCarnet(); syncNow(); });
+
+// Fiche d'une étape : notes rattachées + bouton d'ajout
+function stepNotesHtml(s, i) {
+  const ns = getNotes().filter(n => n.step === s.id);
+  return `<details class="journal"${ns.length ? ' open' : ''}><summary>📒 Notes${ns.length ? ` (${ns.length})` : ''}</summary>
+    ${ns.map(n => `<div class="src">• <a href="#" onclick="noteEdit('${n.id}'); return false">${esc(n.title || n.text.slice(0, 60))}</a>${n.date ? ` · 📅 ${esc(n.date)}` : ''}</div>`).join('')}
+    <button class="btn sm" onclick="noteForStep(${i})">+ Note pour cette étape</button></details>`;
+}
+
+// Lien d'ajout : …/cap-ouest/#note=Titre|AAAA-MM-JJ|texte (ex. envoyé par Claude) : ajoute la note à l'ouverture
+function noteFromHash() {
+  const m = location.hash.match(/^#note=(.*)$/);
+  if (!m) return;
+  history.replaceState(null, '', location.pathname + location.search);
+  const [title, date, ...rest] = decodeURIComponent(m[1].replace(/\+/g, ' ')).split('|');
+  const n = addNote({ title, date: (date || '').trim(), text: rest.join('|') });
+  if (!n) return;
+  openView('carnet', true); renderCarnet();
+  setTimeout(() => alert(`📒 « ${title} » est dans votre Carnet.`), 300);
+}
+window.addEventListener('hashchange', noteFromHash);
+setTimeout(noteFromHash, 0);
 
 // Aller à un point sur le plan (sans passer en satellite, contrairement à viewAt)
 window.goTo = (lat, lng, zoom) => {

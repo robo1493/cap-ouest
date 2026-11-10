@@ -48,7 +48,7 @@ export function resvSites(s, coe) {
     out.push(['recreation.gov', 'https://www.recreation.gov/search?q=' + encodeURIComponent(place)]);
   if (CA_PROV.includes(code) && /parc national|national park/i.test(name) && !/québec|sépaq/i.test(name))
     out.push(['Parcs Canada', 'https://reservation.pc.gc.ca']);
-  else if (/parc d.?état|state park|state beach|state recreation|\bS[PB]\b|\bSRA\b|parc provincial|provincial park|\bPP\b|sépaq|parc national du québec/i.test(name) && STATE[code])
+  else if (/parc d.?état|state park|state beach|state recreation|\bS[PB]\b|\bSRA\b|parc provincial|parc prov.|provincial park|\bPP\b|sépaq|parc national du québec/i.test(name) && STATE[code])
     out.push(STATE[code]);
   out.push(['Chercher sur Google', google(place + ' camping reservations')]);
   return out;
@@ -71,4 +71,38 @@ export function resvText(s, arrIso, depIso, nights, p) {
     `${p.adults} adult${p.adults > 1 ? 's' : ''}${p.kids ? `, ${p.kids} child${p.kids > 1 ? 'ren' : ''}` : ''} · ${p.pets} pet${p.pets !== 1 ? 's' : ''} · ${p.vehicles} vehicle${p.vehicles > 1 ? 's' : ''} · ${p.slides} slide-out${p.slides !== 1 ? 's' : ''}`,
   ];
   return [...fr.filter(Boolean), '', 'In English:', ...en].join('\n');
+}
+
+// 📅 Ouverture des réservations : combien de temps d'avance chaque système accepte les réservations
+// (fenêtre glissante, au jour près). « sure: false » = valeur estimée, à vérifier sur le site.
+const WINDOW = {
+  recgov: { m: 6, label: 'recreation.gov : 6 mois d’avance, 10 h (heure de l’Est)', sure: true },
+  pc: { m: 0, label: 'Parcs Canada : ouverture en janvier pour toute la saison (date annoncée chaque hiver)', sure: false, jan: true },
+  CA: { m: 6, label: 'ReserveCalifornia : 6 mois d’avance, 8 h (heure du Pacifique)', sure: true },
+  AZ: { m: 12, label: 'Arizona State Parks : jusqu’à 12 mois d’avance', sure: true },
+  TX: { m: 5, label: 'Texas State Parks : 5 mois d’avance', sure: true },
+  OR: { m: 6, label: 'Oregon State Parks : 6 mois d’avance', sure: true },
+  WA: { m: 9, label: 'Washington State Parks : 9 mois d’avance', sure: true },
+  FL: { m: 11, label: 'Florida State Parks : 11 mois d’avance', sure: true },
+  NM: { m: 6, label: 'New Mexico State Parks : environ 6 mois d’avance', sure: false },
+  GA: { m: 13, label: 'Georgia State Parks : environ 13 mois d’avance', sure: false },
+  AL: { m: 12, label: 'Alabama State Parks : environ 12 mois d’avance (Gulf State Park)', sure: false },
+  UT: { m: 4, label: 'Utah State Parks : 4 mois d’avance', sure: true },
+  BC: { m: 4, label: 'BC Parks : 4 mois d’avance, 7 h (heure du Pacifique)', sure: true },
+  AB: { d: 90, label: 'Alberta Parks : 90 jours d’avance', sure: true },
+  ON: { m: 5, label: 'Ontario Parks : 5 mois d’avance, 7 h', sure: true },
+  QC: { m: 0, label: 'Sépaq : ouverture des réservations à date fixe (annoncée chaque année)', sure: false, jan: true },
+  def: { m: 6, label: 'Délai inconnu : 6 mois d’avance par prudence, à vérifier sur le site du camping', sure: false },
+};
+// Date d'ouverture estimée des réservations pour une arrivée donnée (Date) : { date, label, sure, site }
+export function resvWindow(s, arr, coe) {
+  const sites = resvSites(s, coe), [t, u] = sites[0];
+  const code = ((s.name || '').match(/,\s*([A-Z]{2})\s*$/) || [])[1] || '';
+  const w = /recreation\.gov/.test(u) ? WINDOW.recgov : /pc\.gc\.ca/.test(u) ? WINDOW.pc
+    : sites.length > 1 && WINDOW[code] ? WINDOW[code] : WINDOW.def;
+  let date = new Date(arr);
+  if (w.jan) date = new Date(arr.getFullYear(), 0, 15);
+  else if (w.d) date.setDate(date.getDate() - w.d);
+  else date.setMonth(date.getMonth() - w.m);
+  return { date, label: w.label, sure: w.sure, site: sites.length > 1 ? [t, u] : null };
 }

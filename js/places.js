@@ -6,8 +6,9 @@ import { CATS } from './pois.js';
 import { PACK_ID } from './ioverlander.js';
 import { FUEL_ID } from './fuel.js';
 import { FAV_ID } from './favs.js';
+import { NOTES_ID } from './notes.js';
 // Lignes de la table places qui ne sont pas des lieux des guides (lot iOverlander, journal des pleins, favoris)
-const RESERVED = [PACK_ID, FUEL_ID, FAV_ID];
+const RESERVED = [PACK_ID, FUEL_ID, FAV_ID, NOTES_ID];
 
 const KEY = 'capouest.places.v1';
 const DIRTY_KEY = 'capouest.places.dirty';
