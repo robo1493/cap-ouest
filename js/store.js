@@ -2,6 +2,7 @@
 // La synchronisation Supabase (sync.js) s'abonne aux enregistrements via onTripSaved.
 
 import { DEFAULT_STEPS, DEFAULT_START, DEFAULT_VEHICLE } from './data.js';
+import { RESV_DEFAULT } from './resv.js';
 
 const TRIP_KEY = 'capouest.trip.v2';
 const BACKUP_KEY = 'capouest.trip.backup';
@@ -55,7 +56,8 @@ function loadSettings() {
     maxKmDay: s.maxKmDay || 0,
     follow: !!s.follow, // suivi GPS relancé à l'ouverture (cet appareil seulement)
     headUp: s.headUp !== false, // en mode conduite, la carte tourne : route devant (sinon nord en haut)
-    night: ['auto', 'on', 'off'].includes(s.night) ? s.night : 'auto',   // carte sombre (auto : au coucher du soleil)
+    night: ['auto', 'on', 'off'].includes(s.night) ? s.night : 'auto',
+    resv: { ...RESV_DEFAULT, ...s.resv },   // paramètres de réservation (📅 dans la fiche d'étape)   // carte sombre (auto : au coucher du soleil)
   };
 }
 

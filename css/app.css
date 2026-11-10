@@ -253,3 +253,9 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; }
 .search-res button:hover, .search-res button:focus { background: var(--fill); }
 .search-res small { display: block; color: var(--muted); font-size: 11px; }
 @media (max-width: 600px) { .search { left: 10px; right: 60px; width: auto; transform: none; } }
+
+/* 📅 Aide à la réservation (fiche d'étape) */
+.resv-help { margin: 4px 0; }
+.resv-help summary { cursor: pointer; font-weight: 600; }
+.resv-help > * + * { margin-top: 4px; }
+.resv-help .row { flex-wrap: wrap; gap: 4px; }

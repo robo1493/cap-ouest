@@ -15,6 +15,7 @@ import { BY_K, GROUPS, getIo, onIoChange, importIoCsv, clearIo, ioNear, ioBigCou
 import { CHAINS, loadChains, chainsNear } from './chains.js';
 import { CAMP_KINDS, CAMP_FLAGS, loadCamps, campsNear } from './camps.js';
 import { loadCoe, coeNear, coeAll } from './coe.js';
+import { RESV_EQUIP, RESV_AMPS, resvSites, resvText } from './resv.js';
 import { clearancesAlong, fetchMissingClearances, clearanceProgress, clearClearanceCache, feet } from './clearances.js';
 import { addPoint, trailKm, trailSegments, onTrailChange, clearTrail } from './trail.js';
 import { isNight as sunDown } from './night.js';
@@ -177,6 +178,7 @@ function popupHtml(i) {
     ${s.type !== 'start' ? `<div class="resv"><label><input type="checkbox" ${s.extra?.reserved ? 'checked' : ''} onchange="act('reserve', ${i}, this.checked)">
       📌 Réservation (date et nuits fixes)</label>
       ${s.extra?.reserved ? `<input placeholder="Camping, n° de réservation…" value="${esc(s.extra.resName || '')}" onchange="act('resName', ${i}, this.value)">` : ''}</div>` : ''}
+    ${isNight(s) ? resvHtml(i) : ''}
     ${s.type !== 'start' ? altsHtml(s, i) : ''}
     ${isNight(s) || s.extra?.ferry ? `<div class="money">💲
       ${isNight(s) ? `<label>Prévu/nuit <input type="number" min="0" step="1" placeholder="${s.type === 'c' ? settings.campRate : 0}" value="${s.extra?.price ?? ''}" onchange="act('money', ${i}, ['price', this.value])"></label>
@@ -685,6 +687,42 @@ map.on('zoomend', () => {
 });
 $('coeShow').onchange = toggleCoe;
 loadCoe().then(queueCoe).catch(e => console.warn('Corps of Engineers : fichier introuvable', e));
+
+// ---------- 📅 Aide à la réservation (dates de l'itinéraire + paramètres du rig, lien vers le bon site) ----------
+function resvInfo(i) {
+  const s = trip.steps[i], a = arrival(i);
+  return { s, arr: toIso(a), dep: toIso(addDays(a, s.nights)), nights: s.nights };
+}
+function resvHtml(i) {
+  const { s, arr, dep, nights } = resvInfo(i), p = settings.resv;
+  const sites = resvSites(s, coeAll());
+  const eq = RESV_EQUIP[p.equip]?.[0] || '', amps = RESV_AMPS[p.amps]?.[0] || '';
+  return `<details class="resv-help"><summary>📅 Réserver cet endroit</summary>
+    <div>Du <b>${shortDate(parseIso(arr))}</b> au <b>${shortDate(parseIso(dep))}</b> (${nights} nuit${nights > 1 ? 's' : ''})</div>
+    <div class="src">${esc(eq)} ${p.trailerFt} pi (total ${p.totalFt} pi) · ${esc(amps)} · ${p.adults} adulte${p.adults > 1 ? 's' : ''}${p.pets ? ` · ${p.pets} animal${p.pets > 1 ? 'aux' : ''}` : ''} ·
+      <a href="#" onclick="openResvSettings(); return false">modifier les paramètres</a></div>
+    <button class="btn sm" onclick="resvCopy(${i}, this)">📋 Copier les infos de réservation</button>
+    <div class="row">${sites.map(([t, u]) => `<a class="btn sm" target="_blank" rel="noopener" href="${esc(u)}">${esc(t)} ↗</a>`).join('')}</div>
+    <div class="src">Collez les infos dans le site de réservation (dates, longueur, électricité…). Après la réservation, cochez « 📌 Réservation » ci-dessus et notez le numéro.</div>
+  </details>`;
+}
+window.resvCopy = async (i, btn) => {
+  const { s, arr, dep, nights } = resvInfo(i);
+  const txt = resvText(s, arr, dep, nights, settings.resv);
+  try { await navigator.clipboard.writeText(txt); btn.textContent = '✔ Copié'; }
+  catch { prompt('Copiez ce texte :', txt); }
+};
+window.openResvSettings = () => { openView('params'); setTimeout(() => $('resvBox')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100); };
+// ⚙ Paramètres : chaque champ data-resv modifie settings.resv
+document.querySelectorAll('[data-resv]').forEach(el => {
+  const v = settings.resv[el.dataset.resv];
+  if (el.type === 'checkbox') el.checked = !!v; else el.value = v ?? '';
+  el.onchange = () => {
+    const k = el.dataset.resv;
+    settings.resv[k] = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Math.max(0, parseFloat(el.value) || 0) : el.value;
+    saveSettings();
+  };
+});
 
 // ---------- ⭐ Mes campings favoris (toujours visibles, synchronisés) ----------
 const favLayer = L.layerGroup().addTo(map);

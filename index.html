@@ -42,7 +42,7 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v1.23</small></div>
+  <div class="logo">Cap Ouest <small>v1.24</small></div>
   <button class="btn sm pri" id="installBtn" hidden>📲 Installer l'application</button>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
@@ -511,6 +511,27 @@
           <h2>🚚 Rythme de route</h2>
           <div class="field"><span>Distance maximale par jour (km)</span><input class="inp" type="number" id="maxKmDay" min="100" max="1200" step="25"></div>
           <div class="src">Au-delà, le tronçon est signalé en rouge. Pour une route facile, cochez « Tronçon long accepté » dans la fiche de l’étape.</div>
+        </div>
+
+        <div class="box real" id="resvBox">
+          <h2>📅 Paramètres de réservation</h2>
+          <div class="field"><span>Équipement</span><select class="inp" data-resv="equip">
+            <option value="fifth">Fifth wheel</option><option value="trailer">Roulotte</option><option value="motor">Motorisé</option><option value="van">Fourgonnette</option><option value="tent">Tente</option></select></div>
+          <div class="field"><span>Longueur de la fifth wheel seulement (pi)</span><input class="inp" type="number" min="0" max="80" step="1" data-resv="trailerFt"></div>
+          <div class="field"><span>Longueur totale avec le camion (pi)</span><input class="inp" type="number" min="0" max="90" step="1" data-resv="totalFt"></div>
+          <div class="field"><span>Électricité</span><select class="inp" data-resv="amps">
+            <option value="50">50 A</option><option value="30">30 A</option><option value="20">20 A</option><option value="0">Aucune</option></select></div>
+          <div class="field"><span>Branchements souhaités</span><select class="inp" data-resv="hookups">
+            <option value="full">Complets (eau, électricité, égout)</option><option value="we">Eau et électricité</option><option value="e">Électricité seulement</option><option value="none">Aucun (rustique)</option></select></div>
+          <div class="field"><span>Adultes</span><input class="inp" type="number" min="1" max="12" step="1" data-resv="adults"></div>
+          <div class="field"><span>Enfants</span><input class="inp" type="number" min="0" max="12" step="1" data-resv="kids"></div>
+          <div class="field"><span>Animaux</span><input class="inp" type="number" min="0" max="6" step="1" data-resv="pets"></div>
+          <div class="field"><span>Véhicules (le camion compte)</span><input class="inp" type="number" min="1" max="4" step="1" data-resv="vehicles"></div>
+          <div class="field"><span>Extensions (slide-outs)</span><input class="inp" type="number" min="0" max="6" step="1" data-resv="slides"></div>
+          <label class="src" style="display:block"><input type="checkbox" data-resv="pull"> Site traversant (pull-through) de préférence</label>
+          <label class="lbl">Note ajoutée à chaque demande</label>
+          <input class="inp" data-resv="note" maxlength="200" placeholder="Ex. : site ombragé, loin de la route…">
+          <div class="src">Les sites demandent presque toujours la longueur de la <b>fifth wheel seulement</b>. Ces paramètres servent au bouton 📅 « Réserver cet endroit » dans la fiche de chaque étape.</div>
         </div>
 
         <div class="box real">
