@@ -6,6 +6,8 @@
 /* L'attribut hidden doit toujours cacher, même un élément dont la classe impose un display */
 [hidden] { display: none !important; }
 html, body { height: 100%; }
+/* Hauteur réelle de l'écran (mode application, barres système d'Android) */
+@supports (height: 100dvh) { body { height: 100dvh; } }
 body { margin: 0; font: 14px/1.4 system-ui, sans-serif; background: var(--bg); color: var(--ink); display: flex; flex-direction: column; }
 header { display: flex; align-items: center; gap: 16px; padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 .logo { font-weight: 800; font-size: 18px; }
@@ -107,6 +109,9 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; }
 
 /* Superpositions sur la carte */
 .layers { position: absolute; top: 10px; left: 10px; z-index: 1000; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font-size: 13px; }
+/* Menu ouvert : hauteur limitée (les pastilles du bas restent visibles), défilement à l'intérieur */
+.layers[open] { max-height: calc(100% - 100px); overflow-y: auto; overscroll-behavior: contain; width: min(330px, calc(100% - 80px)); box-sizing: border-box; }
+.layers summary { position: sticky; top: -8px; background: var(--panel); padding: 2px 0; z-index: 1; cursor: pointer; }
 .layers label { display: block; padding: 3px 0; }
 .tools { position: absolute; top: 10px; right: 10px; z-index: 1000; display: flex; flex-direction: column; gap: 6px; }
 .tools .btn { width: 40px; padding: 0; }
