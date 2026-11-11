@@ -42,7 +42,7 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v1.28</small></div>
+  <div class="logo">Cap Ouest <small>v1.29</small></div>
   <button class="btn sm pri" id="installBtn" hidden>📲 Installer l'application</button>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
@@ -88,7 +88,9 @@
     </div>
 
     <details class="layers">
-      <summary><b>Calques</b></summary>
+      <summary><b>Calques</b> <span id="mapViewName" class="src"></span></summary>
+      <div class="src" style="margin-top:4px">Vues :</div>
+      <div id="mapViews" class="search-cats map-views"></div>
       <label><input type="radio" name="base" value="plan" checked> Plan</label>
       <label><input type="radio" name="base" value="sat"> Satellite</label>
       <div class="row" style="gap:10px; font-size:13px">🌙 Mode nuit :

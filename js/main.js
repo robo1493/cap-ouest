@@ -2604,6 +2604,67 @@ keepAwake();
 document.addEventListener('visibilitychange', keepAwake);
 document.addEventListener('pointerdown', keepAwake);
 
+
+// ---------- 👁 Vues de la carte : ensembles de calques prêts à choisir (menu Calques) ----------
+// Chaque case à cocher du menu a une clé ; une vue dit lesquelles sont ouvertes (les autres sont fermées).
+// Les cases cochées à la main sont retenues sur l'appareil (localStorage) et remises au démarrage.
+const LYR_KEY = 'capouest.layers.v1';
+const lyrBoxes = () => [...document.querySelectorAll('.layers input[type=checkbox]')].filter(cb => lyrKey(cb));
+const lyrKey = cb => cb.id === 'publicLands' || cb.id === 'favShow' || cb.id === 'coeShow' ? cb.id
+  : cb.dataset.lyr ? 'lyr:' + cb.dataset.lyr : cb.dataset.poi ? 'poi:' + cb.dataset.poi
+  : cb.dataset.io ? 'io:' + cb.dataset.io : cb.dataset.chain ? 'chain:' + cb.dataset.chain
+  : cb.dataset.camp ? 'camp:' + cb.dataset.camp : '';
+const BASE = ['lyr:lines', 'lyr:b', 'lyr:c', 'favShow'];
+const MAP_VIEWS = [
+  ['plan', '🗺 Planifier', 'Étapes, trajet et favoris seulement', [...BASE, 'lyr:trail']],
+  ['boon', '🏜 Boondock', 'Terres publiques, nuits iOverlander, Walmart et relais routiers',
+    [...BASE, 'publicLands', 'io:night', 'io:warn', 'chain:w', 'chain:t', 'chain:c']],
+  ['camp', '🏕 Camping', 'Campings, parcs VR et Corps of Engineers', [...BASE, 'coeShow', 'camp:v', 'camp:c', 'io:night']],
+  ['drive', '🚚 Conduite', 'Route, diesel, ponts bas et avertissements',
+    [...BASE, 'lyr:fuel', 'lyr:stations', 'lyr:clear', 'lyr:trail', 'io:warn', 'io:serv', 'chain:t']],
+  ['disc', '🧭 Découvertes', 'Sentiers, points de vue, musées, histoire et mes guides',
+    [...BASE, 'poi:trail', 'poi:view', 'poi:museum', 'poi:history', 'lyr:guides']],
+  ['all', '☰ Tout', 'Tous les calques', null],
+];
+let lyrApplying = false;
+function lyrSave() {
+  if (lyrApplying) return;
+  const st = {}; lyrBoxes().forEach(cb => st[lyrKey(cb)] = cb.checked);
+  try { localStorage.setItem(LYR_KEY, JSON.stringify(st)); } catch {}
+  lyrMark();
+}
+function lyrSet(st) {
+  lyrApplying = true;
+  lyrBoxes().forEach(cb => {
+    const k = lyrKey(cb);
+    if (k in st && cb.checked !== st[k]) { cb.checked = st[k]; cb.dispatchEvent(new Event('change')); }
+  });
+  lyrApplying = false;
+  lyrSave();
+}
+// Vue actuelle : celle dont les cases correspondent exactement, sinon « Personnalisée »
+function lyrCurrent() {
+  const on = new Set(lyrBoxes().filter(cb => cb.checked).map(lyrKey)), keys = lyrBoxes().map(lyrKey);
+  return MAP_VIEWS.find(([, , , list]) => keys.every(k => (list ? list.includes(k) : k !== 'publicLands') === on.has(k)));
+}
+function lyrMark() {
+  const v = lyrCurrent();
+  document.querySelectorAll('#mapViews button').forEach(b => b.classList.toggle('on', b.dataset.v === v?.[0]));
+  $('mapViewName').textContent = v ? '· ' + v[1] : '· vue personnalisée';
+}
+window.mapView = id => {
+  const v = MAP_VIEWS.find(x => x[0] === id); if (!v) return;
+  const st = {}; lyrBoxes().forEach(cb => { const k = lyrKey(cb); st[k] = v[3] ? v[3].includes(k) : k !== 'publicLands'; });
+  lyrSet(st);
+};
+$('mapViews').innerHTML = MAP_VIEWS.map(([id, t, tip]) => `<button type="button" data-v="${id}" title="${esc(tip)}" onclick="mapView('${id}')">${t}</button>`).join('');
+lyrBoxes().forEach(cb => cb.addEventListener('change', lyrSave));
+// Au démarrage : remettre les cases comme la dernière fois (après le chargement des calques)
+setTimeout(() => {
+  let st = null; try { st = JSON.parse(localStorage.getItem(LYR_KEY)); } catch {}
+  if (st) lyrSet(st); else lyrMark();
+}, 0);
+
 // Application installable et utilisable hors ligne (seulement servie en http/https)
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   navigator.serviceWorker.register('sw.js').catch(e => console.warn('Service worker', e));

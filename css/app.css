@@ -278,3 +278,6 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; }
 .note { border-top: 1px solid var(--line); padding: 8px 0; }
 .note-text { margin: 4px 0; overflow-wrap: anywhere; }
 .note .row { margin-top: 4px; }
+
+/* 👁 Vues de la carte (menu Calques) */
+.map-views { flex-wrap: wrap; max-width: 300px; padding-bottom: 6px; }
