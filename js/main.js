@@ -1897,6 +1897,29 @@ function refresh(geometry) {
   if (geometry) recompute(); else renderLines();
 }
 
+// Choix de rechange sans GPS devenu l'endroit prévu : trouver sa position (OpenStreetMap) pour que la route y passe
+async function altLocate(id, q) {
+  const i = trip.steps.findIndex(x => x.id === id), s = trip.steps[i];
+  if (!s || !q) return;
+  let r = null;
+  try {
+    const u = 'https://nominatim.openstreetmap.org/search?' + new URLSearchParams({ q, format: 'json', limit: 1, countrycodes: 'us,ca', 'accept-language': 'fr' });
+    r = (await (await fetch(u)).json())[0];
+  } catch {}
+  if (!r) { alert(`Position de « ${q} » introuvable : la route passe encore par l’ancien endroit.
+
+Dans la fiche de l’étape, inscrivez la position GPS (champ GPS) pour déplacer la route.`); return; }
+  const lat = +r.lat, lng = +r.lon;
+  if (!confirm(`Position trouvée pour « ${q} » :
+${r.display_name}
+(à ${fmt(hav(s, { lat, lng }))} km de l’ancien endroit)
+
+Déplacer l’étape et la route ici ?`)) return;
+  s.lat = lat; s.lng = lng;
+  refresh(true);
+  focusStep(i);
+}
+
 window.act = (what, i, v) => {
   const steps = trip.steps, s = steps[i];
   const hadPopup = !!map.getContainer().querySelector('.leaflet-popup');
@@ -1940,6 +1963,7 @@ window.act = (what, i, v) => {
     const { addr, ...rest } = s.extra || {};
     s.name = a.name;
     if (a.lat != null) { s.lat = a.lat; s.lng = a.lng; geometry = true; }
+    else setTimeout(() => altLocate(s.id, a.addr || a.name), 0);   // pas de GPS : chercher l'adresse pour déplacer l'étape
     s.extra = { ...rest, ...(a.addr ? { addr: a.addr } : {}), alts: [old, ...alts] };
   }
   if (what === 'gps') {
