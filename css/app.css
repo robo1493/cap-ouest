@@ -280,6 +280,8 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; }
 .cal-item .row { margin-top: 4px; flex-wrap: wrap; }
 .cal-body { flex: 1; min-width: 0; }
 .chip.warn { border-color: #b33; color: #b33; }
+.chip.cmp { border-color: #d6338a; color: #d6338a; cursor: pointer; }
+.cmp-pin { background: #d6338a; color: #fff; border: 2px solid #fff; border-radius: 50%; width: 20px; height: 20px; font: bold 11px/16px sans-serif; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
 .note { border-top: 1px solid var(--line); padding: 8px 0; }
 .note-text { margin: 4px 0; overflow-wrap: anywhere; }
 .note .row { margin-top: 4px; }

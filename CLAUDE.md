@@ -69,3 +69,10 @@ L'utilisateur travaille avec Claude tantôt sur son portable, tantôt depuis sa 
 2. Tester localement (vider caches et service worker avant de recharger).
 3. Commit en français (« vX.Y : … »), push sur `main`, puis vérifier que `sw.js` en ligne porte la nouvelle version et que `/Data/...` renvoie 404.
 4. Dire à l'utilisateur de fermer et rouvrir l'appli (tablette) ou Ctrl+F5 (portable).
+
+## Ajouts v1.31 à v1.39 (résumé)
+- Fiches (popups) : poignée « glisser » pour déplacer, coin pour redimensionner (taille gardée dans `capouest.popsize.v1`), défilement interne.
+- Routage (`js/routing.js`) : `endsOk` rejette un tracé (ou un tronçon en cache) qui n'arrive pas à moins de 5 km des étapes ; dernier repli OSRM.
+- Choix de rechange sans GPS : géocodé (favori du même nom, sinon Nominatim) — `altLocate`.
+- Fiche iOverlander : boutons « Copier le nom / le GPS » (le CSV n'a pas l'identifiant du lieu, donc pas de lien direct).
+- Trajet de comparaison : lien `#cmp=Nom|Ville@lat,lng;Ville@lat,lng;…`, tracé rose `#d6338a`, puce dans le HUD, gardé dans `capouest.compare.v1` (par appareil), ne modifie pas le voyage.

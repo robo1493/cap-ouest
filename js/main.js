@@ -860,6 +860,64 @@ function favFromHash() {
 window.addEventListener('hashchange', favFromHash);
 setTimeout(favFromHash, 0);   // après la définition de goTo / openView plus bas
 
+// ---------- Trajet de comparaison (autre couleur, ne touche pas au voyage) ----------
+// Lien : …/cap-ouest/#cmp=Nom|Ville@lat,lng;Ville@lat,lng;… (ex. envoyé par Claude). Gardé sur l'appareil.
+const CMP_KEY = 'capouest.compare.v1', CMP_COLOR = '#d6338a';
+const cmpLayer = L.layerGroup().addTo(map);
+let cmp = null, cmpGen = 0;
+try { cmp = JSON.parse(localStorage.getItem(CMP_KEY) || 'null'); } catch {}
+function renderCmp(fit = false) {
+  const gen = ++cmpGen, chip = $('hudCmp');
+  cmpLayer.clearLayers();
+  if (!cmp?.steps?.length) { chip.hidden = true; return; }
+  const steps = cmp.steps, opts = routeOpts();
+  const cl = steps.slice(1).map((b, i) => cachedOrEstimate(steps[i], b, opts));
+  const lines = L.layerGroup().addTo(cmpLayer);
+  const draw = () => {
+    if (gen !== cmpGen) return;
+    lines.clearLayers();
+    cl.forEach(l => L.polyline(l.coords, { color: CMP_COLOR, weight: 5, opacity: .75, dashArray: l.provider === 'estimate' ? '6 8' : null }).addTo(lines));
+    const km = cl.reduce((t, l) => t + l.km, 0), h = cl.reduce((t, l) => t + (l.h || l.km / 85), 0);
+    const pend = cl.filter(l => l.pending).length;
+    chip.hidden = false;
+    chip.textContent = `🟪 ${cmp.name} · ${fmt(km)} km · ${fmtH(h)}${pend ? ` · calcul ${cl.length - pend}/${cl.length}` : ''}`;
+  };
+  steps.forEach((s, i) => L.marker([s.lat, s.lng], { icon: L.divIcon({ className: '', html: `<div class="cmp-pin">${i}</div>`, iconSize: [20, 20], iconAnchor: [10, 10] }) })
+    .bindPopup(() => `<div class="pop"><b>🟪 ${esc(cmp.name)} · ${i}. ${esc(s.name)}</b>
+      ${i ? `<div>${fmt(cl[i - 1].km)} km${cl[i - 1].h ? ' · ' + fmtH(cl[i - 1].h) : ''} depuis ${esc(steps[i - 1].name)}</div>` : '<div>Départ</div>'}
+      <div class="src">Trajet de comparaison : votre voyage n'est pas modifié.</div>
+      <div class="row"><button class="btn sm" onclick="cmpClear()">Retirer ce trajet</button></div></div>`)
+    .addTo(cmpLayer));
+  draw();
+  if (fit) map.fitBounds(L.latLngBounds(steps.map(s => [s.lat, s.lng])), { padding: [30, 30] });
+  fetchMissing(steps, opts, {
+    onLeg: (i, leg) => { cl[i] = leg; draw(); },
+    onError: (i, e) => { cl[i].pending = false; console.warn('Comparaison', i, e); draw(); },
+    isStale: () => gen !== cmpGen,
+  });
+}
+window.cmpClear = () => {
+  if (!confirm(`Retirer le trajet de comparaison « ${cmp?.name} » de la carte ?`)) return;
+  cmp = null; localStorage.removeItem(CMP_KEY); map.closePopup(); renderCmp();
+};
+$('hudCmp').onclick = () => cmp && map.fitBounds(L.latLngBounds(cmp.steps.map(s => [s.lat, s.lng])), { padding: [30, 30] });
+function cmpFromHash() {
+  const m = location.hash.match(/^#cmp=(.*)$/);
+  if (!m) return;
+  history.replaceState(null, '', location.pathname + location.search);
+  const [name, list] = decodeURIComponent(m[1].replace(/\+/g, ' ')).split('|');
+  const steps = (list || '').split(';').map(t => {
+    const [n, g] = t.split('@'), p = parseGps(g || '');
+    return p && { name: n.trim(), ...p };
+  }).filter(Boolean);
+  if (steps.length < 2) return;
+  cmp = { name: name || 'Comparaison', steps };
+  localStorage.setItem(CMP_KEY, JSON.stringify(cmp));
+  renderCmp(true);
+}
+window.addEventListener('hashchange', cmpFromHash);
+setTimeout(() => { if (/^#cmp=/.test(location.hash)) cmpFromHash(); else routesReady.then(() => renderCmp()); }, 0);
+
 
 // ---------- 📒 Carnet : notes, calendrier (ouverture des réservations + notes datées), Google Agenda ----------
 const ymd = d => toIso(d).replace(/-/g, '');
