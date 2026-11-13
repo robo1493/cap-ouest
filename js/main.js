@@ -481,6 +481,11 @@ function ioPopup(x) {
       <button class="btn sm" onclick="viewAt(${x[0]}, ${x[1]}, 17)">Vue satellite</button>
       <a class="btn sm" target="_blank" rel="noopener" href="https://www.google.com/maps/@${x[0]},${x[1]},300m/data=!3m1!1e3">Google Maps ↗</a>
     </div>
+    <div class="row">
+      ${x[2] ? `<button class="btn sm" data-copy="${esc(x[2])}" onclick="copyTxt(this)">📋 Copier le nom</button>` : ''}
+      <button class="btn sm" data-copy="${x[0]}, ${x[1]}" onclick="copyTxt(this)">📋 Copier le GPS</button>
+    </div>
+    <div class="src">À coller dans la recherche de l’application iOverlander pour lire les commentaires.</div>
   </div>`;
 }
 
@@ -757,6 +762,12 @@ window.resvCopyPlace = async (k, btn) => {
   if (!pl || !a) return;
   const txt = resvText(pl, a, toIso(addDays(parseIso(a), n)), n, settings.resv);
   try { await navigator.clipboard.writeText(txt); btn.textContent = '✔ Copié'; }
+  catch { prompt('Copiez ce texte :', txt); }
+};
+// Bouton « Copier » générique : le texte est dans data-copy
+window.copyTxt = async btn => {
+  const txt = btn.dataset.copy, label = btn.textContent;
+  try { await navigator.clipboard.writeText(txt); btn.textContent = '✔ Copié'; setTimeout(() => { btn.textContent = label; }, 1500); }
   catch { prompt('Copiez ce texte :', txt); }
 };
 window.openResvSettings = () => { openView('params'); setTimeout(() => $('resvBox')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100); };
