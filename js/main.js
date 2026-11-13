@@ -1901,6 +1901,9 @@ function refresh(geometry) {
 async function altLocate(id, q) {
   const i = trip.steps.findIndex(x => x.id === id), s = trip.steps[i];
   if (!s || !q) return;
+  // Un favori ⭐ du même nom donne directement la position
+  const fav = getFavs().find(f => f.name.trim().toLowerCase() === q.trim().toLowerCase());
+  if (fav) { s.lat = fav.lat; s.lng = fav.lng; refresh(true); focusStep(i); return; }
   let r = null;
   try {
     const u = 'https://nominatim.openstreetmap.org/search?' + new URLSearchParams({ q, format: 'json', limit: 1, countrycodes: 'us,ca', 'accept-language': 'fr' });
