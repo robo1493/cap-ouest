@@ -292,3 +292,7 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; }
   padding: 4px 24px 2px; margin: -1px 0 0; border-bottom: 1px solid var(--line); background: rgba(0,0,0,.04); border-radius: 12px 12px 0 0; }
 .pop-drag:active { cursor: grabbing; }
 .leaflet-popup-content { overscroll-behavior: contain; }
+.leaflet-popup-content-wrapper { position: relative; }
+.pop-resize { position: absolute; right: 0; bottom: 0; width: 26px; height: 26px; cursor: nwse-resize; touch-action: none; z-index: 2;
+  background: linear-gradient(135deg, transparent 50%, rgba(0,0,0,.35) 50%, rgba(0,0,0,.35) 58%, transparent 58%, transparent 70%, rgba(0,0,0,.35) 70%, rgba(0,0,0,.35) 78%, transparent 78%);
+  border-radius: 0 0 12px 0; }

@@ -2693,13 +2693,51 @@ setTimeout(() => {
 }, 0);
 
 // ---------- Fiches (popups) : défilement si trop hautes + poignée pour les déplacer à l'écran ----------
+const POP_SIZE_KEY = 'capouest.popsize.v1';
 map.on('popupopen', e => {
   const c = e.popup.getElement(); if (!c) return;
   const wrap = c.querySelector('.leaflet-popup-content-wrapper'), body = c.querySelector('.leaflet-popup-content');
   const close = c.querySelector('.leaflet-popup-close-button'), tip = c.querySelector('.leaflet-popup-tip-container');
   // Hauteur limitée à l'écran visible : la fiche défile au lieu de dépasser
-  body.style.maxHeight = Math.max(200, map.getSize().y - 150) + 'px';
+  const maxH = Math.max(200, map.getSize().y - 150);
+  body.style.maxHeight = maxH + 'px';
   body.style.overflowY = 'auto';
+  // Fiche d'étape : grandeur choisie par l'utilisateur (poignée ◢ en bas à droite), retenue sur l'appareil
+  const isStep = [...markers.values()].includes(e.popup._source);
+  if (isStep) {
+    let sz = null; try { sz = JSON.parse(localStorage.getItem(POP_SIZE_KEY)); } catch {}
+    if (sz?.w) { e.popup.options.minWidth = e.popup.options.maxWidth = Math.min(sz.w, map.getSize().x - 60); }
+    if (sz?.h) body.style.height = Math.min(sz.h, maxH) + 'px';
+    if (!wrap.querySelector('.pop-resize')) {
+      const g = document.createElement('div');
+      g.className = 'pop-resize'; g.title = 'Glisser pour changer la grandeur (toucher deux fois : grandeur normale)';
+      wrap.appendChild(g);
+    }
+    const g = wrap.querySelector('.pop-resize');
+    g.onpointerdown = ev => {
+      ev.preventDefault(); ev.stopPropagation();
+      g.setPointerCapture(ev.pointerId);
+      const sx = ev.clientX, sy = ev.clientY, w0 = body.offsetWidth, h0 = body.offsetHeight;
+      let w = w0, h = h0;
+      g.onpointermove = m => {
+        w = Math.max(220, Math.min(map.getSize().x - 60, w0 + m.clientX - sx));
+        h = Math.max(160, Math.min(maxH, h0 + m.clientY - sy));
+        body.style.width = w + 'px'; body.style.height = h + 'px';
+      };
+      g.onpointerup = g.onpointercancel = () => {
+        g.onpointermove = null;
+        try { localStorage.setItem(POP_SIZE_KEY, JSON.stringify({ w: Math.round(w), h: Math.round(h) })); } catch {}
+        e.popup.options.minWidth = e.popup.options.maxWidth = Math.round(w);
+        e.popup.update();
+        setTimeout(fit, 50);
+      };
+    };
+    g.ondblclick = () => {
+      try { localStorage.removeItem(POP_SIZE_KEY); } catch {}
+      e.popup.options.minWidth = 230; e.popup.options.maxWidth = 300; body.style.height = '';
+      e.popup.update();
+    };
+  }
   let dx = 0, dy = 0;
   const place = () => {
     const t = dx || dy ? `translate(${dx}px, ${dy}px)` : '';

@@ -38,6 +38,12 @@ function keyFor(a, b, opts) {
   return `${p}|${r5(a)}|${r5(b)}${v}`;
 }
 
+// Le tracé part bien de a et arrive bien à b (à 5 km près : rattachement à la route la plus proche)
+const ENDS_KM = 5;
+const endsOk = (coords, a, b) => coords.length > 1
+  && hav({ lat: coords[0][0], lng: coords[0][1] }, a) < ENDS_KM
+  && hav({ lat: coords[coords.length - 1][0], lng: coords[coords.length - 1][1] }, b) < ENDS_KM;
+
 export function estimate(a, b) {
   return { coords: [[a.lat, a.lng], [b.lat, b.lng]], km: hav(a, b) * ROAD_FACTOR, h: null, provider: 'estimate' };
 }
@@ -48,8 +54,12 @@ export const ferryLeg = (a, b) => ({ coords: [[a.lat, a.lng], [b.lat, b.lng]], k
 // Synchrone : le tronçon en cache, sinon une estimation marquée « pending »
 export function cachedOrEstimate(a, b, opts) {
   if (b.extra?.ferry) return ferryLeg(a, b);
-  const c = cache[keyFor(a, b, opts)];
-  if (c) return { coords: decodePolyline(c.poly), km: c.km, h: c.h, provider: c.provider };
+  const k = keyFor(a, b, opts), c = cache[k];
+  if (c) {
+    const coords = decodePolyline(c.poly);
+    if (endsOk(coords, a, b)) return { coords, km: c.km, h: c.h, provider: c.provider };
+    delete cache[k];   // tracé qui ne va pas jusqu'aux étapes : à recalculer
+  }
   return { ...estimate(a, b), pending: true };
 }
 
@@ -131,7 +141,10 @@ export async function fetchMissing(steps, opts, { onLeg, onError, isStale }) {
     const a = steps[i - 1], b = steps[i], k = keyFor(a, b, opts);
     if (cache[k] || b.extra?.ferry) continue;   // traversier : pas de calcul routier
     try {
-      const res = p === 'ors' ? await orsWithSnap(a, b, opts) : await osrm(a, b);
+      let res = p === 'ors' ? await orsWithSnap(a, b, opts) : await osrm(a, b);
+      // Tracé ORS qui n'arrive pas à l'étape : refaire avec OSRM
+      if (!endsOk(decodePolyline(res.poly), a, b) && p === 'ors') res = { ...(await osrm(a, b)), provider: 'osrm' };
+      if (!endsOk(decodePolyline(res.poly), a, b)) throw new Error('Tracé qui n’arrive pas à l’étape');
       const provider = res.provider || p;
       cache[k] = { poly: res.poly, km: res.km, h: res.h, provider };
       persist();
