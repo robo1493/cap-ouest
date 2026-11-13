@@ -112,7 +112,13 @@ async function orsWithSnap(a, b, opts) {
   } catch (e) {
     if (!e.unroutable) throw e;
   }
-  return { ...(await ors(a, b, opts, 'driving-car')), provider: 'ors-car' };
+  try {
+    return { ...(await ors(sa, sb, opts, 'driving-car')), provider: 'ors-car' };
+  } catch (e) {
+    if (!e.unroutable) throw e;
+  }
+  // Étape loin de toute route connue d'ORS (ex. en plein désert) : OSRM rattache le point à la route la plus proche
+  return { ...(await osrm(a, b)), provider: 'osrm' };
 }
 
 // Calcule les tronçons absents du cache, un à la fois (le serveur OSRM public demande ~1 requête/s).
