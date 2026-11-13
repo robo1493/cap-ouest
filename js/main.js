@@ -2692,6 +2692,46 @@ setTimeout(() => {
   if (st) lyrSet(st); else lyrMark();
 }, 0);
 
+// ---------- Fiches (popups) : défilement si trop hautes + poignée pour les déplacer à l'écran ----------
+map.on('popupopen', e => {
+  const c = e.popup.getElement(); if (!c) return;
+  const wrap = c.querySelector('.leaflet-popup-content-wrapper'), body = c.querySelector('.leaflet-popup-content');
+  const close = c.querySelector('.leaflet-popup-close-button'), tip = c.querySelector('.leaflet-popup-tip-container');
+  // Hauteur limitée à l'écran visible : la fiche défile au lieu de dépasser
+  body.style.maxHeight = Math.max(200, map.getSize().y - 150) + 'px';
+  body.style.overflowY = 'auto';
+  let dx = 0, dy = 0;
+  const place = () => {
+    const t = dx || dy ? `translate(${dx}px, ${dy}px)` : '';
+    wrap.style.transform = t; if (close) close.style.transform = t;
+    if (tip) tip.style.visibility = dx || dy ? 'hidden' : '';
+  };
+  place();
+  if (!wrap.querySelector('.pop-drag')) {
+    const h = document.createElement('div');
+    h.className = 'pop-drag'; h.textContent = '⠿ glisser ici pour déplacer la fiche';
+    wrap.insertBefore(h, wrap.firstChild);
+  }
+  const h = wrap.querySelector('.pop-drag');
+  h.onpointerdown = ev => {
+    ev.preventDefault(); ev.stopPropagation();
+    const sx = ev.clientX - dx, sy = ev.clientY - dy;
+    h.setPointerCapture(ev.pointerId);
+    h.onpointermove = m => { dx = m.clientX - sx; dy = m.clientY - sy; place(); };
+    h.onpointerup = h.onpointercancel = () => { h.onpointermove = null; };
+  };
+  h.ondblclick = () => { dx = dy = 0; place(); };
+  e.popup.update();
+  // Fiche coupée en haut (sous la barre) ou en bas : déplacer la carte pour la montrer en entier
+  const fit = () => {
+    if (!c.isConnected || dx || dy) return;
+    const m = map.getContainer().getBoundingClientRect(), w = wrap.getBoundingClientRect();
+    const up = m.top + 10 - w.top, down = w.bottom - (m.bottom - 10);
+    if (up > 1) map.panBy([0, -up], { animate: false }); else if (down > 1) map.panBy([0, Math.min(down, -up)], { animate: false });
+  };
+  setTimeout(fit, 700); setTimeout(fit, 1500);
+});
+
 // Application installable et utilisable hors ligne (seulement servie en http/https)
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   navigator.serviceWorker.register('sw.js').catch(e => console.warn('Service worker', e));

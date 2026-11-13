@@ -286,3 +286,9 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; }
 
 /* 👁 Vues de la carte (menu Calques) */
 .map-views { flex-wrap: wrap; max-width: 300px; padding-bottom: 6px; }
+
+/* Fiches : poignée de déplacement */
+.pop-drag { touch-action: none; cursor: grab; user-select: none; text-align: center; font-size: 12px; color: #777;
+  padding: 4px 24px 2px; margin: -1px 0 0; border-bottom: 1px solid var(--line); background: rgba(0,0,0,.04); border-radius: 12px 12px 0 0; }
+.pop-drag:active { cursor: grabbing; }
+.leaflet-popup-content { overscroll-behavior: contain; }
