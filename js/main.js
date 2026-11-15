@@ -421,7 +421,7 @@ window.viewPoi = id => {
   if (!p) return;
   openView('map');
   if (!viewBefore) viewBefore = { base: settings.baseMap, center: map.getCenter(), zoom: map.getZoom() };
-  if (settings.baseMap !== 'sat') document.querySelector('[name=base][value=sat]').click();
+  tempSat();
   showBack();
   map.flyTo([p.lat, p.lng], 16, { duration: .8 });
   setTimeout(() => layers.pois.eachLayer(m => { if (m.getLatLng().equals([p.lat, p.lng])) m.openPopup(); }), 900);
@@ -1275,7 +1275,7 @@ onPlacesChange(renderGuides);
 window.viewAt = (lat, lng, zoom) => {
   openView('map');
   if (!viewBefore) viewBefore = { base: settings.baseMap, center: map.getCenter(), zoom: map.getZoom() };
-  if (settings.baseMap !== 'sat') document.querySelector('[name=base][value=sat]').click();
+  tempSat();
   showBack();
   map.flyTo([lat, lng], zoom, { duration: .8 });
 };
@@ -1625,13 +1625,20 @@ renderFuelLog();
 // Centre la carte sur la station, en vue satellite, pour juger l'entrée et la sortie
 // On retient la vue d'avant (fond de carte, position, zoom) pour le bouton « Retour »
 let viewBefore = null;
+let tempSwitch = false;
+function tempSat() {
+  if (settings.baseMap === 'sat') return;
+  tempSwitch = true;
+  document.querySelector('[name=base][value=sat]').click();
+  tempSwitch = false;
+}
 window.viewStation = id => {
   const s = stations.find(x => x.id === id);
   if (!s) return;
   openView('map');
   if (!viewBefore) viewBefore = { base: settings.baseMap, center: map.getCenter(), zoom: map.getZoom() };
   if (!map.hasLayer(layers.stations)) { layers.stations.addTo(map); document.querySelector('[data-lyr=stations]').checked = true; }
-  if (settings.baseMap !== 'sat') document.querySelector('[name=base][value=sat]').click();
+  tempSat();
   showBack();
   map.flyTo([s.lat, s.lng], 18, { duration: .8 });
   setTimeout(() => layers.stations.eachLayer(m => { if (m.getLatLng().equals([s.lat, s.lng])) m.openPopup(); }), 900);
@@ -2345,7 +2352,10 @@ document.querySelectorAll('[name=base]').forEach(r => {
   r.checked = r.value === settings.baseMap;
   r.onchange = () => {
     Object.entries(baseMaps).forEach(([k, l]) => k === r.value ? l.addTo(map) : map.removeLayer(l));
-    settings.baseMap = r.value; saveSettings();
+    settings.baseMap = r.value;
+    // Satellite pris par un bouton « Vue satellite » : temporaire, la carte rouvre en plan au démarrage
+    settings.baseMapTemp = tempSwitch && r.value === 'sat';
+    saveSettings();
     showBack();
   };
 });

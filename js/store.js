@@ -45,7 +45,7 @@ function loadSettings() {
     orsKey: s.orsKey || '',
     vehicle: { ...DEFAULT_VEHICLE, ...s.vehicle },
     widths: { sw: 320, dw: 620, ...read('capouest.widths.v1'), ...s.widths },
-    baseMap: s.baseMap || 'plan',
+    baseMap: (!s.baseMapTemp && s.baseMap) || 'plan',   // satellite temporaire (« Vue satellite ») oublié au redémarrage
     usEntry: s.usEntry || '',
     septennial: !!s.septennial,
     lPer100: s.lPer100 || 0,
