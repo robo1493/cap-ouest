@@ -76,3 +76,5 @@ L'utilisateur travaille avec Claude tantôt sur son portable, tantôt depuis sa 
 - Choix de rechange sans GPS : géocodé (favori du même nom, sinon Nominatim) — `altLocate`.
 - Fiche iOverlander : boutons « Copier le nom / le GPS » (le CSV n'a pas l'identifiant du lieu, donc pas de lien direct).
 - Trajet de comparaison : lien `#cmp=Nom|Ville@lat,lng;Ville@lat,lng;…`, tracé rose `#d6338a`, puce dans le HUD, gardé dans `capouest.compare.v1` (par appareil), ne modifie pas le voyage.
+- v1.40 : « Vue satellite » temporaire (`settings.baseMapTemp`), la carte rouvre en plan.
+- v1.41 : code « p » dans `chaines.json` = Pilot / Flying J avec voies VR (202 stations, liste publique pilotcompany.com/locations/directory, offre 298 « RV Fuel Lanes ») : `[lat, lng, 'p', nom, nb voies VR, 'd' vidange / 'p' propane, places VR, sortie]`.
