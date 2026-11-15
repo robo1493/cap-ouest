@@ -555,9 +555,11 @@ function renderChains() {
     if (!c) return;
     counts[x[2]] = (counts[x[2]] || 0) + 1;
     if (!chainOn(x[2])) return;
-    new IoMarker([x[0], x[1]], { renderer: ioRenderer, radius: Math.max(ioRadius(), 9), icon: c.icon, color: '#fff', weight: 2, fillColor: c.color, fillOpacity: .95 })
-      .bindPopup(() => chainPopup(x), { minWidth: 230 })
-      .addTo(chainLayer);
+    // Pilot / Flying J avec voies VR : vrai marqueur (au-dessus des pastilles diesel), gros et bordé de noir
+    const m = x[2] === 'p'
+      ? L.marker([x[0], x[1]], { zIndexOffset: 900, icon: L.divIcon({ className: '', html: `<div class="pilot-pin">${c.icon}</div>`, iconSize: [30, 30], iconAnchor: [15, 15] }) })
+      : new IoMarker([x[0], x[1]], { renderer: ioRenderer, radius: Math.max(ioRadius(), 9), icon: c.icon, color: '#fff', weight: 2, fillColor: c.color, fillOpacity: .95 });
+    m.bindPopup(() => chainPopup(x), { minWidth: 230 }).addTo(chainLayer);
   });
   document.querySelectorAll('[data-chain]').forEach(cb => {
     const n = cb.parentElement.querySelector('.src');
@@ -577,7 +579,7 @@ const queueChains = () => { clearTimeout(chainTimer); chainTimer = setTimeout(re
 map.on('zoomend', () => {
   toggleChains();
   const r = Math.max(ioRadius(), 9);
-  chainLayer.eachLayer(m => m.getRadius() !== r && m.setRadius(r));
+  chainLayer.eachLayer(m => m.getRadius && m.getRadius() !== r && m.setRadius(r));
 });
 document.querySelectorAll('[data-chain]').forEach(cb => cb.onchange = renderChains);
 loadChains().then(queueChains).catch(e => console.warn('Chaînes : fichier introuvable', e));

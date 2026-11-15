@@ -298,3 +298,6 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; }
 .pop-resize { position: absolute; right: 0; bottom: 0; width: 26px; height: 26px; cursor: nwse-resize; touch-action: none; z-index: 2;
   background: linear-gradient(135deg, transparent 50%, rgba(0,0,0,.35) 50%, rgba(0,0,0,.35) 58%, transparent 58%, transparent 70%, rgba(0,0,0,.35) 70%, rgba(0,0,0,.35) 78%, transparent 78%);
   border-radius: 0 0 12px 0; }
+
+/* Pilot / Flying J avec voies VR : bien visible, grossit avec le zoom comme les étapes */
+.pilot-pin { box-sizing: border-box; width: 30px; height: 30px; border-radius: 50%; background: #ff6d00; border: 3px solid #1a1a1a; box-shadow: 0 0 0 2px #fff, 0 2px 5px rgba(0,0,0,.5); font: 16px/24px sans-serif; text-align: center; transform: scale(var(--k, 1)); }
