@@ -1,6 +1,7 @@
 // Stationnements de nuit possibles : Walmart, relais routiers, grandes chaînes (Cabela's, Cracker Barrel…).
 // Données publiques d'OpenStreetMap (© contributeurs OSM, ODbL), extraites une fois dans chaines.json :
-// [lat, lng, code, nom]. On ne garde que les lieux proches du trajet. Rien ne dit qu'un magasin
+// [lat, lng, code, nom] ; code « p » (Pilot / Flying J avec voies VR, liste publique de Pilot) :
+// + [nb de voies VR, services (d vidange, p propane), places VR, sortie d'autoroute]. On ne garde que les lieux proches du trajet. Rien ne dit qu'un magasin
 // accepte la nuit : toujours demander au gérant (règlements municipaux, affiches « No overnight parking »).
 
 import { corridorTest } from './ioverlander.js';
@@ -13,6 +14,7 @@ export const CHAINS = {
   c: { icon: '🎣', color: '#4e6b2e', label: 'Cabela\'s / Bass Pro', tip: 'Plusieurs ont un stationnement VR et tolèrent la nuit : demander au magasin.' },
   k: { icon: '🍳', color: '#8d6e63', label: 'Cracker Barrel', tip: 'Places autobus / VR à l\'arrière ; nuit souvent permise si on le demande (et qu\'on y mange !).' },
   r: { icon: '🚐', color: '#00838f', label: 'Camping World', tip: 'Certains permettent une nuit, parfois avec branchement : téléphoner avant.' },
+  p: { icon: '⛽', color: '#e8590c', label: 'Pilot / Flying J · voies VR', src: 'Pilot Company (liste publique des stations, novembre 2026)', tip: 'Îlots de pompes pour VR (entrée et sortie en ligne droite), diesel auto. Vérifier l’étiquette de la pompe : jamais le diesel vert « Off-Road ». Rabais : offre du mois dans l’appli Pilot.' },
   a: { icon: '🍁', color: '#c62828', label: 'Canadian Tire', tip: 'Au Canada, nuit parfois tolérée selon le magasin : demander au gérant.' },
 };
 

@@ -535,7 +535,8 @@ function chainPopup(x) {
     <span class="chip" style="border-color:${c.color};color:${c.color}">${c.icon} ${c.label}</span>
     <div><b>${esc(name)}</b></div>
     <div class="src">⚠ ${c.tip}</div>
-    <div class="src">À ${fmt(d)} km de ${esc(trip.steps[near].name.split(',')[0])} · source : OpenStreetMap</div>
+    ${x[2] === 'p' ? `<div>⛽ ${x[4] ? `<b>${x[4]} voie${x[4] > 1 ? 's' : ''} VR</b>` : '<b>Voies VR</b>'}${x[5]?.includes('d') ? ' · 🚽 vidange' : ''}${x[5]?.includes('p') ? ' · 🔥 propane' : ''}${x[6] ? ` · 🅿 ${x[6]} places VR` : ''}</div>${x[7] ? `<div class="src">${esc(x[7])}</div>` : ''}` : ''}
+    <div class="src">À ${fmt(d)} km de ${esc(trip.steps[near].name.split(',')[0])} · source : ${c.src || 'OpenStreetMap'}</div>
     ${trip.steps[near].type !== 'start' ? `<button class="btn sm" onclick="act('altAdd', ${near}, [${esc(JSON.stringify(name))}, '${x[0]}, ${x[1]}'])">🔁 Choix de rechange pour ${esc(trip.steps[near].name.split(',')[0])}</button>` : ''}
     <div class="row">
       <button class="btn sm" onclick="viewAt(${x[0]}, ${x[1]}, 18)">Vue satellite</button>
@@ -2724,10 +2725,10 @@ const BASE = ['lyr:lines', 'lyr:b', 'lyr:c', 'favShow'];
 const MAP_VIEWS = [
   ['plan', '🗺 Planifier', 'Étapes, trajet et favoris seulement', [...BASE, 'lyr:trail']],
   ['boon', '🏜 Boondock', 'Terres publiques, nuits iOverlander, Walmart et relais routiers',
-    [...BASE, 'publicLands', 'io:night', 'io:warn', 'chain:w', 'chain:t', 'chain:c']],
+    [...BASE, 'publicLands', 'io:night', 'io:warn', 'chain:w', 'chain:t', 'chain:c', 'chain:p']],
   ['camp', '🏕 Camping', 'Campings, parcs VR et Corps of Engineers', [...BASE, 'coeShow', 'camp:v', 'camp:c', 'io:night']],
   ['drive', '🚚 Conduite', 'Route, diesel, ponts bas et avertissements',
-    [...BASE, 'lyr:fuel', 'lyr:stations', 'lyr:clear', 'lyr:trail', 'io:warn', 'io:serv', 'chain:t']],
+    [...BASE, 'lyr:fuel', 'lyr:stations', 'lyr:clear', 'lyr:trail', 'io:warn', 'io:serv', 'chain:t', 'chain:p']],
   ['disc', '🧭 Découvertes', 'Sentiers, points de vue, musées, histoire et mes guides',
     [...BASE, 'poi:trail', 'poi:view', 'poi:museum', 'poi:history', 'lyr:guides']],
   ['all', '☰ Tout', 'Tous les calques', null],
