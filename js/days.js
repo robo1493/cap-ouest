@@ -25,13 +25,16 @@ const key = d => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(
 
 // Journal jour par jour : où l'on dort chaque nuit, et où l'on se trouve le matin et le soir.
 // Une étape sans code de région prend la région de l'étape précédente.
-export function dayLog(steps, startIso) {
+// actual (facultatif) : { 'AAAA-MM-JJ': région } des nuits vraiment passées (carnet des nuits), qui
+// remplacent la région prévue pour ces dates.
+const isoOf = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+export function dayLog(steps, startIso, actual = null) {
   const start = parseIso(startIso);
   const nights = [];
   let region = regionOf(steps[0]?.name) || 'QC';
   steps.forEach(s => {
     region = regionOf(s.name) || region;
-    for (let j = 0; j < s.nights; j++) nights.push(region);
+    for (let j = 0; j < s.nights; j++) nights.push(actual?.[isoOf(addDays(start, nights.length))] || region);
   });
   const lastRegion = regionOf(steps[steps.length - 1]?.name) || region;
   const first = regionOf(steps[0]?.name) || 'QC';

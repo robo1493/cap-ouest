@@ -9,7 +9,7 @@ import { CATS, poisAlong, fetchMissingPois, poiProgress, clearPoiCache, wikiLink
 import { cityHistory } from './history.js';
 import { PLACE_CATS, DIFF, getPlaces, onPlacesChange, importPlaces } from './places.js';
 import { project } from './overpass.js';
-import { dayLog, usPeriods, usRollingMax, latestUsExit, qcAbsence, US_LIMIT, QC_LIMIT } from './days.js';
+import { regionOf, dayLog, usPeriods, usRollingMax, latestUsExit, qcAbsence, US_LIMIT, QC_LIMIT } from './days.js';
 import { proposals, simulate } from './catchup.js';
 import { BY_K, GROUPS, getIo, onIoChange, importIoCsv, clearIo, ioNear, ioBigCount } from './ioverlander.js';
 import { CHAINS, loadChains, chainsNear } from './chains.js';
@@ -22,6 +22,7 @@ import { addPoint, trailKm, trailSegments, onTrailChange, clearTrail } from './t
 import { isNight as sunDown } from './night.js';
 import { getFills, addFill, delFill, fuelStats, onFuelChange } from './fuel.js';
 import { getFavs, addFav, editFav, delFav, favAt, onFavsChange } from './favs.js';
+import { NIGHT_KINDS, NIGHT_SVC, getNights, getNight, setNight, delNight, onNightsChange } from './nights.js';
 import { ready as routesReady } from './routing.js';
 import { ready as stationsReady } from './stations.js';
 import { ready as poisReady } from './pois.js';
@@ -1538,7 +1539,10 @@ $('journalExport').onclick = () => {
 function renderBudget(litres) {
   const steps = trip.steps;
   const nightPlan = steps.reduce((t, s) => t + (isNight(s) ? s.nights * (s.extra?.price ?? (s.type === 'c' ? settings.campRate : 0)) : 0), 0);
-  const nightPaid = steps.reduce((t, s) => t + (s.extra?.paid || 0), 0);
+  // Payé : le carnet des nuits (🌙) l'emporte sur le « Payé » de la fiche pour une même étape
+  const ntPaid = new Map();
+  tripNights().forEach(x => { const n = getNight(x.id); if (n?.cad) ntPaid.set(x.i, (ntPaid.get(x.i) || 0) + n.cad); });
+  const nightPaid = steps.reduce((t, s, i) => t + (ntPaid.get(i) || s.extra?.paid || 0), 0);
   const ferries = steps.filter(s => s.extra?.ferry);
   const ferryPlan = ferries.reduce((t, s) => t + (s.extra.ferryCost ?? settings.ferryRate), 0);
   const ferryPaid = ferries.reduce((t, s) => t + (s.extra.ferryPaid || 0), 0);
@@ -1557,6 +1561,176 @@ function renderBudget(litres) {
 }
 $('campRate').onchange = e => { const v = parseFloat(e.target.value); settings.campRate = v >= 0 ? v : 60; saveSettings(); renderKpis(); };
 $('ferryRate').onchange = e => { const v = parseFloat(e.target.value); settings.ferryRate = v >= 0 ? v : 450; saveSettings(); renderKpis(); };
+
+// ---------- 🌙 Carnet des nuits (onglet Nuitées) ----------
+// Une ligne par nuit du voyage, préremplie avec l'étape prévue ; l'utilisateur y inscrit ce qui s'est
+// vraiment passé (nights.js). Les nuits inscrites alimentent le budget « Payé » et le compteur des jours.
+const PROV = ['QC', 'ON', 'NB', 'NS', 'PE', 'NL', 'MB', 'SK', 'AB', 'BC', 'YT', 'NT', 'NU'];
+function tripNights() {
+  const out = [], start = parseIso(trip.startIso);
+  let region = regionOf(trip.steps[0]?.name) || 'QC';
+  trip.steps.forEach((s, i) => {
+    region = regionOf(s.name) || region;
+    for (let j = 0; j < s.nights; j++) {
+      const d = addDays(start, out.length);
+      out.push({ id: toIso(d), d, no: out.length + 1, i, s, reg: region });
+    }
+  });
+  return out;
+}
+function actualRegions() { return Object.fromEntries(getNights().filter(n => n.reg).map(n => [n.id, n.reg])); }
+const usdCad = () => settings.usdCad || 1.38;
+const money = v => `${(Math.round(v * 100) / 100).toLocaleString('fr-CA', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} $`;
+const monthLabel = m => { const [y, mo] = m.split('-').map(Number); const t = new Date(y, mo - 1, 1).toLocaleDateString('fr-CA', { month: 'long', year: 'numeric' }); return t[0].toUpperCase() + t.slice(1); };
+let ntMonth = null, ntOpen = null;
+
+function nightCard(x, n, today) {
+  const id = x.id, plan = x.s.name, k = n?.kind ? NIGHT_KINDS[n.kind] : null, svc = n?.svc || [];
+  const day = x.d.toLocaleDateString('fr-CA', { weekday: 'short', day: 'numeric', month: 'short' });
+  const lbl = (txt, inner) => `<label class="nt-f"><span>${txt}</span>${inner}</label>`;
+  const region = n?.reg || x.reg;
+  return `<details class="nt-card${n ? ' done' : ''}${id === today ? ' today' : ''}" id="nt-${id}"${id === ntOpen ? ' open' : ''} ontoggle="ntToggle('${id}', this.open)">
+    <summary><b>Nuit ${x.no}</b> · ${day}${id === today ? ' <span class="chip f">ce soir</span>' : ''}
+      <span class="nt-where">${esc((n?.name || plan).split(',')[0])}</span>
+      ${k ? `<span class="chip">${k.icon} ${k.label}</span>` : ''}${n?.stars ? ` <span class="nt-st">${'★'.repeat(n.stars)}</span>` : ''}${n?.cad ? ` <b>${money(n.cad)}</b>` : ''}${n ? ' ✔' : ''}</summary>
+    <div class="nt-ed">
+      <div class="src">Prévu : <a href="#" onclick="focusStep(${x.i}); return false">${esc(plan)}</a> · ${TYPE_LABEL[x.s.type] || ''}</div>
+      <div class="row"><button class="btn sm${n?.as ? ' on' : ''}" onclick="nt('as', '${id}')">✔ Comme prévu</button>
+        <button class="btn sm" onclick="nt('gps', '${id}')">📍 Je suis ici</button><span class="src" id="ntg-${id}"></span></div>
+      ${lbl('Où j’ai dormi', `<input class="inp" value="${esc(n?.name || '')}" placeholder="${esc(plan)}" onchange="nt('name', '${id}', this.value)">`)}
+      <div class="nt-row">
+        ${lbl('Type', `<select class="inp" onchange="nt('kind', '${id}', this.value)"><option value="">—</option>${Object.entries(NIGHT_KINDS).map(([c, v]) => `<option value="${c}"${n?.kind === c ? ' selected' : ''}>${v.icon} ${v.label}</option>`).join('')}</select>`)}
+        ${lbl('Pays / province', `<select class="inp" onchange="nt('reg', '${id}', this.value)"><option value="US"${region === 'US' ? ' selected' : ''}>🇺🇸 États-Unis</option>${PROV.map(p => `<option value="${p}"${region === p ? ' selected' : ''}>🇨🇦 ${p}</option>`).join('')}</select>`)}
+      </div>
+      <div class="nt-row">
+        ${lbl('Prix payé', `<span class="row"><input class="inp" type="number" min="0" step="0.01" inputmode="decimal" value="${n?.paid ?? ''}" onchange="nt('paid', '${id}', this.value)" style="width:100px">
+          <select class="inp" onchange="nt('cur', '${id}', this.value)" style="width:auto"><option value="CAD">$ CA</option><option value="USD"${n?.cur === 'USD' ? ' selected' : ''}>$ US</option></select></span>`)}
+        ${n?.cur === 'USD' && n?.cad ? `<span class="src">= ${money(n.cad)} CA (1 $ US = ${usdCad()} $ CA)</span>` : ''}
+      </div>
+      <div class="nt-svc">${Object.entries(NIGHT_SVC).map(([c, v]) => `<label><input type="checkbox"${svc.includes(c) ? ' checked' : ''} onchange="nt('svc', '${id}', '${c}')"> ${v}</label>`).join('')}</div>
+      <div class="row nt-rate">${[1, 2, 3, 4, 5].map(v => `<button class="nt-star${(n?.stars || 0) >= v ? ' on' : ''}" onclick="nt('stars', '${id}', ${v})" title="${v} étoile${v > 1 ? 's' : ''}">★</button>`).join('')}
+        <button class="btn sm${n?.verdict === 'back' ? ' on' : ''}" onclick="nt('verdict', '${id}', 'back')">👍 J’y retournerais</button>
+        <button class="btn sm${n?.verdict === 'avoid' ? ' on' : ''}" onclick="nt('verdict', '${id}', 'avoid')">👎 À éviter</button></div>
+      ${lbl('Ma journée', `<textarea class="inp" rows="4" placeholder="Ce qu’on a fait, visites, route, météo, souvenirs…" onchange="nt('day', '${id}', this.value)">${esc(n?.day || '')}</textarea>`)}
+      ${lbl('Odomètre (km, facultatif)', `<input class="inp" type="number" min="0" step="1" inputmode="numeric" value="${n?.odo ?? ''}" onchange="nt('odo', '${id}', this.value)" style="width:120px">`)}
+      <div class="row">
+        <button class="btn sm" onclick="nt('fav', '${id}')">⭐ Ajouter aux favoris</button>
+        <button class="btn sm" onclick="nt('map', '${id}')">🗺 Voir sur la carte</button>
+        ${n ? `<button class="btn sm" onclick="nt('del', '${id}')">✕ Effacer cette nuit</button>` : ''}
+      </div>
+    </div>
+  </details>`;
+}
+
+function renderNights() {
+  const all = tripNights(), today = toIso(new Date());
+  if (!all.length) { $('ntList').innerHTML = '<div class="src">Aucune nuit dans l’itinéraire.</div>'; return; }
+  const months = [...new Set(all.map(x => x.id.slice(0, 7)))];
+  if (!ntMonth || !months.includes(ntMonth)) ntMonth = months.includes(today.slice(0, 7)) ? today.slice(0, 7) : months[0];
+  $('ntMonth').innerHTML = months.map(m => `<option value="${m}"${m === ntMonth ? ' selected' : ''}>${monthLabel(m)}</option>`).join('');
+  const ids = new Set(all.map(x => x.id));
+  const done = getNights().filter(n => ids.has(n.id));
+  const past = all.filter(x => x.id <= today).length;
+  const priced = done.filter(n => n.paid != null && n.paid !== '');
+  const total = priced.reduce((t, n) => t + (n.cad || 0), 0);
+  const kinds = Object.entries(NIGHT_KINDS).map(([c, v]) => [v, done.filter(n => n.kind === c).length]).filter(([, c]) => c);
+  $('ntStats').innerHTML = [
+    `<b>${done.length}</b> nuit${done.length > 1 ? 's' : ''} inscrite${done.length > 1 ? 's' : ''} sur ${all.length}` + (past ? ` (${past} déjà passée${past > 1 ? 's' : ''})` : ` · le voyage commence le ${all[0].d.toLocaleDateString('fr-CA', { day: 'numeric', month: 'long', year: 'numeric' })}`),
+    priced.length ? `coût moyen <b>${money(total / priced.length)}</b> CA par nuit (${priced.length} nuit${priced.length > 1 ? 's' : ''} avec prix, total ${money(total)})` : '',
+    kinds.map(([v, c]) => `${v.icon} ${c}`).join(' · '),
+  ].filter(Boolean).join(' · ');
+  $('ntList').innerHTML = all.filter(x => x.id.startsWith(ntMonth)).map(x => nightCard(x, getNight(x.id), today)).join('');
+}
+function showNight(id) {
+  ntMonth = id.slice(0, 7);
+  ntOpen = id;
+  renderNights();
+  setTimeout(() => $('nt-' + id)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 50);
+}
+window.ntToggle = (id, open) => { if (open) ntOpen = id; else if (ntOpen === id) ntOpen = null; };
+$('ntMonth').onchange = e => { ntMonth = e.target.value; ntOpen = null; renderNights(); };
+$('ntTonight').onclick = () => {
+  const all = tripNights(), today = toIso(new Date());
+  const x = all.find(n => n.id === today);
+  if (x) { showNight(x.id); return; }
+  if (all.length && today < all[0].id) alert(`Le voyage n’est pas commencé : la première nuit est le ${all[0].d.toLocaleDateString('fr-CA', { day: 'numeric', month: 'long', year: 'numeric' })}.`);
+  else alert('Ce soir ne fait pas partie de l’itinéraire.');
+  if (all.length) showNight(today < all[0].id ? all[0].id : all[all.length - 1].id);
+};
+document.querySelector('nav [data-t=nuit]').addEventListener('click', renderNights);
+onNightsChange(() => { if ($('nuit').classList.contains('on')) renderNights(); queueKpis(); syncNow(); });
+
+window.nt = (what, id, v) => {
+  const x = tripNights().find(n => n.id === id);
+  if (!x) return;
+  const n = getNight(id), s = x.s;
+  ntOpen = id;
+  const num = t => { const f = parseFloat(String(t).replace(',', '.')); return isFinite(f) && f >= 0 ? f : null; };
+  const cadOf = (paid, cur) => paid == null ? null : Math.round((cur === 'USD' ? paid * usdCad() : paid) * 100) / 100;
+  if (what === 'as') setNight(id, { as: true, name: s.name, lat: s.lat, lng: s.lng, reg: x.reg, kind: n?.kind || (s.type === 'b' ? 'b' : 'c') });
+  if (what === 'name') setNight(id, { name: v.trim().slice(0, 120), as: false });
+  if (what === 'kind' || what === 'reg') setNight(id, { [what]: v });
+  if (what === 'day') setNight(id, { day: v.slice(0, 4000) });
+  if (what === 'odo') setNight(id, { odo: num(v) });
+  if (what === 'paid') { const p = num(v), cur = n?.cur || 'CAD'; setNight(id, { paid: p, cur, cad: cadOf(p, cur) }); }
+  if (what === 'cur') setNight(id, { cur: v, cad: cadOf(n?.paid ?? null, v) });
+  if (what === 'svc') { const l = n?.svc || []; setNight(id, { svc: l.includes(v) ? l.filter(c => c !== v) : [...l, v] }); }
+  if (what === 'stars') setNight(id, { stars: n?.stars === v ? 0 : v });
+  if (what === 'verdict') setNight(id, { verdict: n?.verdict === v ? '' : v });
+  if (what === 'del') { if (confirm(`Effacer ce que vous avez inscrit pour la nuit ${x.no} ?`)) delNight(id); }
+  if (what === 'map') {
+    const p = n?.lat != null ? n : s;
+    openView('map');
+    goTo(p.lat, p.lng, 14);
+  }
+  if (what === 'fav') {
+    const p = n?.lat != null ? n : s;
+    const note = [n?.stars ? '★'.repeat(n.stars) : '', n?.verdict === 'back' ? 'J’y retournerais' : n?.verdict === 'avoid' ? 'À éviter' : '',
+      `Nuit du ${x.d.toLocaleDateString('fr-CA', { day: 'numeric', month: 'long', year: 'numeric' })}`, n?.cad ? `payé ${money(n.cad)} CA` : '',
+      (n?.svc || []).map(c => NIGHT_SVC[c]).join(', ')].filter(Boolean).join(' · ');
+    const name = n?.name || s.name, had = favAt(p.lat, p.lng);
+    addFav({ name, lat: p.lat, lng: p.lng, note });
+    alert(had ? `⭐ ${had.name} est déjà dans vos favoris.` : `⭐ ${name} est ajouté à vos favoris.`);
+  }
+  if (what === 'gps') {
+    const out = $('ntg-' + id);
+    if (!navigator.geolocation) { out.textContent = 'GPS non disponible sur cet appareil.'; return; }
+    out.textContent = 'Recherche de votre position…';
+    navigator.geolocation.getCurrentPosition(async pos => {
+      const lat = +pos.coords.latitude.toFixed(5), lng = +pos.coords.longitude.toFixed(5);
+      const fav = getFavs().map(f => ({ f, d: hav({ lat, lng }, f) })).filter(o => o.d < 0.5).sort((a, b) => a.d - b.d)[0]?.f;
+      const near = hav({ lat, lng }, s) < 1 ? s : null;
+      const name = fav?.name || near?.name || '';
+      setNight(id, { as: !!near && !fav, lat, lng, name: name || n?.name || '', ...(near ? { reg: x.reg } : {}) });
+      try {
+        const u = 'https://nominatim.openstreetmap.org/reverse?' + new URLSearchParams({ lat, lon: lng, format: 'jsonv2', zoom: 18, 'accept-language': 'fr' });
+        const r = await fetch(u).then(r => r.json()), a = r.address || {};
+        const iso = (a['ISO3166-2-lvl4'] || '').split('-');
+        const reg2 = iso[0] === 'US' ? 'US' : iso[0] === 'CA' && PROV.includes(iso[1]) ? iso[1] : null;
+        const place = [r.name, a.city || a.town || a.village || a.hamlet || a.county, iso[1]].filter(Boolean).join(', ');
+        setNight(id, { ...(reg2 ? { reg: reg2 } : {}), ...(!name && !n?.name && place ? { name: place } : {}) });
+      } catch {}
+      const el = $('ntg-' + id);
+      if (el) el.textContent = '📍 Position enregistrée';
+    }, () => { const el = $('ntg-' + id); if (el) el.textContent = 'Position introuvable (GPS refusé ou pas de signal).'; },
+    { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 });
+  }
+};
+$('ntExport').onclick = () => {
+  const items = tripNights().map(x => ({ x, n: getNight(x.id) })).filter(o => o.n);
+  if (!items.length) { alert('Aucune nuit inscrite pour l’instant.'); return; }
+  const txt = 'Carnet des nuits – Cap Ouest\n\n' + items.map(({ x, n }) => {
+    const head = [`${x.id} – Nuit ${x.no} – ${n.name || x.s.name}`, n.kind ? NIGHT_KINDS[n.kind].label : '',
+      n.paid != null && n.paid !== '' ? `${n.paid} ${n.cur === 'USD' ? '$ US' : '$ CA'}` : '', n.stars ? '★'.repeat(n.stars) : '',
+      n.verdict === 'back' ? 'J’y retournerais' : n.verdict === 'avoid' ? 'À éviter' : ''].filter(Boolean).join(' · ');
+    return [head, (n.svc || []).length ? 'Services : ' + n.svc.map(c => NIGHT_SVC[c]).join(', ') : '', n.odo ? `Odomètre : ${n.odo} km` : '', n.day || ''].filter(Boolean).join('\n') + '\n';
+  }).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([txt], { type: 'text/plain;charset=utf-8' }));
+  a.download = `cap-ouest-nuits-${toIso(new Date())}.txt`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
 
 // ---------- Journal des pleins réels ----------
 const GAL = 3.785411784;   // litres par gallon US
@@ -1789,7 +1963,7 @@ function milestoneHtml(i) {
 // ---------- Compteurs de séjour (États-Unis, hors Québec) ----------
 const longDate = d => d.toLocaleDateString('fr-CA', { day: 'numeric', month: 'long', year: 'numeric' });
 function renderDays() {
-  const days = dayLog(trip.steps, trip.startIso);
+  const days = dayLog(trip.steps, trip.startIso, actualRegions());
   const periods = usPeriods(days);
   const planned = periods.reduce((t, p) => t + p.days, 0);
   const max = usRollingMax(days);
@@ -2018,7 +2192,7 @@ window.act = (what, i, v) => {
   const hadPopup = !!map.getContainer().querySelector('.leaflet-popup');
   let geometry = false;
   if (what === 'rename') { s.name = v; saveTrip(); renderList(); return; }
-  if (what === 'nuit') { openView('nuit'); return; }
+  if (what === 'nuit') { openView('nuit', true); showNight(toIso(arrival(i))); return; }
   if (what === 'nights') s.nights = Math.max(1, s.nights + v);
   if (what === 'setNights') s.nights = Math.max(1, Math.min(30, v || 1));
   if (what === 'type') s.type = s.type === 'b' ? 'c' : 'b';

@@ -42,7 +42,7 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v1.43</small></div>
+  <div class="logo">Cap Ouest <small>v1.44</small></div>
   <button class="btn sm pri" id="installBtn" hidden>📲 Installer l'application</button>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
@@ -314,18 +314,19 @@
       </div>
     </section>
 
-    <section id="nuit" data-title="Nuitées">
-      <div class="box">
+    <section id="nuit" data-title="🌙 Nuitées">
+      <div class="box real" id="nightBox">
         <div class="row between" style="margin-bottom: 8px;">
-          <h2 style="margin:0">Nuits planifiées</h2>
-          <div class="row"><button class="btn">Suggérer selon la règle</button><button class="btn" data-open="map">Voir sur la carte</button></div>
+          <h2 style="margin:0">🌙 Carnet des nuits</h2>
+          <div class="row">
+            <button class="btn pri" id="ntTonight">Ce soir</button>
+            <select class="inp" id="ntMonth" style="width:auto"></select>
+            <button class="btn sm" id="ntExport">Exporter (texte)</button>
+          </div>
         </div>
-        <div class="grid auto">
-          <div class="box"><div class="row between"><b>Nuit 1 · 1 juin</b><span class="chip b">Boondock</span></div><div class="ph" style="height:56px;margin:6px 0">photo / mini-carte</div><small>Nom du site · source : iOverlander<br>Accès 35' : ✔ · Plat : ? · Gratuit</small></div>
-          <div class="box"><div class="row between"><b>Nuit 2 · 2 juin</b><span class="chip b">Boondock</span></div><div class="ph" style="height:56px;margin:6px 0">photo / mini-carte</div><small>Nom du site · source : Campendium<br>Accès 35' : ✔ · Plat : ✔ · Gratuit</small></div>
-          <div class="box"><div class="row between"><b>Nuit 3 · 3 juin</b><span class="chip c">Camping</span></div><div class="ph" style="height:56px;margin:6px 0">photo / mini-carte</div><small>Parc prov. ___ · 30 A · vidange<br>Statut : <b style="color:var(--warn)">À réserver</b> · ~45 $ CA</small></div>
-          <div class="box" style="border-color: var(--warn)"><div class="row between"><b>Nuit 4 · 4 juin</b><span class="chip">?</span></div><div class="ph" style="height:56px;margin:6px 0">Aucune option trouvée</div><small>3 sites dans un rayon de 30 km → [Choisir]</small></div>
-        </div>
+        <div id="ntStats" class="src"></div>
+        <div class="src" style="margin:4px 0 8px">Une ligne par nuit, préremplie avec l’itinéraire. Touchez une nuit pour inscrire où vous avez dormi, le prix, les services, vos étoiles et votre journée. Tout est synchronisé entre vos appareils.</div>
+        <div id="ntList"></div>
       </div>
 
       <div class="grid auto mt">

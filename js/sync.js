@@ -11,6 +11,7 @@ import { syncIo } from './ioverlander.js';
 import { syncFuel } from './fuel.js';
 import { syncFavs } from './favs.js';
 import { syncNotes } from './notes.js';
+import { syncNights } from './nights.js';
 
 const LIB = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/+esm';
 const PUSH_DELAY = 2000;
@@ -129,6 +130,7 @@ export async function syncNow() {
       await syncFuel(sb);
       await syncFavs(sb);
       await syncNotes(sb);
+      await syncNights(sb);
     } catch (e) {
       console.warn('Synchronisation des lieux', e);
       setStatus('synced', 'Lieux des guides non synchronisés : exécuter la mise à jour SQL (table places)');

@@ -301,3 +301,19 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; }
 
 /* Pilot / Flying J avec voies VR : bien visible, grossit avec le zoom comme les étapes */
 .pilot-pin { box-sizing: border-box; width: 30px; height: 30px; border-radius: 50%; background: #ff6d00; border: 3px solid #1a1a1a; box-shadow: 0 0 0 2px #fff, 0 2px 5px rgba(0,0,0,.5); font: 16px/24px sans-serif; text-align: center; transform: scale(var(--k, 1)); }
+
+/* 🌙 Carnet des nuits (v1.44) */
+.nt-card { border: 1px solid var(--fill); border-radius: 6px; margin: 6px 0; background: var(--panel); }
+.nt-card.done { border-left: 4px solid var(--ok); }
+.nt-card.today { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.nt-card > summary { cursor: pointer; padding: 8px 10px; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; min-height: 40px; }
+.nt-card .nt-where { color: var(--muted); }
+.nt-card .nt-st { color: #d9a400; }
+.nt-ed { padding: 4px 10px 10px; display: grid; gap: 8px; }
+.nt-f { display: grid; gap: 3px; font-size: 13px; }
+.nt-f > span { font-size: 12px; color: var(--muted); }
+.nt-row { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: end; }
+.nt-svc { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; }
+.nt-svc label { display: inline-flex; align-items: center; gap: 4px; min-height: 30px; }
+.nt-star { border: none; background: none; font-size: 26px; line-height: 1; color: var(--fill); cursor: pointer; padding: 0 2px; }
+.nt-star.on { color: #d9a400; }
