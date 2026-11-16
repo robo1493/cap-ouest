@@ -78,3 +78,4 @@ L'utilisateur travaille avec Claude tantôt sur son portable, tantôt depuis sa 
 - Trajet de comparaison : lien `#cmp=Nom|Ville@lat,lng;Ville@lat,lng;…`, tracé rose `#d6338a`, puce dans le HUD, gardé dans `capouest.compare.v1` (par appareil), ne modifie pas le voyage.
 - v1.40 : « Vue satellite » temporaire (`settings.baseMapTemp`), la carte rouvre en plan.
 - v1.41 : code « p » dans `chaines.json` = Pilot / Flying J avec voies VR (202 stations, liste publique pilotcompany.com/locations/directory, offre 298 « RV Fuel Lanes ») : `[lat, lng, 'p', nom, nb voies VR, 'd' vidange / 'p' propane, places VR, sortie]`.
+- v1.43 : lien `#fav=` accepte plusieurs favoris séparés par `;;`, chacun `Nom|lat,lng|note|site web|téléphone`.
