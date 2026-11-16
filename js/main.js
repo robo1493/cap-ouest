@@ -852,13 +852,24 @@ function favFromHash() {
   const m = location.hash.match(/^#fav=(.*)$/);
   if (!m) return;
   history.replaceState(null, '', location.pathname + location.search);
-  const [name, where, note] = decodeURIComponent(m[1].replace(/\+/g, ' ')).split('|');
-  const p = parseGps(where || '');
-  if (!p) return;
-  const had = favAt(p.lat, p.lng);
-  addFav({ name, ...p, note: note || '' });
-  goTo(p.lat, p.lng, 11);
-  setTimeout(() => alert(had ? `⭐ ${name} est déjà dans vos campings favoris.` : `⭐ ${name} est ajouté à vos campings favoris.`), 300);
+  // Plusieurs favoris dans un même lien, séparés par « ;; » : Nom|lat,lng|note|site web|téléphone
+  const added = [], already = [];
+  let first = null;
+  decodeURIComponent(m[1].replace(/\+/g, ' ')).split(';;').forEach(e => {
+    const [name, where, note, web, tel] = e.split('|');
+    const p = parseGps(where || '');
+    if (!p || !name) return;
+    first ||= p;
+    if (favAt(p.lat, p.lng)) { already.push(name); return; }
+    addFav({ name, ...p, note: note || '', web: web || '', tel: tel || '' });
+    added.push(name);
+  });
+  if (!first) return;
+  goTo(first.lat, first.lng, added.length + already.length > 1 ? 8 : 11);
+  const n = added.length + already.length;
+  setTimeout(() => alert(n === 1
+    ? (added.length ? `⭐ ${added[0]} est ajouté à vos campings favoris.` : `⭐ ${already[0]} est déjà dans vos campings favoris.`)
+    : `⭐ ${added.length} campings ajoutés à vos favoris${already.length ? ` (${already.length} y étaient déjà)` : ''}.`), 300);
 }
 window.addEventListener('hashchange', favFromHash);
 setTimeout(favFromHash, 0);   // après la définition de goTo / openView plus bas
