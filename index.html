@@ -42,7 +42,7 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v1.44</small></div>
+  <div class="logo">Cap Ouest <small>v1.45</small></div>
   <button class="btn sm pri" id="installBtn" hidden>📲 Installer l'application</button>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
@@ -171,9 +171,11 @@
     </details>
 
     <div class="drive" id="drive" hidden></div>
+    <div class="undo-toast" id="undoToast" hidden></div>
 
     <div class="tools">
       <button class="btn" id="searchBtn" title="Rechercher un camping, une ville, une adresse">🔍</button>
+      <button class="btn" id="undoBtn" title="Annuler la dernière modification (retour arrière)" hidden>↶</button>
       <button class="btn" id="toggleSteps" title="Afficher / masquer les étapes">☰</button>
       <button class="btn" id="zin" title="Zoom avant">＋</button>
       <button class="btn" id="zout" title="Zoom arrière">－</button>

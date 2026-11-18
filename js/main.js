@@ -1,6 +1,6 @@
 /* global L */
 import { YELLOWSTONE_BY, PHASE2, FUEL, TYPE_LABEL, DEFAULT_VEHICLE } from './data.js';
-import { trip, settings, saveTrip, saveSettings, resetTrip, newStep, exportTrip, importTrip } from './store.js';
+import { trip, settings, saveTrip, saveSettings, resetTrip, newStep, exportTrip, importTrip, undoTrip, canUndo, onUndoChange } from './store.js';
 import { cachedOrEstimate, fetchMissing, routeOnce, providerOf, testOrs, clearRouteCache, PROVIDER_LABEL } from './routing.js';
 import { hav, pointsAlong, lineKm, fmt, fmtH } from './geo.js';
 import { LEVEL, stationsAlong, fetchMissingStations, stationProgress, clearStationCache } from './stations.js';
@@ -218,6 +218,7 @@ function renderMarkers() {
       s.lat = ll.lat; s.lng = ll.lng;
       layers.preview.clearLayers();
       saveTrip(); recompute();
+      undoToast(`Étape « ${s.name.split(',')[0]} » déplacée`);
     });
     m.addTo(isNight(s) ? layers[s.type] : layers.ends);
     markers.set(s.id, m);
@@ -2318,6 +2319,27 @@ function addStepAt(p) {
   refresh(true);
   markers.get(s.id).openPopup();
 }
+
+// ---------- Retour arrière : ↶ annule la dernière modification du voyage ----------
+let undoTimer;
+function undoToast(msg) {
+  const el = $('undoToast');
+  el.innerHTML = `<span>${esc(msg)}</span>${canUndo() ? '<button class="btn sm" onclick="undoLast()">↶ Annuler</button>' : ''}`;
+  el.hidden = false;
+  clearTimeout(undoTimer);
+  undoTimer = setTimeout(() => { el.hidden = true; }, 8000);
+}
+window.undoLast = () => {
+  if (!undoTrip()) return;
+  map.closePopup();
+  renderMarkers(); recompute();
+  undoToast('↶ Modification annulée');
+};
+$('undoBtn').onclick = () => undoLast();
+onUndoChange(() => { $('undoBtn').hidden = !canUndo(); });
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName)) { e.preventDefault(); undoLast(); }
+});
 
 $('resetBtn').onclick = () => {
   if (!confirm('Revenir à l\'itinéraire par défaut ?')) return;

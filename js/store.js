@@ -68,7 +68,43 @@ const savedListeners = [];
 export const onTripSaved = cb => savedListeners.push(cb);
 
 // Enregistre une modification faite par l'utilisateur (date de modification mise à jour)
+// ---------- Retour arrière (↶ Annuler) ----------
+// Avant chaque enregistrement, l'état précédent (nom, date de départ, étapes) est gardé en mémoire.
+// Les 30 derniers états sont disponibles jusqu'à la fermeture de l'application.
+const UNDO_MAX = 30;
+const undoStack = [];
+const snap = () => JSON.stringify({ name: trip.name, startIso: trip.startIso, steps: trip.steps });
+let lastSnap = snap();
+const undoListeners = [];
+export const onUndoChange = cb => undoListeners.push(cb);
+export const canUndo = () => undoStack.length > 0;
+const undoChanged = () => undoListeners.forEach(cb => cb());
+
+function remember() {
+  const now = snap();
+  if (now === lastSnap) return;
+  undoStack.push(lastSnap);
+  if (undoStack.length > UNDO_MAX) undoStack.shift();
+  lastSnap = now;
+  undoChanged();
+}
+
+// Remet le voyage comme avant la dernière modification ; renvoie false s'il n'y a rien à annuler
+export function undoTrip() {
+  const prev = undoStack.pop();
+  if (!prev) return false;
+  const t = JSON.parse(prev);
+  trip.name = t.name; trip.startIso = t.startIso; trip.steps = t.steps;
+  lastSnap = prev;
+  trip.updatedAt = Date.now();
+  write(TRIP_KEY, trip);
+  savedListeners.forEach(cb => cb());
+  undoChanged();
+  return true;
+}
+
 export function saveTrip() {
+  remember();
   trip.updatedAt = Date.now();
   write(TRIP_KEY, trip);
   savedListeners.forEach(cb => cb());
@@ -86,6 +122,8 @@ export function replaceTrip(t) {
   Object.keys(trip).forEach(k => delete trip[k]);
   Object.assign(trip, t);
   write(TRIP_KEY, trip);
+  // Changement venu d'un autre appareil : le retour arrière repart de ce nouvel état
+  undoStack.length = 0; lastSnap = snap(); undoChanged();
 }
 
 export function saveSettings() {
