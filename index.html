@@ -42,7 +42,7 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v1.45</small></div>
+  <div class="logo">Cap Ouest <small>v1.46</small></div>
   <button class="btn sm pri" id="installBtn" hidden>📲 Installer l'application</button>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
@@ -65,7 +65,7 @@
       <h2 style="margin:0">Étapes</h2>
       <button class="btn pri" id="addBtn">+ Étape</button>
     </div>
-    <div class="src" style="margin-bottom:8px">Glisser un point sur la carte pour le déplacer · ↑↓ pour réordonner</div>
+    <div class="src" id="dragHint" style="margin-bottom:8px">Glisser un point sur la carte pour le déplacer · ↑↓ pour réordonner</div>
     <div id="stepList"></div>
     <div class="step" id="phase2Box" style="border-style: dashed;"><div class="d"><b>Suite : juillet → mi-septembre</b>
       <small>Glacier, Stampede de Calgary, Rocheuses, Colombie-Britannique, île de Vancouver</small>
@@ -175,6 +175,7 @@
 
     <div class="tools">
       <button class="btn" id="searchBtn" title="Rechercher un camping, une ville, une adresse">🔍</button>
+      <button class="btn" id="lockBtn" title="Verrouiller les étapes sur la carte">🔒</button>
       <button class="btn" id="undoBtn" title="Annuler la dernière modification (retour arrière)" hidden>↶</button>
       <button class="btn" id="toggleSteps" title="Afficher / masquer les étapes">☰</button>
       <button class="btn" id="zin" title="Zoom avant">＋</button>

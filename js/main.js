@@ -210,7 +210,7 @@ function renderMarkers() {
   let n = 0;
   trip.steps.forEach((s, i) => {
     if (isNight(s)) n++;
-    const m = L.marker([s.lat, s.lng], { icon: markerIcon(s, n), draggable: true, title: s.name });
+    const m = L.marker([s.lat, s.lng], { icon: markerIcon(s, n), draggable: !settings.lockSteps, title: s.name });
     m.bindPopup(() => popupHtml(trip.steps.indexOf(s)), { minWidth: 230 });
     m.on('drag', e => previewDrag(trip.steps.indexOf(s), e.target.getLatLng()));
     m.on('dragend', e => {
@@ -2322,9 +2322,9 @@ function addStepAt(p) {
 
 // ---------- Retour arrière : ↶ annule la dernière modification du voyage ----------
 let undoTimer;
-function undoToast(msg) {
+function undoToast(msg, withUndo = true) {
   const el = $('undoToast');
-  el.innerHTML = `<span>${esc(msg)}</span>${canUndo() ? '<button class="btn sm" onclick="undoLast()">↶ Annuler</button>' : ''}`;
+  el.innerHTML = `<span>${esc(msg)}</span>${withUndo && canUndo() ? '<button class="btn sm" onclick="undoLast()">↶ Annuler</button>' : ''}`;
   el.hidden = false;
   clearTimeout(undoTimer);
   undoTimer = setTimeout(() => { el.hidden = true; }, 8000);
@@ -2340,6 +2340,25 @@ onUndoChange(() => { $('undoBtn').hidden = !canUndo(); });
 document.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName)) { e.preventDefault(); undoLast(); }
 });
+
+// ---------- 🔒 Cadenas : empêche de déplacer les étapes sur la carte par erreur ----------
+function renderLock() {
+  const b = $('lockBtn'), on = settings.lockSteps;
+  b.textContent = on ? '🔒' : '🔓';
+  b.classList.toggle('on', !on);
+  b.title = on ? 'Étapes verrouillées (toucher pour pouvoir les déplacer sur la carte)' : 'Étapes déverrouillées : on peut les glisser sur la carte (toucher pour verrouiller)';
+  $('dragHint').textContent = on
+    ? '🔒 Étapes verrouillées sur la carte (toucher 🔒 pour en déplacer une) · ↑↓ pour réordonner'
+    : '🔓 Glisser un point sur la carte pour le déplacer · ↑↓ pour réordonner';
+}
+$('lockBtn').onclick = () => {
+  settings.lockSteps = !settings.lockSteps;
+  saveSettings();
+  renderLock();
+  renderMarkers();
+  undoToast(settings.lockSteps ? '🔒 Étapes verrouillées' : '🔓 Étapes déplaçables : glissez un point, puis touchez 🔒', false);
+};
+renderLock();
 
 $('resetBtn').onclick = () => {
   if (!confirm('Revenir à l\'itinéraire par défaut ?')) return;
