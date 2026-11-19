@@ -51,9 +51,35 @@ export function estimate(a, b) {
 // Tronçon en traversier : ligne droite, sans distance routière (ni carburant)
 export const ferryLeg = (a, b) => ({ coords: [[a.lat, a.lng], [b.lat, b.lng]], km: 0, h: 1.6, provider: 'ferry' });
 
+// Traversier avec quais connus (extra.ferryFrom / extra.ferryTo = { name, lat, lng }) :
+// route jusqu'au quai de départ, traversée, puis route du quai d'arrivée jusqu'à l'étape.
+const FERRY_H = 1.6;
+export const ferryTerminals = b => {
+  const f = b.extra?.ferryFrom, t = b.extra?.ferryTo;
+  return b.extra?.ferry && Number.isFinite(f?.lat) && Number.isFinite(t?.lat) ? [f, t] : null;
+};
+function composeFerry(r1, f, t, r2) {
+  const cross = { coords: [[f.lat, f.lng], [t.lat, t.lng]], provider: 'ferry' };
+  return {
+    coords: [...r1.coords, ...cross.coords, ...r2.coords],
+    km: r1.km + r2.km,
+    h: r1.h == null || r2.h == null ? null : r1.h + FERRY_H + r2.h,
+    provider: r1.provider === r2.provider ? r1.provider : r1.provider === 'estimate' ? r1.provider : r2.provider,
+    ferry: true,
+    parts: [r1, cross, r2],
+    ...(r1.pending || r2.pending ? { pending: true } : {}),
+  };
+}
+
 // Synchrone : le tronçon en cache, sinon une estimation marquée « pending »
 export function cachedOrEstimate(a, b, opts) {
+  const ft = ferryTerminals(b);
+  if (ft) return composeFerry(roadCachedOrEstimate(a, ft[0], opts), ft[0], ft[1], roadCachedOrEstimate(ft[1], b, opts));
   if (b.extra?.ferry) return ferryLeg(a, b);
+  return roadCachedOrEstimate(a, b, opts);
+}
+
+function roadCachedOrEstimate(a, b, opts) {
   const k = keyFor(a, b, opts), c = cache[k];
   if (c) {
     const coords = decodePolyline(c.poly);
@@ -136,25 +162,35 @@ async function orsWithSnap(a, b, opts) {
 // isStale() permet d'abandonner si l'itinéraire a changé entre-temps.
 export async function fetchMissing(steps, opts, { onLeg, onError, isStale }) {
   const p = providerOf(opts);
+  const pause = () => new Promise(r => setTimeout(r, p === 'osrm' ? 1000 : 1600));
+  // Calcule et met en cache un tronçon routier a → b ; false s'il était déjà en cache
+  async function road(a, b) {
+    const k = keyFor(a, b, opts);
+    if (cache[k]) return false;
+    let res = p === 'ors' ? await orsWithSnap(a, b, opts) : await osrm(a, b);
+    // Tracé ORS qui n'arrive pas à l'étape : refaire avec OSRM
+    if (!endsOk(decodePolyline(res.poly), a, b) && p === 'ors') res = { ...(await osrm(a, b)), provider: 'osrm' };
+    if (!endsOk(decodePolyline(res.poly), a, b)) throw new Error('Tracé qui n’arrive pas à l’étape');
+    cache[k] = { poly: res.poly, km: res.km, h: res.h, provider: res.provider || p };
+    persist();
+    return true;
+  }
   for (let i = 1; i < steps.length; i++) {
     if (isStale()) return;
-    const a = steps[i - 1], b = steps[i], k = keyFor(a, b, opts);
-    if (cache[k] || b.extra?.ferry) continue;   // traversier : pas de calcul routier
+    const a = steps[i - 1], b = steps[i], ft = ferryTerminals(b);
+    if (b.extra?.ferry && !ft) continue;   // traversier sans quais : pas de calcul routier
+    const pairs = ft ? [[a, ft[0]], [ft[1], b]] : [[a, b]];
     try {
-      let res = p === 'ors' ? await orsWithSnap(a, b, opts) : await osrm(a, b);
-      // Tracé ORS qui n'arrive pas à l'étape : refaire avec OSRM
-      if (!endsOk(decodePolyline(res.poly), a, b) && p === 'ors') res = { ...(await osrm(a, b)), provider: 'osrm' };
-      if (!endsOk(decodePolyline(res.poly), a, b)) throw new Error('Tracé qui n’arrive pas à l’étape');
-      const provider = res.provider || p;
-      cache[k] = { poly: res.poly, km: res.km, h: res.h, provider };
-      persist();
-      if (isStale()) return;
-      onLeg(i - 1, { coords: decodePolyline(res.poly), km: res.km, h: res.h, provider });
+      let fetched = false;
+      for (const [x, y] of pairs) {
+        if (await road(x, y)) { fetched = true; if (isStale()) return; await pause(); }
+      }
+      if (fetched) onLeg(i - 1, cachedOrEstimate(a, b, opts));
     } catch (e) {
       onError?.(i - 1, e);
+      // OSRM public : ~1 requête/s ; ORS gratuit : 40 calculs/min (le repli « rattacher à la route » en coûte plus)
+      await pause();
     }
-    // OSRM public : ~1 requête/s ; ORS gratuit : 40 calculs/min (le repli « rattacher à la route » en coûte plus)
-    await new Promise(r => setTimeout(r, p === 'osrm' ? 1000 : 1600));
   }
 }
 

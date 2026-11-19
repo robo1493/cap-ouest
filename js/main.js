@@ -159,16 +159,39 @@ function placeAfterHtml(i) {
   return `<label class="after">Placer après <select onchange="act('moveAfter', ${i}, +this.value)">${opts}</select></label>`;
 }
 
+// ---------- ⛴ Traversées connues : la route passe par les quais (route + traversée + route) ----------
+const FERRY_PORTS = {
+  tsa: { name: 'Tsawwassen', lat: 49.00794, lng: -123.12909 },
+  swa: { name: 'Swartz Bay (Victoria)', lat: 48.68654, lng: -123.41052 },
+  hsb: { name: 'Horseshoe Bay', lat: 49.36856, lng: -123.2759 },
+  dep: { name: 'Departure Bay (Nanaimo)', lat: 49.1913, lng: -123.95379 },
+  duk: { name: 'Duke Point (Nanaimo)', lat: 49.15666, lng: -123.89101 },
+};
+const FERRY_ROUTES = [['tsa', 'swa'], ['swa', 'tsa'], ['hsb', 'dep'], ['dep', 'hsb'], ['tsa', 'duk'], ['duk', 'tsa']];
+function ferryHtml(i) {
+  const s = trip.steps[i], e = s.extra || {};
+  const cur = !e.ferry ? '' : e.ferryFrom && e.ferryTo
+    ? FERRY_ROUTES.map(r => r.join('-')).find(k => { const [a, b] = k.split('-'); return FERRY_PORTS[a].name === e.ferryFrom.name && FERRY_PORTS[b].name === e.ferryTo.name; }) || 'line'
+    : 'line';
+  const opt = (v, t) => `<option value="${v}"${v === cur ? ' selected' : ''}>${t}</option>`;
+  return `<label style="display:block">⛴ Pour arriver ici : <select style="width:auto" onchange="act('ferryRoute', ${i}, this.value)">
+    ${opt('', 'route seulement')}
+    ${FERRY_ROUTES.map(([a, b]) => opt(a + '-' + b, `traversier ${FERRY_PORTS[a].name} → ${FERRY_PORTS[b].name}`)).join('')}
+    ${opt('line', 'traversier (ligne droite, sans route)')}</select></label>`;
+}
+
 function popupHtml(i) {
   const s = trip.steps[i], prev = trip.steps[i - 1], leg = legs[i - 1];
   const km = !prev || !leg ? 'Point de départ'
     : leg.provider === 'ferry' ? `⛴ Traversier depuis ${esc(prev.name.split(',')[0])}`
+    : leg.ferry ? `${fmt(leg.km)} km de route + ⛴ ${esc(s.extra.ferryFrom.name || 'traversier')} → ${esc(s.extra.ferryTo.name || '')}${leg.h ? ' · ' + fmtH(leg.h) : ''} depuis ${esc(prev.name.split(',')[0])}`
     : `${fmt(leg.km)} km${leg.h ? ' · ' + fmtH(leg.h) : ''} depuis ${esc(prev.name.split(',')[0])}`;
   const canType = isNight(s);
   return `<div class="pop">
     <span class="chip ${s.type}">${TYPE_LABEL[s.type]}</span>
     <input value="${esc(s.name)}" onchange="act('rename', ${i}, this.value)">
     <div>${km}</div>
+    ${i ? ferryHtml(i) : ''}
     ${milestoneHtml(i)}${s.extra?.note ? `<div class="src">ℹ ${esc(s.extra.note)}</div>` : ''}${s.type !== 'start' ? ioSummary(s) : ''}
     ${leg && leg.provider !== 'ferry' && leg.km > maxKm() ? `<label style="display:block"><input type="checkbox" ${s.extra?.longOk ? 'checked' : ''} onchange="act('longOk', ${i}, this.checked)">
       Tronçon long accepté (${fmt(leg.km)} km, route facile)</label>` : ''}
@@ -240,7 +263,7 @@ function renderLines() {
   drawnKey = key;
   if (!same) layers.lines.clearLayers();
   layers.fuel.clearLayers();
-  if (!same) legs.forEach(leg => {
+  if (!same) legs.flatMap(leg => leg.parts || [leg]).forEach(leg => {
     const style = leg.provider === 'ferry' ? { color: '#3d6fb4', weight: 3, opacity: .9, dashArray: '2 8' }
       : leg.provider === 'estimate' ? { color: '#777', weight: 3, opacity: .8, dashArray: '6 8' }
       : leg.provider === 'ors-car' ? { color: '#b4733d', weight: 4, opacity: .9 }
@@ -1861,9 +1884,10 @@ function renderList() {
       const long = tooLong(leg, s);
       const tag = leg.pending ? ' · ⏳' : leg.provider === 'estimate' ? ' · ≈ estimé'
         : leg.provider === 'ors-car' ? ' · 🚗 profil auto (fermé aux camions)' : '';
+      const ftag = leg.ferry ? ' + ⛴ traversier' : '';
       html += leg.provider === 'ferry'
         ? `<div class="leg">↓ ⛴ traversier · ~${fmtH(leg.h)}</div>`
-        : `<div class="leg ${long ? 'long' : ''}">↓ ${fmt(leg.km)} km${leg.h ? ' · ' + fmtH(leg.h) : ''}${tag}${long ? ` · plus de ${fmt(maxKm())} km` : leg.km > maxKm() && s.extra?.longOk ? ' · long accepté ✔' : ''}</div>`;
+        : `<div class="leg ${long ? 'long' : ''}">↓ ${fmt(leg.km)} km${ftag}${leg.h ? ' · ' + fmtH(leg.h) : ''}${tag}${long ? ` · plus de ${fmt(maxKm())} km` : leg.km > maxKm() && s.extra?.longOk ? ' · long accepté ✔' : ''}</div>`;
     }
     if (isNight(s)) n++;
     const dateInput = `<input type="date" class="dt" value="${toIso(arrival(i))}" onchange="act('date', ${i}, this.value)" title="${s.type === 'start' ? 'Date de départ' : 'Date d\'arrivée'}">`;
@@ -2199,6 +2223,13 @@ window.act = (what, i, v) => {
   if (what === 'type') s.type = s.type === 'b' ? 'c' : 'b';
   if (what === 'leaveRig') s.leaveRig = v;
   if (what === 'longOk') s.extra = { ...(s.extra || {}), longOk: v };
+  if (what === 'ferryRoute') {
+    const { ferry, ferryFrom, ferryTo, ...rest } = s.extra || {};
+    const [a, b] = (v || '').split('-');
+    s.extra = !v ? rest : v === 'line' ? { ...rest, ferry: true }
+      : { ...rest, ferry: true, ferryFrom: { ...FERRY_PORTS[a] }, ferryTo: { ...FERRY_PORTS[b] } };
+    geometry = true;
+  }
   // Réservation : la date d'arrivée actuelle devient fixe (arriver ni avant ni après)
   if (what === 'reserve') {
     const { reserved, resName, resNights, ...rest } = s.extra || {};
