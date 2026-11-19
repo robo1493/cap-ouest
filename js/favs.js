@@ -24,12 +24,13 @@ export const getFavs = () => all.filter(f => !f.del);
 // Même endroit (à ~100 m près) : on ne l'ajoute pas deux fois
 export const favAt = (lat, lng) => getFavs().find(f => Math.abs(f.lat - lat) < 0.001 && Math.abs(f.lng - lng) < 0.001);
 
-export function addFav({ name, lat, lng, note = '', web = '', tel = '' }) {
+export function addFav({ name, lat, lng, note = '', web = '', tel = '', color = '' }) {
   if (!isFinite(lat) || !isFinite(lng)) return null;
   const old = favAt(lat, lng);
   if (old) return old;
   const f = { id: uid(), u: Date.now(), name: String(name || 'Camping').slice(0, 120), lat: +lat, lng: +lng,
-    note: String(note).slice(0, 600), web: String(web).slice(0, 200), tel: String(tel).slice(0, 30) };
+    note: String(note).slice(0, 600), web: String(web).slice(0, 200), tel: String(tel).slice(0, 30),
+    ...(color === 'red' ? { color: 'red' } : {}) };
   store([...all, f]);
   return f;
 }

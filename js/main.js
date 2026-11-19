@@ -806,6 +806,9 @@ document.querySelectorAll('[data-resv]').forEach(el => {
 // ---------- ⭐ Mes campings favoris (toujours visibles, synchronisés) ----------
 const favLayer = L.layerGroup().addTo(map);
 const favIcon = L.divIcon({ className: 'fav-ico', html: '⭐', iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -12] });
+// Étoile rouge : favori « à ne pas manquer » (f.color === 'red')
+const favIconRed = L.divIcon({ className: 'fav-ico red', html: '★', iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -12] });
+const favStar = f => f.color === 'red' ? '<span class="star-red">★</span>' : '⭐';
 // Données des boutons ⭐ des fiches (trop longues pour un attribut onclick)
 const favPending = new Map();
 function favBtn(f) {
@@ -823,7 +826,7 @@ window.favToggle = key => {
 function favPopup(f) {
   const { i: near, d } = nearestStep(f), st = trip.steps[near], city = esc(st.name.split(',')[0]);
   return `<div class="pop">
-    <span class="chip" style="border-color:#f9a825;color:#b07800">⭐ Mon camping favori</span>
+    <span class="chip" style="border-color:#f9a825;color:#b07800">${favStar(f)} Mon favori${f.color === 'red' ? ' · à ne pas manquer' : ''}</span>
     <div><b>${esc(f.name)}</b></div>
     ${f.note ? `<div>${esc(f.note)}</div>` : ''}
     ${f.tel ? `<div>📞 <a href="tel:${esc(f.tel.replace(/[^\d+]/g, ''))}">${esc(f.tel)}</a></div>` : ''}
@@ -833,6 +836,7 @@ function favPopup(f) {
     ${st.type !== 'start' ? `<button class="btn sm" onclick="act('altAdd', ${near}, [${esc(JSON.stringify(f.name))}, '${f.lat}, ${f.lng}'])">🔁 Choix de rechange pour ${city}</button>` : ''}
     <div class="row">
       <button class="btn sm" onclick="favNote('${f.id}')">✏ Note</button>
+      <button class="btn sm" onclick="favColor('${f.id}')">${f.color === 'red' ? '⭐ Étoile dorée' : '<span class="star-red">★</span> Étoile rouge'}</button>
       <button class="btn sm" onclick="viewAt(${f.lat}, ${f.lng}, 17)">Vue satellite</button>
       <a class="btn sm" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${f.lat},${f.lng}">Y aller ↗</a>
       <button class="btn sm" onclick="if (confirm('Retirer ce camping de mes favoris ?')) favDel('${f.id}')">✕</button>
@@ -846,14 +850,19 @@ window.favNote = id => {
   if (note !== null) editFav(id, { note: note.trim().slice(0, 600) });
 };
 window.favDel = id => { delFav(id); map.closePopup(); };
+window.favColor = id => {
+  const f = getFavs().find(x => x.id === id);
+  if (f) editFav(id, { color: f.color === 'red' ? '' : 'red' });
+  map.closePopup();
+};
 function renderFavs() {
   favLayer.clearLayers();
   const list = getFavs(), show = $('favShow')?.checked !== false;
   $('favCount').textContent = list.length ? `(${list.length})` : '';
-  if (show) list.forEach(f => L.marker([f.lat, f.lng], { icon: favIcon, zIndexOffset: 1000, title: f.name })
+  if (show) list.forEach(f => L.marker([f.lat, f.lng], { icon: f.color === 'red' ? favIconRed : favIcon, zIndexOffset: f.color === 'red' ? 1100 : 1000, title: f.name })
     .bindPopup(() => favPopup(f), { minWidth: 230 }).addTo(favLayer));
   const ul = $('favList');
-  if (ul) ul.innerHTML = list.map(f => `<li><a href="#" onclick="goTo(${f.lat}, ${f.lng}, 12); return false">⭐ ${esc(f.name)}</a></li>`).join('');
+  if (ul) ul.innerHTML = list.map(f => `<li><a href="#" onclick="goTo(${f.lat}, ${f.lng}, 12); return false">${favStar(f)} ${esc(f.name)}</a></li>`).join('');
 }
 $('favShow').onchange = renderFavs;
 $('favAdd').onclick = () => {
@@ -870,16 +879,18 @@ function favFromHash() {
   const m = location.hash.match(/^#fav=(.*)$/);
   if (!m) return;
   history.replaceState(null, '', location.pathname + location.search);
-  // Plusieurs favoris dans un même lien, séparés par « ;; » : Nom|lat,lng|note|site web|téléphone
+  // Plusieurs favoris dans un même lien, séparés par « ;; » : Nom|lat,lng|note|site web|téléphone|rouge (étoile rouge)
   const added = [], already = [];
   let first = null;
   decodeURIComponent(m[1].replace(/\+/g, ' ')).split(';;').forEach(e => {
-    const [name, where, note, web, tel] = e.split('|');
+    const [name, where, note, web, tel, col] = e.split('|');
+    const color = /^(rouge|red)$/i.test((col || '').trim()) ? 'red' : '';
     const p = parseGps(where || '');
     if (!p || !name) return;
     first ||= p;
-    if (favAt(p.lat, p.lng)) { already.push(name); return; }
-    addFav({ name, ...p, note: note || '', web: web || '', tel: tel || '' });
+    const old = favAt(p.lat, p.lng);
+    if (old) { if (color && old.color !== color) editFav(old.id, { color }); already.push(name); return; }
+    addFav({ name, ...p, note: note || '', web: web || '', tel: tel || '', color });
     added.push(name);
   });
   if (!first) return;
