@@ -1,7 +1,7 @@
 /* global L */
 import { YELLOWSTONE_BY, PHASE2, FUEL, TYPE_LABEL, DEFAULT_VEHICLE } from './data.js';
 import { trip, settings, saveTrip, saveSettings, resetTrip, newStep, exportTrip, importTrip, undoTrip, canUndo, onUndoChange } from './store.js';
-import { cachedOrEstimate, fetchMissing, routeOnce, providerOf, testOrs, clearRouteCache, PROVIDER_LABEL } from './routing.js';
+import { FERRY_PORTS, FERRY_ROUTES, cachedOrEstimate, fetchMissing, routeOnce, providerOf, testOrs, clearRouteCache, PROVIDER_LABEL } from './routing.js';
 import { hav, pointsAlong, lineKm, fmt, fmtH } from './geo.js';
 import { LEVEL, stationsAlong, fetchMissingStations, stationProgress, clearStationCache } from './stations.js';
 import { initSync, onStatus, onRemoteChange, signIn, verifyCode, signInPassword, setPassword, signOut, syncNow } from './sync.js';
@@ -160,31 +160,24 @@ function placeAfterHtml(i) {
 }
 
 // ---------- ⛴ Traversées connues : la route passe par les quais (route + traversée + route) ----------
-const FERRY_PORTS = {
-  tsa: { name: 'Tsawwassen', lat: 49.00794, lng: -123.12909 },
-  swa: { name: 'Swartz Bay (Victoria)', lat: 48.68654, lng: -123.41052 },
-  hsb: { name: 'Horseshoe Bay', lat: 49.36856, lng: -123.2759 },
-  dep: { name: 'Departure Bay (Nanaimo)', lat: 49.1913, lng: -123.95379 },
-  duk: { name: 'Duke Point (Nanaimo)', lat: 49.15666, lng: -123.89101 },
-};
-const FERRY_ROUTES = [['tsa', 'swa'], ['swa', 'tsa'], ['hsb', 'dep'], ['dep', 'hsb'], ['tsa', 'duk'], ['duk', 'tsa']];
 function ferryHtml(i) {
   const s = trip.steps[i], e = s.extra || {};
   const cur = !e.ferry ? '' : e.ferryFrom && e.ferryTo
-    ? FERRY_ROUTES.map(r => r.join('-')).find(k => { const [a, b] = k.split('-'); return FERRY_PORTS[a].name === e.ferryFrom.name && FERRY_PORTS[b].name === e.ferryTo.name; }) || 'line'
-    : 'line';
+    ? FERRY_ROUTES.map(r => r.join('-')).find(k => { const [a, b] = k.split('-'); return FERRY_PORTS[a].name === e.ferryFrom.name && FERRY_PORTS[b].name === e.ferryTo.name; }) || 'auto'
+    : 'auto';
   const opt = (v, t) => `<option value="${v}"${v === cur ? ' selected' : ''}>${t}</option>`;
   return `<label style="display:block">⛴ Pour arriver ici : <select style="width:auto" onchange="act('ferryRoute', ${i}, this.value)">
     ${opt('', 'route seulement')}
+    ${opt('auto', 'traversier (quais choisis automatiquement)')}
     ${FERRY_ROUTES.map(([a, b]) => opt(a + '-' + b, `traversier ${FERRY_PORTS[a].name} → ${FERRY_PORTS[b].name}`)).join('')}
-    ${opt('line', 'traversier (ligne droite, sans route)')}</select></label>`;
+</select></label>`;
 }
 
 function popupHtml(i) {
   const s = trip.steps[i], prev = trip.steps[i - 1], leg = legs[i - 1];
   const km = !prev || !leg ? 'Point de départ'
     : leg.provider === 'ferry' ? `⛴ Traversier depuis ${esc(prev.name.split(',')[0])}`
-    : leg.ferry ? `${fmt(leg.km)} km de route + ⛴ ${esc(s.extra.ferryFrom.name || 'traversier')} → ${esc(s.extra.ferryTo.name || '')}${leg.h ? ' · ' + fmtH(leg.h) : ''} depuis ${esc(prev.name.split(',')[0])}`
+    : leg.ferry ? `${fmt(leg.km)} km de route + ⛴ ${esc(leg.ferryFrom)} → ${esc(leg.ferryTo)}${leg.h ? ' · ' + fmtH(leg.h) : ''} depuis ${esc(prev.name.split(',')[0])}`
     : `${fmt(leg.km)} km${leg.h ? ' · ' + fmtH(leg.h) : ''} depuis ${esc(prev.name.split(',')[0])}`;
   const canType = isNight(s);
   return `<div class="pop">
@@ -2226,7 +2219,7 @@ window.act = (what, i, v) => {
   if (what === 'ferryRoute') {
     const { ferry, ferryFrom, ferryTo, ...rest } = s.extra || {};
     const [a, b] = (v || '').split('-');
-    s.extra = !v ? rest : v === 'line' ? { ...rest, ferry: true }
+    s.extra = !v ? rest : v === 'auto' ? { ...rest, ferry: true }
       : { ...rest, ferry: true, ferryFrom: { ...FERRY_PORTS[a] }, ferryTo: { ...FERRY_PORTS[b] } };
     geometry = true;
   }

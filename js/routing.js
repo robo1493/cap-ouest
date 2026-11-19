@@ -54,10 +54,29 @@ export const ferryLeg = (a, b) => ({ coords: [[a.lat, a.lng], [b.lat, b.lng]], k
 // Traversier avec quais connus (extra.ferryFrom / extra.ferryTo = { name, lat, lng }) :
 // route jusqu'au quai de départ, traversée, puis route du quai d'arrivée jusqu'à l'étape.
 const FERRY_H = 1.6;
-export const ferryTerminals = b => {
-  const f = b.extra?.ferryFrom, t = b.extra?.ferryTo;
-  return b.extra?.ferry && Number.isFinite(f?.lat) && Number.isFinite(t?.lat) ? [f, t] : null;
+export const FERRY_PORTS = {
+  tsa: { name: 'Tsawwassen', lat: 49.00794, lng: -123.12909 },
+  swa: { name: 'Swartz Bay (Victoria)', lat: 48.68654, lng: -123.41052 },
+  hsb: { name: 'Horseshoe Bay', lat: 49.36856, lng: -123.2759 },
+  dep: { name: 'Departure Bay (Nanaimo)', lat: 49.1913, lng: -123.95379 },
+  duk: { name: 'Duke Point (Nanaimo)', lat: 49.15666, lng: -123.89101 },
 };
+export const FERRY_ROUTES = [['tsa', 'swa'], ['swa', 'tsa'], ['hsb', 'dep'], ['dep', 'hsb'], ['tsa', 'duk'], ['duk', 'tsa']];
+const AUTO_MAX_KM = 250;   // quai choisi automatiquement seulement s'il est à moins de 250 km (vol d'oiseau) des étapes
+// Quais [départ, arrivée] du tronçon a → b : ceux choisis dans la fiche, sinon la traversée connue
+// qui fait le moins de route ; null = traversier en ligne droite (aucune traversée connue près d'ici)
+export function ferryTerminals(b, a) {
+  if (!b.extra?.ferry) return null;
+  const f = b.extra.ferryFrom, t = b.extra.ferryTo;
+  if (Number.isFinite(f?.lat) && Number.isFinite(t?.lat)) return [f, t];
+  if (!a) return null;
+  let best = null, bestKm = Infinity;
+  for (const [x, y] of FERRY_ROUTES) {
+    const px = FERRY_PORTS[x], py = FERRY_PORTS[y], d1 = hav(a, px), d2 = hav(py, b);
+    if (d1 < AUTO_MAX_KM && d2 < AUTO_MAX_KM && d1 + d2 < bestKm) { bestKm = d1 + d2; best = [px, py]; }
+  }
+  return best;
+}
 function composeFerry(r1, f, t, r2) {
   const cross = { coords: [[f.lat, f.lng], [t.lat, t.lng]], provider: 'ferry' };
   return {
@@ -65,7 +84,7 @@ function composeFerry(r1, f, t, r2) {
     km: r1.km + r2.km,
     h: r1.h == null || r2.h == null ? null : r1.h + FERRY_H + r2.h,
     provider: r1.provider === r2.provider ? r1.provider : r1.provider === 'estimate' ? r1.provider : r2.provider,
-    ferry: true,
+    ferry: true, ferryFrom: f.name, ferryTo: t.name,
     parts: [r1, cross, r2],
     ...(r1.pending || r2.pending ? { pending: true } : {}),
   };
@@ -73,7 +92,7 @@ function composeFerry(r1, f, t, r2) {
 
 // Synchrone : le tronçon en cache, sinon une estimation marquée « pending »
 export function cachedOrEstimate(a, b, opts) {
-  const ft = ferryTerminals(b);
+  const ft = ferryTerminals(b, a);
   if (ft) return composeFerry(roadCachedOrEstimate(a, ft[0], opts), ft[0], ft[1], roadCachedOrEstimate(ft[1], b, opts));
   if (b.extra?.ferry) return ferryLeg(a, b);
   return roadCachedOrEstimate(a, b, opts);
@@ -177,7 +196,7 @@ export async function fetchMissing(steps, opts, { onLeg, onError, isStale }) {
   }
   for (let i = 1; i < steps.length; i++) {
     if (isStale()) return;
-    const a = steps[i - 1], b = steps[i], ft = ferryTerminals(b);
+    const a = steps[i - 1], b = steps[i], ft = ferryTerminals(b, a);
     if (b.extra?.ferry && !ft) continue;   // traversier sans quais : pas de calcul routier
     const pairs = ft ? [[a, ft[0]], [ft[1], b]] : [[a, b]];
     try {
