@@ -1094,11 +1094,14 @@ function noteFromHash() {
   const m = location.hash.match(/^#note=(.*)$/);
   if (!m) return;
   history.replaceState(null, '', location.pathname + location.search);
-  const [title, date, ...rest] = decodeURIComponent(m[1].replace(/\+/g, ' ')).split('|');
-  const n = addNote({ title, date: (date || '').trim(), text: rest.join('|') });
-  if (!n) return;
+  // Plusieurs notes dans un seul lien : séparées par ;;
+  const added = decodeURIComponent(m[1].replace(/\+/g, ' ')).split(';;').map(part => {
+    const [title, date, ...rest] = part.split('|');
+    return addNote({ title, date: (date || '').trim(), text: rest.join('|') }) && title;
+  }).filter(Boolean);
+  if (!added.length) return;
   openView('carnet', true); renderCarnet();
-  setTimeout(() => alert(`📒 « ${title} » est dans votre Carnet.`), 300);
+  setTimeout(() => alert(added.length === 1 ? `📒 « ${added[0]} » est dans votre Carnet.` : `📒 ${added.length} notes ajoutées à votre Carnet.`), 300);
 }
 window.addEventListener('hashchange', noteFromHash);
 setTimeout(noteFromHash, 0);
