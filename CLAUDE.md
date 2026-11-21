@@ -81,3 +81,4 @@ L'utilisateur travaille avec Claude tantôt sur son portable, tantôt depuis sa 
 - v1.41 : code « p » dans `chaines.json` = Pilot / Flying J avec voies VR (202 stations, liste publique pilotcompany.com/locations/directory, offre 298 « RV Fuel Lanes ») : `[lat, lng, 'p', nom, nb voies VR, 'd' vidange / 'p' propane, places VR, sortie]`.
 - v1.43 : lien `#fav=` accepte plusieurs favoris séparés par `;;`, chacun `Nom|lat,lng|note|site web|téléphone|rouge`.
 - v1.49 : ⭐ favori en étoile rouge (`f.color = 'red'`, « à ne pas manquer ») : bouton dans la fiche du favori, 6e champ « rouge » du lien `#fav=`.
+- v1.51 : nom du voyage (`trip.name`, celui du fichier importé) affiché en gras au début de `#tripTitle` (en-tête) ; `importTrip` garde maintenant le `name` du fichier.
