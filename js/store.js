@@ -146,6 +146,7 @@ export function importTrip(text) {
   const t = data.trip || data;
   if (!Array.isArray(t.steps) || t.steps.length < 2) throw new Error('Fichier invalide : aucune étape.');
   trip.startIso = t.startIso || DEFAULT_START;
+  if (typeof t.name === 'string' && t.name.trim()) trip.name = t.name.trim();
   trip.steps = t.steps.map(s => ({
     id: isUuid(s.id) ? s.id : uid(), name: s.name, lat: +s.lat, lng: +s.lng, type: s.type, nights: +s.nights || 0,
     ...(typeof s.leaveRig === 'boolean' ? { leaveRig: s.leaveRig } : {}),

@@ -2133,7 +2133,11 @@ function renderTripTitle() {
   const a = arrival(0), b = arrival(st.length - 1);
   const mo = d => d.toLocaleDateString('fr-CA', { month: 'short', year: 'numeric' });
   const months = Math.max(1, Math.round((b - a) / 864e5 / 30.4));
-  $('tripTitle').textContent = `${city(st[0])} → ${city(st[st.length - 1])} · ${mo(a)} → ${mo(b)} (${months} mois)`;
+  const el = $('tripTitle');
+  el.textContent = '';
+  // Nom du voyage (celui du fichier importé), pour savoir quelle version est chargée
+  if (trip.name) { const n = document.createElement('b'); n.className = 'tripName'; n.textContent = trip.name; el.append(n, ' · '); }
+  el.append(`${city(st[0])} → ${city(st[st.length - 1])} · ${mo(a)} → ${mo(b)} (${months} mois)`);
 }
 
 // Tableau de bord : tout de suite s'il est ouvert, sinon un peu plus tard (la fiche d'étape s'affiche

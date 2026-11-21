@@ -17,6 +17,7 @@ nav button { border: 1.5px solid transparent; background: none; padding: 7px 12p
 nav button.on { border-color: var(--ink); color: var(--ink); font-weight: 600; }
 nav button[data-t="map"] { font-weight: 700; color: var(--ink); }
 .trip { margin-left: auto; color: var(--muted); font-size: 13px; }
+.trip .tripName { color: var(--ink, inherit); font-weight: 600; }
 
 /* La scène : la carte est toujours là, les autres vues glissent par-dessus */
 .stage { --sw: 320px; --dw: 620px; flex: 1; position: relative; display: grid; grid-template-columns: var(--sw) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; min-height: 0; overflow: hidden; }
