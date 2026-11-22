@@ -15,6 +15,7 @@ import { BY_K, GROUPS, getIo, onIoChange, importIoCsv, clearIo, ioNear, ioBigCou
 import { CHAINS, loadChains, chainsNear } from './chains.js';
 import { CAMP_KINDS, CAMP_FLAGS, loadCamps, campsNear } from './camps.js';
 import { loadCoe, coeNear, coeAll } from './coe.js';
+import { loadBcr, bcrNear, bcrAll } from './bcrec.js';
 import { RESV_EQUIP, RESV_AMPS, resvSites, resvText, resvWindow } from './resv.js';
 import { getNotes, getNote, addNote, editNote, delNote, isDone, setDone, onNotesChange } from './notes.js';
 import { clearancesAlong, fetchMissingClearances, clearanceProgress, clearClearanceCache, feet } from './clearances.js';
@@ -292,6 +293,7 @@ function renderLines() {
   queueChains();
   queueCamps();
   queueCoe();
+  queueBcr();
 }
 
 let linesQueued = false;
@@ -736,6 +738,60 @@ map.on('zoomend', () => {
 $('coeShow').onchange = toggleCoe;
 loadCoe().then(queueCoe).catch(e => console.warn('Corps of Engineers : fichier introuvable', e));
 
+// ---------- 🌲 Sites de loisirs de la C.-B. (Recreation Sites and Trails BC) ----------
+const BCR_MIN_ZOOM = 7, BCR_COLOR = '#2e7d32';
+const bcrLayer = L.layerGroup();
+const BCR_ACC = { v: '🚐 Accessible en VR', 2: '🚙 Route 2 roues motrices (VR : à vérifier)', 4: '⛔ 4x4 seulement', t: '🥾 Sentier, bateau ou avion', '?': '❔ Accès non précisé (voir la fiche complète)' };
+const BCR_FEE = { p: 'Payant (selon la description)', g: 'Gratuit', u: 'Gratuit probable (entretenu par les usagers)', '': 'Frais à vérifier' };
+const bcrUrl = x => 'https://www.sitesandtrailsbc.ca/resource/' + encodeURIComponent(x[11]);
+function bcrPopup(x) {
+  const { i: near, d } = nearestStep({ lat: x[0], lng: x[1] }), st = trip.steps[near], city = esc(st.name.split(',')[0]);
+  const note = ['Site BC Rec', x[3], `${x[4]} sites`, BCR_FEE[x[7]] || '', BCR_ACC[x[5]] || ''].filter(Boolean).join(' · ');
+  return `<div class="pop">
+    <span class="chip" style="border-color:${BCR_COLOR};color:${BCR_COLOR}">🌲 Site de loisirs C.-B. · public</span>
+    <div><b>${esc(x[2])}</b></div>
+    <div>${esc(x[3])}, C.-B. · ${x[4]} site${x[4] > 1 ? 's' : ''} de camping</div>
+    <div>${BCR_ACC[x[5]] || ''}</div>
+    <div>💲 ${BCR_FEE[x[7]] || BCR_FEE['']}${x[6] === 'm' ? ' · entretenu (souvent un gardien)' : x[6] === 'u' ? ' · entretenu par les usagers' : ''}</div>
+    ${x[8] ? `<div style="color:#b71c1c">⚠ Avis : ${esc(x[8])}</div>` : ''}
+    ${x[9] ? `<div>🧰 ${esc(x[9])}</div>` : ''}
+    ${x[10] ? `<div>🎯 ${esc(x[10])}</div>` : ''}
+    <div>📄 <a href="${bcrUrl(x)}" target="_blank" rel="noopener">Fiche complète (Sites and Trails BC, en anglais) ↗</a></div>
+    <div class="src">⚠ Premier arrivé, premier servi en général. Chemins forestiers souvent étroits : vérifier l'accès et la place pour 55 pi.</div>
+    ${favBtn({ name: x[2] + ' (site BC Rec)', lat: x[0], lng: x[1], note, web: bcrUrl(x) })}
+    <div class="src">À ${fmt(d)} km de ${city}</div>
+    ${st.type !== 'start' ? `<button class="btn sm" onclick="act('altAdd', ${near}, [${esc(JSON.stringify(x[2]))}, '${x[0]}, ${x[1]}'])">🔁 Choix de rechange pour ${city}</button>` : ''}
+    <div class="row">
+      <button class="btn sm" onclick="viewAt(${x[0]}, ${x[1]}, 17)">Vue satellite</button>
+      <a class="btn sm" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${x[0]},${x[1]}">Google Maps ↗</a>
+    </div>
+    <div class="src">Source : Recreation Sites and Trails BC, données ouvertes de la C.-B. (Open Government Licence – BC)</div>
+  </div>`;
+}
+function renderBcr() {
+  bcrLayer.clearLayers();
+  const list = bcrNear(legs, trip.steps);
+  if (!list) { $('bcrCount').textContent = ''; return; }
+  list.forEach(x => new IoMarker([x[0], x[1]], { renderer: ioRenderer, radius: Math.max(ioRadius(), 9), icon: '🌲', color: '#fff', weight: 2, fillColor: x[5] === 'v' ? BCR_COLOR : '#81c784', fillOpacity: .95 })
+    .bindPopup(() => bcrPopup(x), { minWidth: 230 }).addTo(bcrLayer));
+  $('bcrCount').textContent = `(${fmt(list.length)})`;
+  toggleBcr();
+}
+const toggleBcr = () => {
+  const show = $('bcrShow').checked && map.getZoom() >= BCR_MIN_ZOOM;
+  if (show && !map.hasLayer(bcrLayer)) bcrLayer.addTo(map);
+  if (!show && map.hasLayer(bcrLayer)) map.removeLayer(bcrLayer);
+};
+let bcrTimer = 0;
+const queueBcr = () => { clearTimeout(bcrTimer); bcrTimer = setTimeout(renderBcr, 1900); };
+map.on('zoomend', () => {
+  toggleBcr();
+  const r = Math.max(ioRadius(), 9);
+  bcrLayer.eachLayer(m => m.getRadius() !== r && m.setRadius(r));
+});
+$('bcrShow').onchange = toggleBcr;
+loadBcr().then(queueBcr).catch(e => console.warn('Sites BC Rec : fichier introuvable', e));
+
 // ---------- 📅 Aide à la réservation (dates de l'itinéraire + paramètres du rig, lien vers le bon site) ----------
 function resvInfo(i) {
   const s = trip.steps[i], a = arrival(i);
@@ -1144,7 +1200,7 @@ window.searchGo = k => {
   $('searchBox').hidden = true;   // la fiche reste visible ; 🔍 rouvre la recherche avec le même texte
 };
 // Catégories de la recherche (puces sous le champ) ; sans texte, une catégorie liste ce qui est près du centre de la carte
-const SEARCH_CATS = [['all', 'Tout'], ['step', 'Étapes'], ['fav', '⭐ Favoris'], ['coe', '🏛 Corps'], ['pub', '🏕 Publics'],
+const SEARCH_CATS = [['all', 'Tout'], ['step', 'Étapes'], ['fav', '⭐ Favoris'], ['coe', '🏛 Corps'], ['bcr', '🌲 BC Rec'], ['pub', '🏕 Publics'],
   ['priv', '🔌 Parcs VR privés'], ['io', '⛺ iOverlander'], ['guide', '📘 Guides'], ['city', '📍 Villes']];
 let searchCat = 'all';
 const campPriv = x => { const f = x[6] || ''; return f.includes('x') || (x[2] === 'v' && !f.includes('p')); };
@@ -1170,6 +1226,9 @@ function localHits(q, cat = 'all') {
   if (on('coe')) pick((coeAll() || []).filter(x => has(x[2] + ' ' + x[3])), cat === 'coe' ? 30 : 15, x => ({ lat: x[0], lng: x[1] })).forEach(([dh, x]) =>
     out.push({ g: '🏛 Corps of Engineers', name: x[2], lat: x[0], lng: x[1], html: () => coePopup(x),
       sub: [x[3], x[4], dist(dh, { lat: x[0], lng: x[1] })].filter(Boolean).join(' · ') }));
+  if (on('bcr')) pick((bcrAll() || []).filter(x => has(x[2] + ' ' + x[3])), cat === 'bcr' ? 30 : 15, x => ({ lat: x[0], lng: x[1] })).forEach(([dh, x]) =>
+    out.push({ g: '🌲 Sites BC Rec', name: x[2], lat: x[0], lng: x[1], html: () => bcrPopup(x),
+      sub: [x[3], `${x[4]} sites`, x[5] === 'v' ? 'VR' : '', dist(dh, { lat: x[0], lng: x[1] })].filter(Boolean).join(' · ') }));
   if (campsAll && (on('pub') || on('priv'))) {
     const keep = x => (cat === 'pub' ? (x[6] || '').includes('p') : cat === 'priv' ? campPriv(x) : true) && has(x[3]);
     pick(campsAll.filter(keep), 30, x => ({ lat: x[0], lng: x[1] })).forEach(([dh, x]) => {
@@ -2987,7 +3046,7 @@ document.addEventListener('pointerdown', keepAwake);
 // Les cases cochées à la main sont retenues sur l'appareil (localStorage) et remises au démarrage.
 const LYR_KEY = 'capouest.layers.v1';
 const lyrBoxes = () => [...document.querySelectorAll('.layers input[type=checkbox]')].filter(cb => lyrKey(cb));
-const lyrKey = cb => cb.id === 'publicLands' || cb.id === 'favShow' || cb.id === 'coeShow' ? cb.id
+const lyrKey = cb => cb.id === 'publicLands' || cb.id === 'favShow' || cb.id === 'coeShow' || cb.id === 'bcrShow' ? cb.id
   : cb.dataset.lyr ? 'lyr:' + cb.dataset.lyr : cb.dataset.poi ? 'poi:' + cb.dataset.poi
   : cb.dataset.io ? 'io:' + cb.dataset.io : cb.dataset.chain ? 'chain:' + cb.dataset.chain
   : cb.dataset.camp ? 'camp:' + cb.dataset.camp : '';
@@ -2995,8 +3054,8 @@ const BASE = ['lyr:lines', 'lyr:b', 'lyr:c', 'favShow'];
 const MAP_VIEWS = [
   ['plan', '🗺 Planifier', 'Étapes, trajet et favoris seulement', [...BASE, 'lyr:trail']],
   ['boon', '🏜 Boondock', 'Terres publiques, nuits iOverlander, Walmart et relais routiers',
-    [...BASE, 'publicLands', 'io:night', 'io:warn', 'chain:w', 'chain:t', 'chain:c', 'chain:p']],
-  ['camp', '🏕 Camping', 'Campings, parcs VR et Corps of Engineers', [...BASE, 'coeShow', 'camp:v', 'camp:c', 'io:night']],
+    [...BASE, 'publicLands', 'bcrShow', 'io:night', 'io:warn', 'chain:w', 'chain:t', 'chain:c', 'chain:p']],
+  ['camp', '🏕 Camping', 'Campings, parcs VR, Corps of Engineers et sites BC Rec', [...BASE, 'coeShow', 'bcrShow', 'camp:v', 'camp:c', 'io:night']],
   ['drive', '🚚 Conduite', 'Route, diesel, ponts bas et avertissements',
     [...BASE, 'lyr:fuel', 'lyr:stations', 'lyr:clear', 'lyr:trail', 'io:warn', 'io:serv', 'chain:t', 'chain:p']],
   ['disc', '🧭 Découvertes', 'Sentiers, points de vue, musées, histoire et mes guides',
