@@ -188,6 +188,8 @@ function popupHtml(i) {
     <input value="${esc(s.name)}" onchange="act('rename', ${i}, this.value)">
     <div>${km}</div>
     ${i ? ferryHtml(i) : ''}
+    ${i && (settings.orsKey || s.extra?.direct) && !s.extra?.ferry ? `<label style="display:block" title="Pour ce tronçon : calcul de base (OSRM) au lieu du profil poids lourds, qui fait parfois des détours absurdes. Les ponts bas restent vérifiés.">
+      <input type="checkbox"${s.extra?.direct ? ' checked' : ''} onchange="act('direct', ${i}, this.checked)"> 🛣️ Route directe pour arriver ici (sans détour « poids lourds »)</label>` : ''}
     ${milestoneHtml(i)}${s.extra?.note ? `<div class="src">ℹ ${esc(s.extra.note)}</div>` : ''}${s.type !== 'start' ? ioSummary(s) : ''}
     ${leg && leg.provider !== 'ferry' && leg.km > maxKm() ? `<label style="display:block"><input type="checkbox" ${s.extra?.longOk ? 'checked' : ''} onchange="act('longOk', ${i}, this.checked)">
       Tronçon long accepté (${fmt(leg.km)} km, route facile)</label>` : ''}
@@ -2310,6 +2312,11 @@ window.act = (what, i, v) => {
   if (what === 'type') s.type = s.type === 'b' ? 'c' : 'b';
   if (what === 'leaveRig') s.leaveRig = v;
   if (what === 'longOk') s.extra = { ...(s.extra || {}), longOk: v };
+  if (what === 'direct') {
+    const { direct, ...rest } = s.extra || {};
+    s.extra = v ? { ...rest, direct: true } : rest;
+    geometry = true;
+  }
   if (what === 'ferryRoute') {
     const { ferry, ferryFrom, ferryTo, ...rest } = s.extra || {};
     const [a, b] = (v || '').split('-');

@@ -30,6 +30,10 @@ function persist() {
 }
 
 export const providerOf = opts => opts.orsKey ? 'ors' : 'osrm';
+// 🛣️ « Route directe » (extra.direct de l'étape d'arrivée, v1.55) : ce tronçon est calculé avec OSRM même si une clé ORS
+// est saisie, quand le profil poids lourds d'ORS fait un détour absurde (ex. pont tournant de Reedsport sur la 101, 14′ 6″).
+// Les ponts et passages bas restent vérifiés sur le tracé (clearances.js).
+export const legOpts = (b, opts) => b?.extra?.direct && opts.orsKey ? { ...opts, orsKey: '' } : opts;
 
 const r5 = p => `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`;
 function keyFor(a, b, opts) {
@@ -92,6 +96,7 @@ function composeFerry(r1, f, t, r2) {
 
 // Synchrone : le tronçon en cache, sinon une estimation marquée « pending »
 export function cachedOrEstimate(a, b, opts) {
+  opts = legOpts(b, opts);
   const ft = ferryTerminals(b, a);
   if (ft) return composeFerry(roadCachedOrEstimate(a, ft[0], opts), ft[0], ft[1], roadCachedOrEstimate(ft[1], b, opts));
   if (b.extra?.ferry) return ferryLeg(a, b);
@@ -183,10 +188,10 @@ export async function fetchMissing(steps, opts, { onLeg, onError, isStale }) {
   const p = providerOf(opts);
   const pause = () => new Promise(r => setTimeout(r, p === 'osrm' ? 1000 : 1600));
   // Calcule et met en cache un tronçon routier a → b ; false s'il était déjà en cache
-  async function road(a, b) {
-    const k = keyFor(a, b, opts);
+  async function road(a, b, o) {
+    const k = keyFor(a, b, o), p = providerOf(o);
     if (cache[k]) return false;
-    let res = p === 'ors' ? await orsWithSnap(a, b, opts) : await osrm(a, b);
+    let res = p === 'ors' ? await orsWithSnap(a, b, o) : await osrm(a, b);
     // Tracé ORS qui n'arrive pas à l'étape : refaire avec OSRM
     if (!endsOk(decodePolyline(res.poly), a, b) && p === 'ors') res = { ...(await osrm(a, b)), provider: 'osrm' };
     if (!endsOk(decodePolyline(res.poly), a, b)) throw new Error('Tracé qui n’arrive pas à l’étape');
@@ -202,7 +207,7 @@ export async function fetchMissing(steps, opts, { onLeg, onError, isStale }) {
     try {
       let fetched = false;
       for (const [x, y] of pairs) {
-        if (await road(x, y)) { fetched = true; if (isStale()) return; await pause(); }
+        if (await road(x, y, legOpts(b, opts))) { fetched = true; if (isStale()) return; await pause(); }
       }
       if (fetched) onLeg(i - 1, cachedOrEstimate(a, b, opts));
     } catch (e) {
