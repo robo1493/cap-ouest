@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "Cap Ouest",
-  "short_name": "Cap Ouest",
+  "name": "CapRoute RV",
+  "short_name": "CapRoute RV",
   "description": "Planification du voyage en fifth wheel : itinéraire, nuitées, carburant et équipement.",
   "lang": "fr-CA",
   "start_url": "./",

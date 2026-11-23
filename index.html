@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#222222">
-<title>Cap Ouest</title>
+<title>CapRoute RV</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Cap Ouest">
+<meta name="apple-mobile-web-app-title" content="CapRoute RV">
 <script>
   // Chrome peut proposer l'installation avant le chargement des modules : on garde l'invitation
   addEventListener('beforeinstallprompt', e => { e.preventDefault(); window.installPrompt = e; document.dispatchEvent(new Event('installable')); });
@@ -31,7 +31,7 @@
       b.onclick = () => b.remove();
       (document.body || document.documentElement).appendChild(b);
     }
-    b.textContent = '⚠ Erreur dans Cap Ouest (photo d’écran à Claude, toucher pour fermer) : ' + msg;
+    b.textContent = '⚠ Erreur dans CapRoute RV (photo d’écran à Claude, toucher pour fermer) : ' + msg;
   };
   // « Script error. » : erreur d'un fichier externe ou d'une extension du navigateur, sans détail utile
   addEventListener('error', e => e.message !== 'Script error.' && window.showStartError(e.message + (e.filename ? ` (${e.filename.split('/').pop()}:${e.lineno})` : ''), e.error));
@@ -42,7 +42,7 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v1.56</small></div>
+  <div class="logo">CapRoute RV <small>v1.57</small></div>
   <button class="btn sm pri" id="installBtn" hidden>📲 Installer l'application</button>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
@@ -425,7 +425,7 @@
         </div>
         <div id="fillStats" class="mt"></div>
         <div class="scroll"><table id="fillTable"></table></div>
-        <div class="src">La consommation se calcule entre deux <b>pleins complets</b> : notez l'odomètre à chaque plein, même partiel. Aux États-Unis, saisissez les gallons et les $ US : Cap Ouest convertit en litres et en $ CA.</div>
+        <div class="src">La consommation se calcule entre deux <b>pleins complets</b> : notez l'odomètre à chaque plein, même partiel. Aux États-Unis, saisissez les gallons et les $ US : CapRoute RV convertit en litres et en $ CA.</div>
       </div>
       <div class="box real mt">
         <div class="row between" style="margin-bottom: 8px;">
@@ -629,12 +629,12 @@
           <h2>📲 Application sur la tablette</h2>
           <div id="appState" class="src"></div>
           <button class="btn pri mt" id="installBtn2" hidden>📲 Installer l'application</button>
-          <div class="src mt">Installée, Cap Ouest s'ouvre par son icône sur l'écran d'accueil, sans la barre d'adresse du navigateur : la carte prend plus de place.</div>
+          <div class="src mt">Installée, CapRoute RV s'ouvre par son icône sur l'écran d'accueil, sans la barre d'adresse du navigateur : la carte prend plus de place.</div>
           <div class="src mt" id="installAndroid">Si le bouton n'apparaît pas : menu <b>⋮</b> de Chrome › <b>Ajouter à l'écran d'accueil</b> › <b>Installer</b>. Mêmes données et mêmes réglages que dans Chrome.</div>
           <div class="src mt" id="installIos" hidden><b>Sur iPad</b> (pas de bouton d'installation chez Apple) :<br>
             1. Touchez <b>Partager</b> (carré avec une flèche vers le haut ⬆) : dans Chrome, il est au bout de la barre d'adresse ; dans Safari, en haut à droite.<br>
             2. Ne touchez pas la rangée d'applis (Gmail, Messages…) : faites défiler la <b>liste en dessous</b> jusqu'à <b>« Sur l'écran d'accueil »</b>, puis <b>Ajouter</b>.<br>
-            3. Ouvrez ensuite Cap Ouest par sa nouvelle icône. Sur iPad, l'appli installée a sa propre mémoire : connectez-vous à la synchronisation ci-dessous (votre trajet revient) et entrez de nouveau la clé OpenRouteService.</div>
+            3. Ouvrez ensuite CapRoute RV par sa nouvelle icône. Sur iPad, l'appli installée a sa propre mémoire : connectez-vous à la synchronisation ci-dessous (votre trajet revient) et entrez de nouveau la clé OpenRouteService.</div>
         </div>
 
         <div class="box real">
@@ -643,7 +643,7 @@
           <div id="syncSignedOut">
             <label class="lbl" for="syncEmail">Votre courriel</label>
             <input id="syncEmail" class="inp" type="email" placeholder="vous@exemple.com" autocomplete="email">
-            <label class="lbl" for="syncPass">Mot de passe Cap Ouest</label>
+            <label class="lbl" for="syncPass">Mot de passe CapRoute RV</label>
             <div class="row">
               <input id="syncPass" class="inp" type="password" autocomplete="current-password">
               <button class="btn pri" id="syncPassIn">Se connecter</button>

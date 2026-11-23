@@ -1045,7 +1045,7 @@ function calItems() {
 
 const gcalUrl = it => 'https://calendar.google.com/calendar/render?' + new URLSearchParams({
   action: 'TEMPLATE', text: '📅 ' + it.title, dates: `${ymd(it.date)}/${ymd(addDays(it.date, 1))}`,
-  details: [it.text, it.site ? `${it.site[0]} : ${it.site[1]}` : '', 'Cap Ouest : https://robo1493.github.io/cap-ouest/'].filter(Boolean).join('\n\n'),
+  details: [it.text, it.site ? `${it.site[0]} : ${it.site[1]}` : '', 'CapRoute RV : https://robo1493.github.io/cap-ouest/'].filter(Boolean).join('\n\n'),
 });
 
 function calRow(it, today) {
@@ -1132,7 +1132,7 @@ $('calIcs').onclick = () => {
     'BEGIN:VALARM', 'ACTION:DISPLAY', 'TRIGGER:-PT15H', `DESCRIPTION:${tx(it.title)}`, 'END:VALARM',
     'BEGIN:VALARM', 'ACTION:DISPLAY', 'TRIGGER:PT8H', `DESCRIPTION:${tx(it.title)}`, 'END:VALARM',
     'END:VEVENT'].join('\r\n'));
-  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Cap Ouest//FR', 'CALSCALE:GREGORIAN', 'X-WR-CALNAME:Cap Ouest', ...ev, 'END:VCALENDAR'].join('\r\n');
+  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//CapRoute RV//FR', 'CALSCALE:GREGORIAN', 'X-WR-CALNAME:CapRoute RV', ...ev, 'END:VCALENDAR'].join('\r\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' }));
   a.download = 'cap-ouest-rappels.ics';
@@ -1620,7 +1620,7 @@ function renderJournal() {
 }
 $('journalExport').onclick = () => {
   const items = trip.steps.map((s, i) => ({ s, i })).filter(x => x.s.extra?.journal);
-  const txt = 'Journal de voyage – Cap Ouest\n\n'
+  const txt = 'Journal de voyage – CapRoute RV\n\n'
     + items.map(({ s, i }) => `${toIso(arrival(i))} – ${s.name}\n${s.extra.journal}\n`).join('\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([txt], { type: 'text/plain;charset=utf-8' }));
@@ -1813,7 +1813,7 @@ window.nt = (what, id, v) => {
 $('ntExport').onclick = () => {
   const items = tripNights().map(x => ({ x, n: getNight(x.id) })).filter(o => o.n);
   if (!items.length) { alert('Aucune nuit inscrite pour l’instant.'); return; }
-  const txt = 'Carnet des nuits – Cap Ouest\n\n' + items.map(({ x, n }) => {
+  const txt = 'Carnet des nuits – CapRoute RV\n\n' + items.map(({ x, n }) => {
     const head = [`${x.id} – Nuit ${x.no} – ${n.name || x.s.name}`, n.kind ? NIGHT_KINDS[n.kind].label : '',
       n.paid != null && n.paid !== '' ? `${n.paid} ${n.cur === 'USD' ? '$ US' : '$ CA'}` : '', n.stars ? '★'.repeat(n.stars) : '',
       n.verdict === 'back' ? 'J’y retournerais' : n.verdict === 'avoid' ? 'À éviter' : ''].filter(Boolean).join(' · ');
@@ -2696,7 +2696,7 @@ map.on('locationerror', e => {
   map.stopLocate();
   following = false; settings.follow = false; saveSettings(); $('locate').classList.remove('on'); $('headUp').hidden = true; $('stage').classList.remove('driving'); northUp(); $('locate').textContent = '◎'; me.clearLayers(); $('drive').hidden = true;
   alert('Position introuvable : ' + (e.code === 1
-    ? 'la localisation est refusée pour Cap Ouest.\n\n'
+    ? 'la localisation est refusée pour CapRoute RV.\n\n'
       + '• Chrome (Android) : touchez l\'icône à gauche de l\'adresse › Autorisations › Position › Autoriser ; vérifiez aussi Paramètres de la tablette › Applications › Chrome › Autorisations › Position.\n'
       + '• iPad : Réglages › Confidentialité › Service de localisation › Safari (ou Chrome) › « Lorsque l\'app est active ».'
     : e.message));
@@ -2848,13 +2848,13 @@ function exportGpx(days) {
     return `<trkseg>${kept.map(p => `<trkpt lat="${p[0].toFixed(5)}" lon="${p[1].toFixed(5)}"/>`).join('')}</trkseg>`;
   }).join('\n');
   const gpx = `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="Cap Ouest" xmlns="http://www.topografix.com/GPX/1/1">
-<metadata><name>${xml(`Cap Ouest : ${sel[0].name.split(',')[0]} → ${sel[sel.length - 1].name.split(',')[0]}`)}</name></metadata>
+<gpx version="1.1" creator="CapRoute RV" xmlns="http://www.topografix.com/GPX/1/1">
+<metadata><name>${xml(`CapRoute RV : ${sel[0].name.split(',')[0]} → ${sel[sel.length - 1].name.split(',')[0]}`)}</name></metadata>
 ${sel.map((s, k) => pt('wpt', s, from + k)).join('\n')}
-<rte><name>${xml('Cap Ouest – étapes')}</name>
+<rte><name>${xml('CapRoute RV – étapes')}</name>
 ${sel.map((s, k) => pt('rtept', s, from + k)).join('\n')}
 </rte>
-<trk><name>${xml('Cap Ouest – trajet calculé')}</name>
+<trk><name>${xml('CapRoute RV – trajet calculé')}</name>
 ${trk}
 </trk>
 </gpx>`;
@@ -3021,7 +3021,7 @@ const showInstall = () => {
   const can = !!window.installPrompt && !standalone;
   $('installBtn').hidden = $('installBtn2').hidden = !can;
   $('appState').textContent = standalone ? '✔ Vous utilisez l’application installée.'
-    : can ? 'Cap Ouest peut être installée sur cet appareil.' : 'Cap Ouest est ouverte dans le navigateur.';
+    : can ? 'CapRoute RV peut être installée sur cet appareil.' : 'CapRoute RV est ouverte dans le navigateur.';
 };
 const install = async () => {
   const p = window.installPrompt;

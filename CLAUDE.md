@@ -90,3 +90,7 @@ L'utilisateur travaille avec Claude tantôt sur son portable, tantôt depuis sa 
 ## v1.56 — profil « vierge » pour un ami
 - store.js : clé `capouest.profile` (« perso » si l'appareil avait déjà un voyage, sinon « vierge »). Profil vierge : voyage « Mon voyage » à 2 étapes (Départ / Destination à changer), départ dans 30 jours.
 - Profil vierge : fiche Ram / Chaparral (#rigMine), suite proposée (#phase2Box) et #phase2Hint masquées. Case « 👤 Profil de cet appareil » dans ⚙ Paramètres pour basculer.
+
+## v1.57 — nouveau nom affiché : CapRoute RV
+- Nom affiché (titre, logo, manifest, exports GPX/ICS/textes) = « CapRoute RV ». L'URL (robo1493.github.io/cap-ouest), le dépôt, les clés localStorage (capouest.*) et le format d'export (app: 'cap-ouest') NE changent PAS.
+- Vérifié le 23 nov. 2026 : caprouterv.com/.ca, caproute.ca et .app libres (RDAP) ; App Store : une app d'aviation « CapRoute » (Valerie Otero) existe ; Google Play : aucune. Marques (OPIC, USPTO) à vérifier officiellement par l'utilisateur.
