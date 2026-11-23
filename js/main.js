@@ -16,6 +16,7 @@ import { CHAINS, loadChains, chainsNear } from './chains.js';
 import { CAMP_KINDS, CAMP_FLAGS, loadCamps, campsNear } from './camps.js';
 import { loadCoe, coeNear, coeAll } from './coe.js';
 import { loadBcr, bcrNear, bcrAll } from './bcrec.js';
+import { initMeteo } from './meteo.js';
 import { RESV_EQUIP, RESV_AMPS, resvSites, resvText, resvWindow } from './resv.js';
 import { getNotes, getNote, addNote, editNote, delNote, isDone, setDone, onNotesChange } from './notes.js';
 import { clearancesAlong, fetchMissingClearances, clearanceProgress, clearClearanceCache, feet } from './clearances.js';
@@ -2187,6 +2188,15 @@ $('cuUndo').onclick = () => {
 
 // ---------- Indicateurs ----------
 // En-tête : départ → destination · mois de départ → mois d'arrivée (durée), tiré du voyage lui-même
+// Étape prévue aujourd'hui (avant le départ : la première ; après le retour : la dernière) : position de repli pour la météo
+function stepToday() {
+  const st = trip.steps, now = new Date();
+  if (!st.length) return null;
+  let k = 0;
+  for (let i = 0; i < st.length; i++) if (arrival(i) <= now) k = i;
+  return st[k];
+}
+
 function renderTripTitle() {
   const st = trip.steps, city = s => s.name.split(/[,(–]/)[0].trim();
   const a = arrival(0), b = arrival(st.length - 1);
@@ -3183,3 +3193,6 @@ map.on('popupopen', e => {
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   navigator.serviceWorker.register('sw.js').catch(e => console.warn('Service worker', e));
 }
+
+// 🕑🌡️ Heure et température locales (bande de l’en-tête)
+initMeteo($('meteo'), stepToday);

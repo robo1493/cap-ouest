@@ -17,6 +17,10 @@ nav button { border: 1.5px solid transparent; background: none; padding: 7px 12p
 nav button.on { border-color: var(--ink); color: var(--ink); font-weight: 600; }
 nav button[data-t="map"] { font-weight: 700; color: var(--ink); }
 .trip { margin-left: auto; color: var(--muted); font-size: 13px; }
+.meteo { background: none; border: 1px solid var(--line); border-radius: 14px; padding: 3px 10px; font: inherit; font-size: 13px; color: inherit; cursor: pointer; }
+.meteo .mFrost { color: #c62828; font-weight: 600; }
+.meteo .mOld { color: var(--muted); }
+.meteo.mBusy { opacity: .6; }
 .trip .tripName { color: var(--ink, inherit); font-weight: 600; }
 
 /* La scène : la carte est toujours là, les autres vues glissent par-dessus */
