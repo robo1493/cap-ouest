@@ -18,8 +18,28 @@ const write = (key, value) => { try { localStorage.setItem(key, JSON.stringify(v
 
 export const newStep = fields => ({ id: uid(), ...fields });
 
+// Profil de l'appareil : « perso » = appareil qui avait déjà un voyage (itinéraire d'origine et fiche Ram / Chaparral) ;
+// « vierge » = nouvel appareil (un ami) : voyage vide à 2 étapes, sans les données personnelles.
+const PROFILE_KEY = 'capouest.profile';
+export let profile = localStorage.getItem(PROFILE_KEY);
+if (profile !== 'perso' && profile !== 'vierge') {
+  profile = localStorage.getItem(TRIP_KEY) || localStorage.getItem('capouest.steps.v1') ? 'perso' : 'vierge';
+  try { localStorage.setItem(PROFILE_KEY, profile); } catch {}
+}
+export const setProfile = v => { profile = v; try { localStorage.setItem(PROFILE_KEY, v); } catch {} };
+
+function blankSteps() {
+  return [
+    { name: 'Départ (à changer)', lat: 45.50, lng: -73.57, type: 'start', nights: 0 },
+    { name: 'Destination (à changer)', lat: 33.66, lng: -114.21, type: 'dest', nights: 0 },
+  ];
+}
+function inDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
+
 function freshTrip() {
-  return { id: uid(), name: 'Voyage Ouest', startIso: DEFAULT_START, steps: DEFAULT_STEPS.map(newStep), updatedAt: Date.now(), syncedAt: 0 };
+  return profile === 'perso'
+    ? { id: uid(), name: 'Voyage Ouest', startIso: DEFAULT_START, steps: DEFAULT_STEPS.map(newStep), updatedAt: Date.now(), syncedAt: 0 }
+    : { id: uid(), name: 'Mon voyage', startIso: inDays(30), steps: blankSteps().map(newStep), updatedAt: Date.now(), syncedAt: 0 };
 }
 
 function loadTrip() {
@@ -34,7 +54,7 @@ function loadTrip() {
   // Identifiants compatibles avec la base (uuid)
   if (!isUuid(t.id)) t.id = uid();
   t.steps.forEach(s => { if (!isUuid(s.id)) s.id = uid(); });
-  t.name ||= 'Voyage Ouest';
+  t.name ||= profile === 'perso' ? 'Voyage Ouest' : 'Mon voyage';
   t.syncedAt ||= 0;
   return t;
 }

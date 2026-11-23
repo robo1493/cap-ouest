@@ -42,7 +42,7 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v1.55</small></div>
+  <div class="logo">Cap Ouest <small>v1.56</small></div>
   <button class="btn sm pri" id="installBtn" hidden>📲 Installer l'application</button>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
@@ -72,7 +72,7 @@
     <div class="step" id="phase2Box" style="border-style: dashed;"><div class="d"><b>Suite : juillet → mi-septembre</b>
       <small>Glacier, Stampede de Calgary, Rocheuses, Colombie-Britannique, île de Vancouver</small>
       <button class="btn sm pri" id="addPhase2" style="margin-top:6px">Ajouter la suite proposée</button></div></div>
-    <div class="step" style="border-style: dashed; color: var(--muted);"><div class="d">Mi-septembre → février<small>à planifier</small></div></div>
+    <div class="step" id="phase2Hint" style="border-style: dashed; color: var(--muted);"><div class="d">Mi-septembre → février<small>à planifier</small></div></div>
     <button class="btn sm" id="resetBtn" style="margin-top:6px">Réinitialiser l'itinéraire</button>
   </aside>
 
@@ -497,7 +497,11 @@
     </section>
 
     <section id="equip" data-title="Équipement">
-      <div class="grid auto">
+      <div class="box real" id="rigBlank" hidden>
+        <h2>🚐 Votre équipement</h2>
+        <div class="note">Inscrivez les dimensions de votre ensemble (hauteur, longueur, poids) dans ⚙ Paramètres : elles servent au calcul de trajet et aux réservations.</div>
+      </div>
+      <div class="grid auto" id="rigMine">
         <div class="box real">
           <h2>🛻 Camion</h2>
           <div class="field"><span>Modèle</span><b>Ram 3500 2023</b></div>
@@ -582,6 +586,12 @@
           <h2>🚚 Rythme de route</h2>
           <div class="field"><span>Distance maximale par jour (km)</span><input class="inp" type="number" id="maxKmDay" min="100" max="1200" step="25"></div>
           <div class="src">Au-delà, le tronçon est signalé en rouge. Pour une route facile, cochez « Tronçon long accepté » dans la fiche de l’étape.</div>
+        </div>
+
+        <div class="box real">
+          <h2>👤 Profil de cet appareil</h2>
+          <label class="row"><input type="checkbox" id="profPerso"> Afficher la fiche d’équipement d’origine (Ram 3500 et Chaparral)</label>
+          <div class="src">Sur un nouvel appareil, l’application part d’un voyage vide, sans les données personnelles de son auteur.</div>
         </div>
 
         <div class="box real" id="resvBox">

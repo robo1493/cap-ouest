@@ -1,6 +1,6 @@
 /* global L */
 import { YELLOWSTONE_BY, PHASE2, FUEL, TYPE_LABEL, DEFAULT_VEHICLE } from './data.js';
-import { trip, settings, saveTrip, saveSettings, resetTrip, newStep, exportTrip, importTrip, undoTrip, canUndo, onUndoChange } from './store.js';
+import { trip, settings, saveTrip, saveSettings, resetTrip, newStep, exportTrip, importTrip, undoTrip, canUndo, onUndoChange, profile, setProfile } from './store.js';
 import { FERRY_PORTS, FERRY_ROUTES, cachedOrEstimate, fetchMissing, routeOnce, providerOf, testOrs, clearRouteCache, PROVIDER_LABEL } from './routing.js';
 import { hav, pointsAlong, lineKm, fmt, fmtH } from './geo.js';
 import { LEVEL, stationsAlong, fetchMissingStations, stationProgress, clearStationCache } from './stations.js';
@@ -1972,7 +1972,7 @@ function renderList() {
     </div>`;
   });
   $('stepList').innerHTML = html;
-  $('phase2Box').hidden = trip.steps.some(s => /calgary/i.test(s.name));
+  $('phase2Box').hidden = profile !== 'perso' || trip.steps.some(s => /calgary/i.test(s.name));
 }
 
 // Ajoute la suite proposée (data.js PHASE2) après la destination actuelle (Yellowstone),
@@ -3214,3 +3214,11 @@ const outils = initOutils({ checks: $('ckBox'), tanksNode: $('tkBox'), conv: $('
 $('meteo').onclick = () => { openView('outils', true); meteoRefresh(); };
 $('meteoGps').onclick = () => meteoRefresh();
 document.querySelector('nav [data-t=outils]').addEventListener('click', () => { outils.refreshTanks(); outils.refreshConv(); });
+
+// Profil de l'appareil : fiche d'équipement d'origine (perso) ou vierge (ami)
+function renderProfile() {
+  const perso = profile === 'perso';
+  $('rigMine').hidden = !perso; $('rigBlank').hidden = perso; $('profPerso').checked = perso; $('phase2Hint').hidden = !perso;
+}
+$('profPerso').onchange = e => { setProfile(e.target.checked ? 'perso' : 'vierge'); renderProfile(); recompute(); };
+renderProfile();

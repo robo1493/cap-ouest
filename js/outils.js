@@ -38,7 +38,7 @@ const DEFAULT_LISTS = {
     'Mâchoire de la sellette déverrouillée, puis dételer',
     'Mise à niveau (côté et avant-arrière), puis stabilisateurs',
     'Extensions sorties (vérifier l’espace avant)',
-    'Électricité : protecteur EMS d’abord, puis brancher ; vérifier le Victron',
+    'Électricité : protecteur EMS d’abord, puis brancher ; vérifier l’onduleur-chargeur',
     'Eau : régulateur de pression et filtre, puis brancher',
     'Égout : boyau bien fixé des deux bouts (valves fermées jusqu’à la vidange)',
     'Frigo, chauffe-eau rallumés ; détecteurs de CO et de propane allumés',
