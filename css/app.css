@@ -18,7 +18,29 @@ nav button.on { border-color: var(--ink); color: var(--ink); font-weight: 600; }
 nav button[data-t="map"] { font-weight: 700; color: var(--ink); }
 .trip { margin-left: auto; color: var(--muted); font-size: 13px; }
 .meteo { background: none; border: 1px solid var(--line); border-radius: 14px; padding: 3px 10px; font: inherit; font-size: 13px; color: inherit; cursor: pointer; }
-.meteo .mFrost { color: #c62828; font-weight: 600; }
+@keyframes capBlink { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+.blink { animation: capBlink 1s ease-in-out infinite; }
+.meteo .mAlert { color: #c62828; font-weight: 700; animation: capBlink 1s ease-in-out infinite; }
+.meteo.alert { border: 2px solid #c62828; background: #fdecea; }
+.mRows div { margin: 3px 0; }
+.mBig { margin: 8px 0; padding: 8px 10px; border-radius: 6px; background: #c62828; color: #fff; font-weight: 700; }
+.warn { color: #c62828; }
+.warnRow td { color: #c62828; font-weight: 600; }
+.ckList { margin-bottom: 12px; }
+.ckCount { font-size: 13px; color: var(--muted); }
+.ckCount.ok { color: #2e7d32; font-weight: 600; }
+.ckItem { display: flex; align-items: flex-start; gap: 8px; padding: 6px 4px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.ckItem input { width: 22px; height: 22px; flex: none; margin-top: 1px; }
+.ckItem span { flex: 1; }
+.ckItem.on span { text-decoration: line-through; color: var(--muted); }
+.ckDel { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 0 4px; }
+.tkRow { padding: 6px 8px; margin: 4px 0; border-radius: 6px; }
+.tkRow.due { background: #fdecea; color: #c62828; font-weight: 600; }
+.tkLog { font-size: 13px; padding: 2px 0; }
+.cvRow { display: grid; grid-template-columns: minmax(70px, 1fr) auto auto minmax(70px, 1fr) auto auto; gap: 6px; align-items: center; margin: 5px 0; }
+.cvU { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.cvX { font-size: 13px; font-weight: 600; }
+@media (max-width: 520px) { .cvRow { grid-template-columns: 1fr auto; } .cvEq { display: none; } .cvRow .cvX { grid-column: 1 / -1; } }
 .meteo .mOld { color: var(--muted); }
 .meteo.mBusy { opacity: .6; }
 .trip .tripName { color: var(--ink, inherit); font-weight: 600; }

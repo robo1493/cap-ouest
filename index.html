@@ -42,12 +42,13 @@
 <body>
 
 <header>
-  <div class="logo">Cap Ouest <small>v1.53</small></div>
+  <div class="logo">Cap Ouest <small>v1.54</small></div>
   <button class="btn sm pri" id="installBtn" hidden>📲 Installer l'application</button>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
     <button data-t="dash">Tableau de bord</button>
     <button data-t="carnet">📒 Carnet</button>
+    <button data-t="outils">🧰 Outils</button>
     <button data-t="nuit">Nuitées</button>
     <button data-t="fuel">Carburant</button>
     <button data-t="decouv">🧭 Découvertes</button>
@@ -317,6 +318,31 @@
           <div class="row" style="margin-top:6px"><button class="btn pri" id="noteSave">+ Ajouter la note</button>
             <button class="btn" id="noteCancel" hidden>Annuler</button></div>
           <div id="noteList" class="mt"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="outils" data-title="🧰 Outils">
+      <div class="grid auto">
+        <div class="box real">
+          <div class="row between"><h2 style="margin:0">🌡️ Météo et route</h2>
+            <button class="btn sm pri" id="meteoGps">📍 Actualiser avec le GPS</button></div>
+          <div id="meteoBox" class="mt"></div>
+        </div>
+        <div class="box real">
+          <h2>💧 Réservoirs</h2>
+          <div class="src" style="margin-bottom:6px">Pour compléter les sondes : touchez le bouton après chaque vidange ou plein d’eau.</div>
+          <div id="tkBox"></div>
+        </div>
+        <div class="box real">
+          <h2>✅ Listes de départ et d’arrivée</h2>
+          <div class="src" style="margin-bottom:6px">Cochez au fur et à mesure ; « Tout décocher » pour la prochaine fois. Vous pouvez ajouter ou retirer des points.</div>
+          <div id="ckBox"></div>
+        </div>
+        <div class="box real">
+          <h2>🔄 Convertisseur</h2>
+          <div class="src" style="margin-bottom:6px">Écrivez dans n’importe quelle case : l’autre se calcule.</div>
+          <div id="cvBox"></div>
         </div>
       </div>
     </section>

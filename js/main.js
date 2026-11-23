@@ -16,7 +16,8 @@ import { CHAINS, loadChains, chainsNear } from './chains.js';
 import { CAMP_KINDS, CAMP_FLAGS, loadCamps, campsNear } from './camps.js';
 import { loadCoe, coeNear, coeAll } from './coe.js';
 import { loadBcr, bcrNear, bcrAll } from './bcrec.js';
-import { initMeteo } from './meteo.js';
+import { initMeteo, meteoRefresh, meteoRender } from './meteo.js';
+import { initOutils, tankAlerts } from './outils.js';
 import { RESV_EQUIP, RESV_AMPS, resvSites, resvText, resvWindow } from './resv.js';
 import { getNotes, getNote, addNote, editNote, delNote, isDone, setDone, onNotesChange } from './notes.js';
 import { clearancesAlong, fetchMissingClearances, clearanceProgress, clearClearanceCache, feet } from './clearances.js';
@@ -2189,12 +2190,18 @@ $('cuUndo').onclick = () => {
 // ---------- Indicateurs ----------
 // En-tête : départ → destination · mois de départ → mois d'arrivée (durée), tiré du voyage lui-même
 // Étape prévue aujourd'hui (avant le départ : la première ; après le retour : la dernière) : position de repli pour la météo
-function stepToday() {
+function todayIndex() {
   const st = trip.steps, now = new Date();
-  if (!st.length) return null;
   let k = 0;
   for (let i = 0; i < st.length; i++) if (arrival(i) <= now) k = i;
-  return st[k];
+  return k;
+}
+function stepToday() { return trip.steps.length ? trip.steps[todayIndex()] : null; }
+// Prochain jour de route : de l'étape d'aujourd'hui vers la suivante, le jour du départ
+function nextLeg() {
+  const st = trip.steps, k = todayIndex();
+  if (k + 1 >= st.length) return null;
+  return { from: st[k], to: st[k + 1], date: arrival(k + 1) };
 }
 
 function renderTripTitle() {
@@ -3195,4 +3202,8 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
 }
 
 // 🕑🌡️ Heure et température locales (bande de l’en-tête)
-initMeteo($('meteo'), stepToday);
+initMeteo($('meteo'), stepToday, nextLeg, $('meteoBox'), tankAlerts);
+const outils = initOutils({ checks: $('ckBox'), tanksNode: $('tkBox'), conv: $('cvBox'), getRate: () => settings.usdCad, onTanks: meteoRender });
+$('meteo').onclick = () => { openView('outils', true); meteoRefresh(); };
+$('meteoGps').onclick = () => meteoRefresh();
+document.querySelector('nav [data-t=outils]').addEventListener('click', () => { outils.refreshTanks(); outils.refreshConv(); });
