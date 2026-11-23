@@ -94,3 +94,6 @@ L'utilisateur travaille avec Claude tantôt sur son portable, tantôt depuis sa 
 ## v1.57 — nouveau nom affiché : CapRoute RV
 - Nom affiché (titre, logo, manifest, exports GPX/ICS/textes) = « CapRoute RV ». L'URL (robo1493.github.io/cap-ouest), le dépôt, les clés localStorage (capouest.*) et le format d'export (app: 'cap-ouest') NE changent PAS.
 - Vérifié le 23 nov. 2026 : caprouterv.com/.ca, caproute.ca et .app libres (RDAP) ; App Store : une app d'aviation « CapRoute » (Valerie Otero) existe ; Google Play : aucune. Marques (OPIC, USPTO) à vérifier officiellement par l'utilisateur.
+
+## v1.58 — 🧰 Outils : « 📏 Journées de route trop longues »
+- main.js `drivingDays()` : additionne les tronçons (legs) depuis la dernière nuit jusqu'à la prochaine étape avec nights > 0 (traversiers exclus) ; `renderLongDays()` liste celles qui dépassent maxKm() (⚙ Distance maximale par jour), avec « Voir » (focusStep) et mention « accepté ✔ » si extra.longOk sur l'étape d'arrivée. Recalcul au bouton « Calculer » et à l'ouverture d'Outils.

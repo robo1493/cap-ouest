@@ -42,7 +42,7 @@
 <body>
 
 <header>
-  <div class="logo">CapRoute RV <small>v1.57</small></div>
+  <div class="logo">CapRoute RV <small>v1.58</small></div>
   <button class="btn sm pri" id="installBtn" hidden>📲 Installer l'application</button>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
@@ -333,6 +333,12 @@
           <h2>💧 Réservoirs</h2>
           <div class="src" style="margin-bottom:6px">Pour compléter les sondes : touchez le bouton après chaque vidange ou plein d’eau.</div>
           <div id="tkBox"></div>
+        </div>
+        <div class="box real">
+          <div class="row between"><h2 style="margin:0">📏 Journées de route trop longues</h2>
+            <button class="btn sm pri" id="longCalc">Calculer</button></div>
+          <div class="src" style="margin:6px 0">Additionne les tronçons de chaque journée de route (jusqu’à la prochaine nuit) et signale celles qui dépassent la limite fixée dans ⚙ Paramètres.</div>
+          <div id="longBox"></div>
         </div>
         <div class="box real">
           <h2>✅ Listes de départ et d’arrivée</h2>

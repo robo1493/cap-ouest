@@ -3222,3 +3222,42 @@ function renderProfile() {
 }
 $('profPerso').onchange = e => { setProfile(e.target.checked ? 'perso' : 'vierge'); renderProfile(); recompute(); };
 renderProfile();
+
+// ---------- 🧰 Outils : journées de route qui dépassent la limite (⚙ Distance maximale par jour) ----------
+// Une journée = les tronçons depuis la dernière nuit jusqu'à la prochaine étape où l'on dort (traversiers exclus).
+function drivingDays() {
+  const st = trip.steps, days = [];
+  let from = 0, km = 0, pending = false, ferry = false;
+  for (let i = 1; i < st.length; i++) {
+    const leg = legs[i - 1];
+    if (leg) {
+      if (leg.provider === 'ferry') ferry = true; else km += leg.km || 0;
+      if (leg.pending || leg.provider === 'estimate') pending = true;
+    }
+    if (st[i].nights > 0 || i === st.length - 1) {
+      days.push({ from, to: i, km, pending, ferry, ok: !!st[i].extra?.longOk });
+      from = i; km = 0; pending = false; ferry = false;
+    }
+  }
+  return days.filter(d => d.km > 0);
+}
+function renderLongDays() {
+  const box = $('longBox'); if (!box) return;
+  const max = maxKm(), days = drivingDays(), st = trip.steps;
+  const over = days.filter(d => d.km > max);
+  const longest = days.reduce((m, d) => Math.max(m, d.km), 0);
+  const name = i => esc(st[i].name.split(',')[0]);
+  let html = `<div class="field"><span>Limite par jour</span><b>${fmt(max)} km</b></div>
+    <div class="field"><span>Journées de route</span><b>${days.length}</b></div>
+    <div class="field"><span>Plus longue journée</span><b>${fmt(longest)} km</b></div>`;
+  html += over.length
+    ? `<div class="warn mt">⚠ ${over.length} journée${over.length > 1 ? 's dépassent' : ' dépasse'} ${fmt(max)} km :</div>` + over.map(d => `
+      <div class="field${d.ok ? '' : ' warnRow'}"><span>${shortDate(arrival(d.to))} · ${name(d.from)} → ${name(d.to)}${d.ferry ? ' (+ ⛴)' : ''}${d.ok ? ' · accepté ✔' : ''}</span>
+        <b>${fmt(d.km)} km <button class="btn sm" onclick="openView('map'); focusStep(${d.to})">Voir</button></b></div>`).join('')
+    : `<div class="mt">✔ Aucune journée ne dépasse ${fmt(max)} km.</div>`;
+  if (days.some(d => d.pending)) html += '<div class="src mt">⏳ Certains tronçons sont encore estimés ou en calcul : touchez « Calculer » de nouveau dans un moment.</div>';
+  html += '<div class="src mt">Pour accepter une longue journée sur une route facile : cochez « Tronçon long accepté » dans la fiche de l’étape d’arrivée. La limite se change dans ⚙ Paramètres.</div>';
+  box.innerHTML = html;
+}
+$('longCalc').onclick = renderLongDays;
+document.querySelector('nav [data-t=outils]').addEventListener('click', renderLongDays);
