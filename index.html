@@ -42,7 +42,7 @@
 <body>
 
 <header>
-  <div class="logo">CapRoute RV <small>v1.60</small></div>
+  <div class="logo">CapRoute RV <small>v1.61</small></div>
   <button class="btn sm pri" id="installBtn" hidden>📲 Installer l'application</button>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
@@ -261,11 +261,16 @@
             <div class="field"><span id="dQcYearLbl">Année</span><b id="dQcPlanned">—</b></div>
             <div class="field"><span>Si aucun retour avant le 31 décembre</span><b id="dQcProjected">—</b></div>
             <label class="field"><span><input type="checkbox" id="dQcSept"> Année septennale demandée pour <span id="dQcSeptYear">—</span></span></label>
+            <div class="src">Année septennale : une fois tous les 7 ans, la RAMQ permet de s’absenter 183 jours ou plus dans une même année civile, à condition de l’en <b>informer avant le départ</b>. Voir <a href="https://www.ramq.gouv.qc.ca/fr/citoyens/absence-quebec/exceptions-regle-presence" target="_blank" rel="noopener">RAMQ : exceptions à la règle de présence</a>.</div>
             <div class="field"><span>Année suivante : retour au Québec au plus tard</span><b id="dQcNext">—</b></div>
             <div class="note" id="dQcNote"></div>
           </div>
         </div>
         <div class="src mt">Calculs simplifiés : un jour passé en partie aux États-Unis compte (jours de passage inclus). Le test fiscal américain réel est une formule sur 3 ans (formulaire 8840). À valider avec la RAMQ et un fiscaliste Canada–États-Unis.</div>
+        <div class="note mt">⚠️ <b>Ces calculs ne remplacent pas l’information officielle du gouvernement du Canada, de la RAMQ ni des autorités américaines.</b> Les règles peuvent changer : vérifiez-les avant chaque départ.
+          <br>Sources officielles : <a href="https://voyage.gc.ca/voyager/vivre-etranger/retraite" target="_blank" rel="noopener">Gouvernement du Canada : la retraite à l’étranger (hivernants)</a> ·
+          <a href="https://voyage.gc.ca/destinations/etats-unis" target="_blank" rel="noopener">Gouvernement du Canada : conseils pour les États-Unis</a> ·
+          <a href="https://www.ramq.gouv.qc.ca/fr/citoyens/absence-quebec" target="_blank" rel="noopener">RAMQ : absence du Québec</a></div>
       </div>
       <div class="box real mt" id="catchupBox">
         <h2>⏱ Rattraper un retard</h2>

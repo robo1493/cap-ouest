@@ -103,3 +103,6 @@ localStorage `capouest.blink` (absent ou 1 = clignote, 0 = rouge fixe). Classe `
 
 ## v1.60 — 📖 Guide des réglages (guide.html)
 Page statique `guide.html` (dans SHELL du SW, donc hors ligne), lien en tête de ⚙ Paramètres. À METTRE À JOUR à chaque ajout ou changement de réglage (Paramètres, Calques, fiche d’étape, tableau de bord, carburant, données).
+
+## v1.61 — Avis officiels 182 jours / RAMQ
+Tableau de bord : avis « ne remplacent pas l’information officielle » + liens voyage.gc.ca (vivre-etranger/retraite, destinations/etats-unis) et RAMQ (absence-quebec, exceptions-regle-presence = année septennale, informer la RAMQ avant le départ). Même avis dans guide.html et sur caprouterv.com. Note : days.js compte tout jour hors QC ; la RAMQ exclut les séjours < 21 jours et les jours de départ/retour → l’app surestime (prudent).
