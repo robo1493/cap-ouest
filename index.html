@@ -42,7 +42,7 @@
 <body>
 
 <header>
-  <div class="logo">CapRoute RV <small>v1.61</small></div>
+  <div class="logo">CapRoute RV <small>v1.62</small></div>
   <button class="btn sm pri" id="installBtn" hidden>📲 Installer l'application</button>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
@@ -245,6 +245,13 @@
       </div>
       <div class="box real mt" id="daysBox">
         <h2>🗓 Compteurs de séjour</h2>
+        <div id="daysAck">
+          <p><b>⚠️ Avant d’utiliser les compteurs</b></p>
+          <p>Les compteurs de jours (États-Unis, hors Québec, année septennale) donnent un <b>calcul indicatif</b>, fait à partir de votre itinéraire. Ils peuvent contenir des erreurs et ne remplacent pas l’information officielle du gouvernement du Canada, de la RAMQ ni des autorités américaines.</p>
+          <p><b>Vous restez responsable de vérifier vos jours et votre admissibilité</b> auprès de ces organismes avant de prendre une décision.</p>
+          <button class="btn pri" id="daysAckBtn">J’ai compris</button>
+          <a class="src" href="conditions.html" style="margin-left:10px">Conditions d’utilisation</a>
+        </div>
         <div class="grid auto">
           <div>
             <h3>🇺🇸 Jours aux États-Unis</h3>
@@ -267,7 +274,7 @@
           </div>
         </div>
         <div class="src mt">Calculs simplifiés : un jour passé en partie aux États-Unis compte (jours de passage inclus). Le test fiscal américain réel est une formule sur 3 ans (formulaire 8840). À valider avec la RAMQ et un fiscaliste Canada–États-Unis.</div>
-        <div class="note mt">⚠️ <b>Ces calculs ne remplacent pas l’information officielle du gouvernement du Canada, de la RAMQ ni des autorités américaines.</b> Les règles peuvent changer : vérifiez-les avant chaque départ.
+        <div class="note mt">⚠️ <b>Calcul indicatif seulement.</b> Ces calculs ne remplacent pas l’information officielle du gouvernement du Canada, de la RAMQ ni des autorités américaines. <b>Vous êtes responsable de vérifier vos jours de présence et votre admissibilité</b> auprès de la RAMQ, de l’Agence des services frontaliers du Canada et des autorités américaines. CapRoute RV ne garantit pas l’exactitude de ces chiffres. Les règles peuvent changer : vérifiez-les avant chaque départ. <a href="conditions.html">Conditions d’utilisation</a>.
           <br>Sources officielles : <a href="https://voyage.gc.ca/voyager/vivre-etranger/retraite" target="_blank" rel="noopener">Gouvernement du Canada : la retraite à l’étranger (hivernants)</a> ·
           <a href="https://voyage.gc.ca/destinations/etats-unis" target="_blank" rel="noopener">Gouvernement du Canada : conseils pour les États-Unis</a> ·
           <a href="https://www.ramq.gouv.qc.ca/fr/citoyens/absence-quebec" target="_blank" rel="noopener">RAMQ : absence du Québec</a></div>
@@ -580,6 +587,7 @@
           <h2>📖 Guide des réglages</h2>
           <div class="src">Tous les réglages de l’application expliqués : où les trouver et à quoi ils servent.</div>
           <a class="btn pri mt" href="guide.html" style="display:inline-block;text-decoration:none">Ouvrir le guide</a>
+          <a class="src" href="conditions.html" style="margin-left:10px">Conditions d’utilisation</a>
         </div>
 
         <div class="box real">

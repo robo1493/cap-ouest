@@ -106,3 +106,6 @@ Page statique `guide.html` (dans SHELL du SW, donc hors ligne), lien en tête de
 
 ## v1.61 — Avis officiels 182 jours / RAMQ
 Tableau de bord : avis « ne remplacent pas l’information officielle » + liens voyage.gc.ca (vivre-etranger/retraite, destinations/etats-unis) et RAMQ (absence-quebec, exceptions-regle-presence = année septennale, informer la RAMQ avant le départ). Même avis dans guide.html et sur caprouterv.com. Note : days.js compte tout jour hors QC ; la RAMQ exclut les séjours < 21 jours et les jours de départ/retour → l’app surestime (prudent).
+
+## v1.62 — Responsabilité : avis accepté + conditions d’utilisation
+`#daysBox.locked` cache les compteurs de séjour tant que « J’ai compris » (`#daysAckBtn`) n’est pas cliqué ; localStorage `capouest.daysAck`=1, par appareil. Phrase « Calcul indicatif seulement… vous êtes responsable… » sous les compteurs. Page `conditions.html` (SHELL du SW), liée depuis le tableau de bord, ⚙ Paramètres (boîte Guide), guide.html et caprouterv.com. Ne pas donner d’avis juridique ; si vente, faire relire par un avocat.

@@ -3270,3 +3270,12 @@ function applyBlink() {
 }
 $('blinkOn').onchange = e => { try { localStorage.setItem(BLINK_KEY, e.target.checked ? '1' : '0'); } catch {} applyBlink(); };
 applyBlink();
+
+// v1.62 : les compteurs de séjour s'affichent après un « J'ai compris » (une fois par appareil).
+const DAYS_ACK_KEY = 'capouest.daysAck';
+function applyDaysAck() {
+  let ok = false; try { ok = localStorage.getItem(DAYS_ACK_KEY) === '1'; } catch {}
+  $('daysBox').classList.toggle('locked', !ok);
+}
+$('daysAckBtn').onclick = () => { try { localStorage.setItem(DAYS_ACK_KEY, '1'); } catch {} applyDaysAck(); };
+applyDaysAck();

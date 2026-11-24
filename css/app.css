@@ -351,3 +351,8 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; }
 .nt-svc label { display: inline-flex; align-items: center; gap: 4px; min-height: 30px; }
 .nt-star { border: none; background: none; font-size: 26px; line-height: 1; color: var(--fill); cursor: pointer; padding: 0 2px; }
 .nt-star.on { color: #d9a400; }
+/* v1.62 : avis à accepter une fois avant d'afficher les compteurs de séjour */
+#daysAck { display: none; border: 2px solid var(--warn); border-radius: 10px; padding: 10px 14px; margin: 8px 0; }
+#daysAck p { margin: 6px 0; }
+#daysBox.locked > #daysAck { display: block; }
+#daysBox.locked > :not(h2):not(#daysAck) { display: none; }
