@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="fr-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guide des réglages · CapRoute RV</title>
+<style>
+  :root { --bg:#faf7f2; --card:#fff; --ink:#23201d; --muted:#6b645c; --line:#e6dfd4; --acc:#c06a2b; --ok:#3f7d4f; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#1a1816; --card:#24211e; --ink:#f1ece4; --muted:#b3aa9e; --line:#3a352f; --acc:#e08a4a; --ok:#6db27d; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:17px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 16px 16px 48px; }
+  header { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:8px; }
+  h1 { font-size: 26px; margin: 8px 0; }
+  h2 { font-size: 21px; margin: 32px 0 10px; padding-bottom: 6px; border-bottom: 2px solid var(--line); }
+  h3 { font-size: 17px; margin: 0 0 4px; }
+  a { color: var(--acc); }
+  .back { display:inline-block; background:var(--acc); color:#fff; text-decoration:none; font-weight:600; padding:10px 16px; border-radius:10px; }
+  .lead { color: var(--muted); margin: 0 0 8px; }
+  .toc { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 16px; columns: 2 240px; }
+  .toc a { display:block; padding:3px 0; text-decoration:none; }
+  .item { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin:10px 0; }
+  .item p { margin: 4px 0 0; }
+  .where { font-size: 14px; color: var(--muted); }
+  .tip { font-size: 15px; color: var(--ok); margin-top: 6px; }
+  .dev { display:inline-block; font-size:12px; border:1px solid var(--line); border-radius:999px; padding:1px 8px; margin-left:6px; color:var(--muted); vertical-align: middle; }
+  ul { margin: 6px 0 0; padding-left: 20px; }
+  footer { margin-top: 40px; font-size: 14px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>📖 Guide des réglages</h1>
+    <a class="back" href="./">← Retour à l’application</a>
+  </header>
+  <p class="lead">Tous les réglages de CapRoute RV, où les trouver et à quoi ils servent. La mention <span class="dev">cet appareil</span> veut dire que le réglage est à refaire sur chaque tablette, téléphone ou ordinateur.</p>
+
+  <nav class="toc">
+    <a href="#params">⚙ Paramètres</a>
+    <a href="#carte">☰ Calques de la carte</a>
+    <a href="#etape">📍 Fiche d’une étape</a>
+    <a href="#tableau">📊 Tableau de bord</a>
+    <a href="#carburant">⛽ Carburant</a>
+    <a href="#donnees">💾 Données et fichiers</a>
+    <a href="#debut">🚀 Pour bien commencer</a>
+  </nav>
+
+  <h2 id="params">⚙ Paramètres</h2>
+
+  <div class="item">
+    <h3>🛣 Calcul du trajet (clé OpenRouteService) <span class="dev">cet appareil</span></h3>
+    <p>Avec une clé gratuite d’OpenRouteService, les trajets sont calculés avec un <b>profil poids lourd</b> qui tient compte de votre hauteur, de votre longueur et de votre poids. Sans clé, l’application utilise OSRM (profil auto, sans restrictions VR).</p>
+    <p class="where">Boutons : Enregistrer, Tester (vérifie que la clé marche), Retirer. L’œil 👁 affiche ou masque la clé.</p>
+    <p class="tip">La clé reste sur l’appareil : elle n’est jamais publiée.</p>
+  </div>
+
+  <div class="item">
+    <h3>🚚 Rythme de route</h3>
+    <p><b>Distance maximale par jour (km)</b>. Au-delà, le tronçon est signalé en rouge sur la carte et dans la liste.</p>
+    <p class="tip">Pour vérifier tout le voyage d’un coup : 🧰 Outils › « 📏 Journées de route trop longues » › Calculer.</p>
+  </div>
+
+  <div class="item">
+    <h3>🔔 Alertes <span class="dev">cet appareil</span></h3>
+    <p><b>Faire clignoter les alertes</b> (vent fort, gel, jour de route, vidange, plein d’eau). Décoché : les alertes restent affichées en rouge, sans clignoter.</p>
+  </div>
+
+  <div class="item">
+    <h3>👤 Profil de cet appareil <span class="dev">cet appareil</span></h3>
+    <p><b>Afficher la fiche d’équipement d’origine</b> (Ram 3500 et Chaparral). Décoché, la section Équipement invite à entrer votre propre équipement. Un nouvel appareil part d’un voyage vide.</p>
+  </div>
+
+  <div class="item">
+    <h3>📅 Paramètres de réservation</h3>
+    <p>Les renseignements que les campings demandent : type d’équipement, longueur de la <b>fifth wheel seulement</b>, longueur totale avec le camion, électricité (50 A, 30 A…), branchements souhaités, nombre d’adultes, d’enfants, d’animaux, de véhicules et d’extensions, site traversant (pull-through) et une note ajoutée à chaque demande.</p>
+    <p class="where">Utilisés par le bouton 📅 « Réserver cet endroit » dans la fiche de chaque étape.</p>
+  </div>
+
+  <div class="item">
+    <h3>📏 Gabarit pour le calcul poids lourd</h3>
+    <p>Hauteur (pi et po), longueur totale (camion + fifth wheel), largeur et poids combiné (lb). L’équivalent métrique s’affiche dessous.</p>
+    <p class="tip">Sert au profil poids lourd et à l’alerte des ponts et passages bas. Un changement recalcule les tronçons.</p>
+  </div>
+
+  <div class="item">
+    <h3>📲 Application sur la tablette</h3>
+    <p>Indique si l’application est installée et propose le bouton <b>Installer</b>. Sur iPad, suivez les étapes affichées (Partager › Sur l’écran d’accueil).</p>
+  </div>
+
+  <div class="item">
+    <h3>🔄 Synchronisation tablette ↔ portable</h3>
+    <p>Connexion par courriel et mot de passe CapRoute RV, ou par un code reçu par courriel. Une fois connecté, le voyage passe automatiquement d’un appareil à l’autre ; hors ligne, les changements partent au retour du réseau.</p>
+    <p class="where">Boutons : Synchroniser maintenant, Se déconnecter, Enregistrer le mot de passe (pour vos autres appareils).</p>
+  </div>
+
+  <h2 id="carte">☰ Calques de la carte</h2>
+  <div class="item">
+    <h3>Fond de carte et mode nuit <span class="dev">cet appareil</span></h3>
+    <p><b>Plan</b> ou <b>Satellite</b>. <b>Mode nuit</b> : Auto (selon l’heure), Oui ou Non.</p>
+  </div>
+  <div class="item">
+    <h3>Ce qui s’affiche sur la carte</h3>
+    <ul>
+      <li><b>Trajet</b>, pleins calculés (à 50 %), boondock, campings, stations diesel, ponts et passages bas, chemin parcouru.</li>
+      <li><b>🏕 Terres publiques US</b> (BLM, forêts nationales…) avec leur légende de couleurs.</li>
+      <li><b>Découvertes</b> : sentiers, points de vue, musées, histoire ; option « Inclure les accès rig à vérifier ».</li>
+      <li><b>Mes guides</b> 📘 et <b>Mes campings favoris</b> ⭐.</li>
+      <li><b>iOverlander</b> : nuits, services, avertissements ; option « Nuits pour gros équipement seulement » 🚛.</li>
+      <li><b>Chaînes</b> : Walmart, Pilot / Flying J, relais routiers, Cabela’s, Cracker Barrel, Camping World, Canadian Tire.</li>
+      <li><b>Corps of Engineers</b>, <b>BC Rec</b> (Colombie-Britannique), <b>parcs VR</b> et <b>campings</b>.</li>
+    </ul>
+  </div>
+
+  <h2 id="etape">📍 Fiche d’une étape</h2>
+  <p class="lead">Touchez une étape sur la carte ou dans la liste pour ouvrir sa fiche.</p>
+  <div class="item">
+    <ul>
+      <li><b>Nuits ici</b> (− / +) et <b>date d’arrivée</b> : les dates suivantes se recalculent.</li>
+      <li><b>🛣️ Route directe</b> : pour ce tronçon, calcul de base plutôt que le profil poids lourd, quand celui-ci fait un détour absurde.</li>
+      <li><b>Tronçon long accepté</b> : apparaît quand le tronçon dépasse votre maximum par jour ; à cocher pour une route facile.</li>
+      <li><b>📌 Réservation</b> : fixe la date et les nuits ; ajoutez le nom du camping et le numéro de réservation.</li>
+      <li><b>💲 Prévu / nuit et Payé</b> (et traversier) : alimentent le budget.</li>
+      <li><b>La fifth wheel peut rester sur place</b> : élargit la recherche de découvertes autour de l’étape.</li>
+      <li><b>Camping ↔ Boondock</b> : change le type de l’étape.</li>
+      <li>Aussi : adresse et bouton 🧭 Y aller, coordonnées GPS, notes, 📔 journal.</li>
+    </ul>
+  </div>
+
+  <h2 id="tableau">📊 Tableau de bord</h2>
+  <div class="item">
+    <h3>Règle des 182 jours et RAMQ</h3>
+    <p><b>Date d’entrée</b> aux États-Unis : l’application calcule la date limite de sortie. Côté Québec, la case <b>Année septennale demandée</b> ajuste le calcul des jours hors Québec.</p>
+    <p class="tip">Calculs simplifiés : à valider avec la RAMQ ou un professionnel.</p>
+  </div>
+
+  <h2 id="carburant">⛽ Carburant</h2>
+  <div class="item">
+    <h3>Utiliser ma consommation et mon prix réels</h3>
+    <p>Coché, les prévisions de carburant utilisent les chiffres de votre journal des pleins plutôt que les valeurs par défaut.</p>
+  </div>
+
+  <h2 id="donnees">💾 Données et fichiers</h2>
+  <div class="item">
+    <ul>
+      <li><b>Exporter / Importer l’itinéraire</b> : copie de sécurité de tout le voyage (fichier .json). Faites une copie avant chaque importation.</li>
+      <li><b>GPX</b> (7 prochains jours ou tout le voyage) : pour RV Life, CoPilot, Sygic…</li>
+      <li><b>Importer mes lieux (guides)</b> et <b>Importer un export iOverlander (CSV)</b>, avec l’option « Big Rig Friendly ».</li>
+      <li><b>Vider le cache des trajets</b> : force un nouveau calcul de tous les tronçons.</li>
+      <li><b>Effacer le chemin parcouru</b>.</li>
+    </ul>
+  </div>
+
+  <h2 id="debut">🚀 Pour bien commencer</h2>
+  <div class="item">
+    <ol style="margin:0; padding-left: 20px">
+      <li>⚙ Paramètres › <b>Gabarit</b> : entrez hauteur, longueur, largeur et poids.</li>
+      <li>⚙ Paramètres › <b>Rythme de route</b> : votre distance maximale par jour.</li>
+      <li>⚙ Paramètres › <b>Réservation</b> : vos renseignements de camping.</li>
+      <li>Facultatif : la <b>clé OpenRouteService</b> pour le profil poids lourd.</li>
+      <li>Facultatif : la <b>synchronisation</b> si vous utilisez plus d’un appareil.</li>
+      <li>Installez l’application sur l’écran d’accueil.</li>
+    </ol>
+  </div>
+
+  <footer>CapRoute RV · outil d’aide à la planification : vérifiez toujours la signalisation, les hauteurs et les règles en vigueur.</footer>
+</div>
+</body>
+</html>

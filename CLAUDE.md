@@ -100,3 +100,6 @@ L'utilisateur travaille avec Claude tantôt sur son portable, tantôt depuis sa 
 
 ## v1.59 — ⚙ Paramètres : « 🔔 Alertes », case « Faire clignoter les alertes »
 localStorage `capouest.blink` (absent ou 1 = clignote, 0 = rouge fixe). Classe `noBlink` sur <html> coupe l’animation de `.blink` et `.mAlert` (vent, gel, vidange, plein d’eau). Par appareil, non synchronisé.
+
+## v1.60 — 📖 Guide des réglages (guide.html)
+Page statique `guide.html` (dans SHELL du SW, donc hors ligne), lien en tête de ⚙ Paramètres. À METTRE À JOUR à chaque ajout ou changement de réglage (Paramètres, Calques, fiche d’étape, tableau de bord, carburant, données).
