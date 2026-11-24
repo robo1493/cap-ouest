@@ -14,11 +14,23 @@
   addEventListener('beforeinstallprompt', e => { e.preventDefault(); window.installPrompt = e; document.dispatchEvent(new Event('installable')); });
 </script>
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<style>
+  /* Écran de chargement : affiché tout de suite, retiré à la fin de main.js */
+  #splash { position: fixed; inset: 0; z-index: 9000; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 14px; background: #23201d; color: #f6f1e8; font: 17px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 16px; transition: opacity .3s; }
+  #splash b { font-size: 24px; } #splash b span { color: #e08a4a; }
+  #splash .hg { font-size: 46px; animation: splashTurn 1.6s ease-in-out infinite; }
+  #splash small { color: #b9b0a3; max-width: 32ch; }
+  #splash button { display: none; margin-top: 6px; background: #c06a2b; color: #fff; border: 0; border-radius: 10px; padding: 10px 18px; font: inherit; font-weight: 600; }
+  #splash.slow button { display: inline-block; }
+  #splash.gone { opacity: 0; pointer-events: none; }
+  @keyframes splashTurn { 0%, 40% { transform: rotate(0); } 50%, 90% { transform: rotate(180deg); } 100% { transform: rotate(360deg); } }
+</style>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="css/app.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <!-- Rotation de la carte (route devant en mode conduite) -->
-<script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js"></script>
 <script>
   // Erreur au démarrage : affichée en haut de l'écran pour pouvoir la signaler (photo d'écran à Claude)
   window.showStartError = (msg, err) => {
@@ -40,9 +52,21 @@
 <script type="module" src="js/main.js"></script>
 </head>
 <body>
+<div id="splash" role="status" aria-live="polite">
+  <b>CapRoute <span>RV</span></b>
+  <div class="hg" aria-hidden="true">⏳</div>
+  <div id="splashMsg">Chargement en cours, un instant…</div>
+  <small>La première ouverture peut prendre quelques secondes : l’application télécharge la carte et ses données.</small>
+  <button type="button" onclick="this.parentNode.classList.add('gone')">Continuer quand même</button>
+</div>
+<script>
+  // Si le chargement traîne (réseau faible), on le dit et on permet de continuer
+  setTimeout(() => { const s = document.getElementById('splash'); if (s && !s.classList.contains('gone')) {
+    s.classList.add('slow'); document.getElementById('splashMsg').textContent = 'C’est plus long que prévu. Vérifiez votre connexion Internet ou patientez encore un peu.'; } }, 20000);
+</script>
 
 <header>
-  <div class="logo">CapRoute RV <small>v1.62</small></div>
+  <div class="logo">CapRoute RV <small>v1.63</small></div>
   <button class="btn sm pri" id="installBtn" hidden>📲 Installer l'application</button>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>

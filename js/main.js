@@ -3279,3 +3279,6 @@ function applyDaysAck() {
 }
 $('daysAckBtn').onclick = () => { try { localStorage.setItem(DAYS_ACK_KEY, '1'); } catch {} applyDaysAck(); };
 applyDaysAck();
+
+// v1.63 : fin du démarrage, on retire l'écran de chargement
+{ const s = document.getElementById('splash'); if (s) { s.classList.add('gone'); setTimeout(() => s.remove(), 400); } }
