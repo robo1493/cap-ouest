@@ -3261,3 +3261,12 @@ function renderLongDays() {
 }
 $('longCalc').onclick = renderLongDays;
 document.querySelector('nav [data-t=outils]').addEventListener('click', renderLongDays);
+
+// Option : clignotement des alertes (vent, gel, vidange…). Décoché = rouge fixe.
+const BLINK_KEY = 'capouest.blink';
+function applyBlink() {
+  let on = true; try { on = localStorage.getItem(BLINK_KEY) !== '0'; } catch {}
+  document.documentElement.classList.toggle('noBlink', !on); $('blinkOn').checked = on;
+}
+$('blinkOn').onchange = e => { try { localStorage.setItem(BLINK_KEY, e.target.checked ? '1' : '0'); } catch {} applyBlink(); };
+applyBlink();

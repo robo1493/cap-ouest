@@ -97,3 +97,6 @@ L'utilisateur travaille avec Claude tantôt sur son portable, tantôt depuis sa 
 
 ## v1.58 — 🧰 Outils : « 📏 Journées de route trop longues »
 - main.js `drivingDays()` : additionne les tronçons (legs) depuis la dernière nuit jusqu'à la prochaine étape avec nights > 0 (traversiers exclus) ; `renderLongDays()` liste celles qui dépassent maxKm() (⚙ Distance maximale par jour), avec « Voir » (focusStep) et mention « accepté ✔ » si extra.longOk sur l'étape d'arrivée. Recalcul au bouton « Calculer » et à l'ouverture d'Outils.
+
+## v1.59 — ⚙ Paramètres : « 🔔 Alertes », case « Faire clignoter les alertes »
+localStorage `capouest.blink` (absent ou 1 = clignote, 0 = rouge fixe). Classe `noBlink` sur <html> coupe l’animation de `.blink` et `.mAlert` (vent, gel, vidange, plein d’eau). Par appareil, non synchronisé.

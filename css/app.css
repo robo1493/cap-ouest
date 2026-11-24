@@ -21,6 +21,7 @@ nav button[data-t="map"] { font-weight: 700; color: var(--ink); }
 @keyframes capBlink { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
 .blink { animation: capBlink 1s ease-in-out infinite; }
 .meteo .mAlert { color: #c62828; font-weight: 700; animation: capBlink 1s ease-in-out infinite; }
+html.noBlink .blink, html.noBlink .mAlert { animation: none; }
 .meteo.alert { border: 2px solid #c62828; background: #fdecea; }
 .mRows div { margin: 3px 0; }
 .mBig { margin: 8px 0; padding: 8px 10px; border-radius: 6px; background: #c62828; color: #fff; font-weight: 700; }
