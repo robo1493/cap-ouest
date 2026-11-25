@@ -3281,61 +3281,60 @@ $('daysAckBtn').onclick = () => { try { localStorage.setItem(DAYS_ACK_KEY, '1');
 applyDaysAck();
 
 // ---------- v1.66 : 🧭 Organiser le voyage (🧰 Outils) ----------
-// 🔀 Remettre en ordre : réordonne les étapes entre le départ et la destination (fixes) pour le moins de
-// distance (à vol d'oiseau : plus proche voisin puis 2-opt). Ne tient compte ni des saisons ni des dates.
+// 🔀 Remettre en ordre (v1.67) : garde l'ordre général du voyage (sens, saisons) et déplace seulement les
+// étapes mal placées, une à la fois, quand les mettre ailleurs évite un vrai détour (≥ 40 km à vol d'oiseau).
+// v1.66 réordonnait tout (2-opt) : un voyage en boucle pouvait être parcouru à l'envers.
+const ORDER_MIN_KM = 40;
 function pathKm(order, a, z) {
   let km = 0, prev = a;
   for (const s of order) { km += hav(prev, s); prev = s; }
   return km + hav(prev, z);
 }
-function twoOpt(order, a, z) {
-  const r = order.slice(), n = r.length;
-  const P = i => (i < 0 ? a : i >= n ? z : r[i]);
-  let better = true, loops = 0;
-  while (better && loops++ < 200) {
-    better = false;
-    for (let i = 0; i < n - 1; i++) {
-      for (let j = i + 1; j < n; j++) {
-        const d = hav(P(i - 1), P(j)) + hav(P(i), P(j + 1)) - hav(P(i - 1), P(i)) - hav(P(j), P(j + 1));
-        if (d < -1e-6) { r.splice(i, j - i + 1, ...r.slice(i, j + 1).reverse()); better = true; }
+function relocate(mid, a, z) {
+  const r = mid.slice(), moves = [];
+  const P = (arr, i) => (i < 0 ? a : i >= arr.length ? z : arr[i]);
+  for (let pass = 0; pass < 200; pass++) {
+    let best = null;
+    r.forEach((s, i) => {
+      if (s.extra?.reserved || s.extra?.by || s.extra?.from) return;   // une étape réservée ou datée ne bouge jamais
+      const gain = hav(P(r, i - 1), s) + hav(s, P(r, i + 1)) - hav(P(r, i - 1), P(r, i + 1));
+      const rest = r.filter((_, k) => k !== i);
+      for (let j = 0; j <= rest.length; j++) {
+        if (j === i) continue;
+        const cost = hav(P(rest, j - 1), s) + hav(s, P(rest, j)) - hav(P(rest, j - 1), P(rest, j));
+        const save = gain - cost;
+        if (save >= ORDER_MIN_KM && (!best || save > best.save)) best = { i, j, save, s, after: P(rest, j - 1) };
       }
-    }
+    });
+    if (!best) break;
+    r.splice(best.i, 1); r.splice(best.j, 0, best.s);
+    moves.push(best);
   }
-  return r;
-}
-function bestOrder(mid, a, z) {
-  const left = mid.slice(), nn = [];
-  let cur = a;
-  while (left.length) {
-    let k = 0;
-    left.forEach((s, j) => { if (hav(cur, s) < hav(cur, left[k])) k = j; });
-    cur = left.splice(k, 1)[0]; nn.push(cur);
-  }
-  const c1 = twoOpt(mid, a, z), c2 = twoOpt(nn, a, z);
-  return pathKm(c1, a, z) <= pathKm(c2, a, z) ? c1 : c2;
+  return { order: r, moves };
 }
 $('orgOrder').onclick = () => {
   const box = $('orgBox'), st = trip.steps;
   if (st.length < 4) { box.innerHTML = '<div>Il faut au moins deux étapes entre le départ et la destination.</div>'; return; }
   const a = st[0], z = st[st.length - 1], mid = st.slice(1, -1);
-  const next = bestOrder(mid, a, z);
+  const { order: next, moves } = relocate(mid, a, z);
   const before = pathKm(mid, a, z) * 1.2, after = pathKm(next, a, z) * 1.2;
-  const moved = next.filter((s, i) => s !== mid[i]);
-  if (!moved.length || before - after < 5) { box.innerHTML = '<div>✔ Les étapes sont déjà dans un bon ordre.</div>'; return; }
-  const fixed = moved.filter(s => s.extra?.reserved || s.extra?.by || s.extra?.from);
-  if (!confirm(`Remettre les étapes en ordre ?
+  if (!moves.length) { box.innerHTML = '<div>✔ Aucune étape ne fait de gros détour : l’ordre est gardé tel quel.</div>'; return; }
+  const nm = s => s.name.split(',')[0];
+  const list = moves.map(m => `• ${nm(m.s)} → après ${nm(m.after)}`).join('\n');
+  if (!confirm(`Déplacer ${moves.length} étape(s) mal placée(s) ?
+
+${list}
 
 Distance estimée : ${fmt(before)} km → ${fmt(after)} km (${fmt(before - after)} km de moins).
-${moved.length} étape(s) changent de place.${fixed.length ? `
+Le sens du voyage, les étapes réservées et celles qui ont une date visée ne bougent pas.
+Si un de ces déplacements est voulu (saison, événement), touchez Annuler.
 
-⚠ ${fixed.length} étape(s) déplacée(s) ont une réservation ou une date visée : vérifiez leurs dates après.` : ''}
-
-L’ordre tient compte seulement de la distance, pas des saisons. ↶ Annuler remet l’ancien ordre.`)) return;
+↶ Annuler remet l’ancien ordre.`)) return;
   st.splice(1, mid.length, ...next);
   refresh(true);
   undoToast('Étapes remises en ordre');
-  box.innerHTML = `<div>✔ Étapes remises en ordre : ${moved.length} étape(s) déplacée(s), environ ${fmt(before - after)} km de moins.</div>
-    <div class="src">Vérifiez les dates des réservations, puis touchez « Proposer les nuits de passage » si des journées sont trop longues.</div>`;
+  box.innerHTML = `<div>✔ ${moves.length} étape(s) déplacée(s), environ ${fmt(before - after)} km de moins :</div>
+    <div class="src">${moves.map(m => esc(`${nm(m.s)} → après ${nm(m.after)}`)).join('<br>')}</div>`;
 };
 
 // 🌙 Proposer les nuits de passage : pour chaque journée plus longue que la limite (sans « long accepté »),
