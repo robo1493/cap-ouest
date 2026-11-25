@@ -112,3 +112,6 @@ Tableau de bord : avis « ne remplacent pas l’information officielle » + lien
 
 ## v1.63 — Écran de chargement (sablier)
 `#splash` en tête du body (style inline dans le head), retiré à la fin de main.js. Après 20 s : message « plus long que prévu » + bouton « Continuer quand même ». Leaflet et leaflet-rotate passés en `defer` (l’ordre avant le module main.js est garanti) pour que l’écran s’affiche sans attendre le CDN. Tout code ajouté en fin de main.js doit rester AVANT ce bloc si possible.
+
+## v1.64 — Adresse de commentaires
+commentaires@caprouterv.com (Cloudflare Email Routing vers le Gmail de l’utilisateur, réception seulement) : ⚙ Paramètres (boîte Guide), conditions.html (section 7 « Nous joindre »), pied de guide.html, et caprouterv.com.
