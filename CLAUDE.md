@@ -115,3 +115,6 @@ Tableau de bord : avis « ne remplacent pas l’information officielle » + lien
 
 ## v1.64 — Adresse de commentaires
 commentaires@caprouterv.com (Cloudflare Email Routing vers le Gmail de l’utilisateur, réception seulement) : ⚙ Paramètres (boîte Guide), conditions.html (section 7 « Nous joindre »), pied de guide.html, et caprouterv.com.
+
+## v1.65 — Test « appareil neuf » (profil vierge)
+Boîte « Alertes » fixe du tableau de bord (Yellowstone, Roosevelt, North Portal, Beartooth : texte de l'auteur) = `#alertsMine`, cachée en profil vierge (renderProfile). Listes de départ/arrivée d'outils.js : « camion » au lieu de « Ram » (valeurs par défaut seulement). guide.html : comment obtenir la clé ORS + avertissement sans clé. À vérifier avant un pilote : Supabase Auth, l'envoi de courriels intégré peut être limité (adresses de l'équipe / quelques courriels par heure) → SMTP personnalisé à prévoir.

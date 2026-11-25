@@ -3218,7 +3218,7 @@ document.querySelector('nav [data-t=outils]').addEventListener('click', () => { 
 // Profil de l'appareil : fiche d'équipement d'origine (perso) ou vierge (ami)
 function renderProfile() {
   const perso = profile === 'perso';
-  $('rigMine').hidden = !perso; $('rigBlank').hidden = perso; $('profPerso').checked = perso; $('phase2Hint').hidden = !perso;
+  $('rigMine').hidden = !perso; $('rigBlank').hidden = perso; $('profPerso').checked = perso; $('phase2Hint').hidden = !perso; $('alertsMine').hidden = !perso;
 }
 $('profPerso').onchange = e => { setProfile(e.target.checked ? 'perso' : 'vierge'); renderProfile(); recompute(); };
 renderProfile();

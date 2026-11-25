@@ -66,7 +66,7 @@
 </script>
 
 <header>
-  <div class="logo">CapRoute RV <small>v1.64</small></div>
+  <div class="logo">CapRoute RV <small>v1.65</small></div>
   <button class="btn sm pri" id="installBtn" hidden>📲 Installer l'application</button>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
@@ -320,7 +320,7 @@
         </div>
         <div class="src" id="cuMsg">Rien ne change tant que vous n’appliquez pas. Le retard est alors ajouté à l’étape où vous êtes.</div>
       </div>
-      <div class="box mt">
+      <div class="box mt" id="alertsMine">
         <h2>Alertes</h2>
         <div class="field"><span>⚠ Réservation Yellowstone (Fishing Bridge)</span><i>à faire</i></div>
         <div class="field"><span>⚠ Parcs Roosevelt / Badlands</span><i>réserver ou 1er arrivé</i></div>
@@ -646,7 +646,7 @@
 
         <div class="box real">
           <h2>👤 Profil de cet appareil</h2>
-          <label class="row"><input type="checkbox" id="profPerso"> Afficher la fiche d’équipement d’origine (Ram 3500 et Chaparral)</label>
+          <label class="row"><input type="checkbox" id="profPerso"> Afficher la fiche d’équipement d’origine</label>
           <div class="src">Sur un nouvel appareil, l’application part d’un voyage vide, sans les données personnelles de son auteur.</div>
         </div>
 
