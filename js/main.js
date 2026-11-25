@@ -12,8 +12,8 @@ import { project } from './overpass.js';
 import { regionOf, dayLog, usPeriods, usRollingMax, latestUsExit, qcAbsence, US_LIMIT, QC_LIMIT } from './days.js';
 import { proposals, simulate } from './catchup.js';
 import { BY_K, GROUPS, getIo, onIoChange, importIoCsv, clearIo, ioNear, ioBigCount } from './ioverlander.js';
-import { CHAINS, loadChains, chainsNear } from './chains.js';
-import { CAMP_KINDS, CAMP_FLAGS, loadCamps, campsNear } from './camps.js';
+import { CHAINS, loadChains, chainsNear, chainsAll } from './chains.js';
+import { CAMP_KINDS, CAMP_FLAGS, loadCamps, campsNear, campsAll as campsList } from './camps.js';
 import { loadCoe, coeNear, coeAll } from './coe.js';
 import { loadBcr, bcrNear, bcrAll } from './bcrec.js';
 import { initMeteo, meteoRefresh, meteoRender } from './meteo.js';
@@ -3279,6 +3279,164 @@ function applyDaysAck() {
 }
 $('daysAckBtn').onclick = () => { try { localStorage.setItem(DAYS_ACK_KEY, '1'); } catch {} applyDaysAck(); };
 applyDaysAck();
+
+// ---------- v1.66 : 🧭 Organiser le voyage (🧰 Outils) ----------
+// 🔀 Remettre en ordre : réordonne les étapes entre le départ et la destination (fixes) pour le moins de
+// distance (à vol d'oiseau : plus proche voisin puis 2-opt). Ne tient compte ni des saisons ni des dates.
+function pathKm(order, a, z) {
+  let km = 0, prev = a;
+  for (const s of order) { km += hav(prev, s); prev = s; }
+  return km + hav(prev, z);
+}
+function twoOpt(order, a, z) {
+  const r = order.slice(), n = r.length;
+  const P = i => (i < 0 ? a : i >= n ? z : r[i]);
+  let better = true, loops = 0;
+  while (better && loops++ < 200) {
+    better = false;
+    for (let i = 0; i < n - 1; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const d = hav(P(i - 1), P(j)) + hav(P(i), P(j + 1)) - hav(P(i - 1), P(i)) - hav(P(j), P(j + 1));
+        if (d < -1e-6) { r.splice(i, j - i + 1, ...r.slice(i, j + 1).reverse()); better = true; }
+      }
+    }
+  }
+  return r;
+}
+function bestOrder(mid, a, z) {
+  const left = mid.slice(), nn = [];
+  let cur = a;
+  while (left.length) {
+    let k = 0;
+    left.forEach((s, j) => { if (hav(cur, s) < hav(cur, left[k])) k = j; });
+    cur = left.splice(k, 1)[0]; nn.push(cur);
+  }
+  const c1 = twoOpt(mid, a, z), c2 = twoOpt(nn, a, z);
+  return pathKm(c1, a, z) <= pathKm(c2, a, z) ? c1 : c2;
+}
+$('orgOrder').onclick = () => {
+  const box = $('orgBox'), st = trip.steps;
+  if (st.length < 4) { box.innerHTML = '<div>Il faut au moins deux étapes entre le départ et la destination.</div>'; return; }
+  const a = st[0], z = st[st.length - 1], mid = st.slice(1, -1);
+  const next = bestOrder(mid, a, z);
+  const before = pathKm(mid, a, z) * 1.2, after = pathKm(next, a, z) * 1.2;
+  const moved = next.filter((s, i) => s !== mid[i]);
+  if (!moved.length || before - after < 5) { box.innerHTML = '<div>✔ Les étapes sont déjà dans un bon ordre.</div>'; return; }
+  const fixed = moved.filter(s => s.extra?.reserved || s.extra?.by || s.extra?.from);
+  if (!confirm(`Remettre les étapes en ordre ?
+
+Distance estimée : ${fmt(before)} km → ${fmt(after)} km (${fmt(before - after)} km de moins).
+${moved.length} étape(s) changent de place.${fixed.length ? `
+
+⚠ ${fixed.length} étape(s) déplacée(s) ont une réservation ou une date visée : vérifiez leurs dates après.` : ''}
+
+L’ordre tient compte seulement de la distance, pas des saisons. ↶ Annuler remet l’ancien ordre.`)) return;
+  st.splice(1, mid.length, ...next);
+  refresh(true);
+  undoToast('Étapes remises en ordre');
+  box.innerHTML = `<div>✔ Étapes remises en ordre : ${moved.length} étape(s) déplacée(s), environ ${fmt(before - after)} km de moins.</div>
+    <div class="src">Vérifiez les dates des réservations, puis touchez « Proposer les nuits de passage » si des journées sont trop longues.</div>`;
+};
+
+// 🌙 Proposer les nuits de passage : pour chaque journée plus longue que la limite (sans « long accepté »),
+// coupe en journées égales et propose, près de chaque point de coupe, des lieux déjà connus de l'appli.
+const ORG_R = 30;   // km autour du point de coupe
+let orgState = [];
+function pointAtKm(from, to, target) {
+  let total = 0, last = null;
+  for (let li = from; li < to; li++) {
+    const leg = legs[li];
+    if (!leg || leg.provider === 'ferry' || !leg.coords?.length) continue;
+    const scale = leg.km / (lineKm(leg.coords) || 1);
+    for (let i = 1; i < leg.coords.length; i++) {
+      const p = leg.coords[i - 1], q = leg.coords[i], seg = hav(p, q) * scale;
+      if (total + seg >= target) {
+        const t = seg ? (target - total) / seg : 0;
+        return { lat: p[0] + (q[0] - p[0]) * t, lng: p[1] + (q[1] - p[1]) * t, leg: li };
+      }
+      total += seg;
+    }
+    last = { lat: leg.coords.at(-1)[0], lng: leg.coords.at(-1)[1], leg: li };
+  }
+  return last;
+}
+function orgCandidates(p) {
+  const near = (lat, lng) => hav(p, { lat, lng });
+  const out = [];
+  const push = (lat, lng, o) => { const d = near(lat, lng); if (d <= ORG_R) out.push({ lat, lng, d, ...o }); };
+  getFavs().forEach(f => push(f.lat, f.lng, { name: f.name, kind: '⭐ Favori', type: 'c', note: f.note || '', bonus: 15 }));
+  (campsList() || []).forEach(x => push(x[0], x[1], { name: x[3] || 'Camping sans nom', kind: `${CAMP_KINDS[x[2]]?.icon || '🏕'} ${CAMP_KINDS[x[2]]?.label || 'Camping'}`, type: 'c',
+    note: [x[4] && 'Tél. ' + x[4], x[5], x[7] && 'Longueur max. ' + x[7]].filter(Boolean).join(' · ') }));
+  (coeAll() || []).forEach(x => push(x[0], x[1], { name: x[2], kind: '🏛 Corps of Engineers', type: 'c',
+    note: `Camping du Corps of Engineers (${x[3] || ''}, ${x[4] || ''}), recreation.gov/camping/campgrounds/${x[5]}${x[6] ? ` · ${x[6]}–${x[7]} $ US` : ''}. Vérifier la saison.` }));
+  (bcrAll() || []).forEach(x => push(x[0], x[1], { name: x[2], kind: '🌲 BC Rec', type: 'b', note: `Site de loisirs de la C.-B. (${x[3] || ''}), sitesandtrailsbc.ca/resource/${x[11]}` }));
+  (chainsAll() || []).forEach(x => { const c = CHAINS[x[2]]; if (c) push(x[0], x[1], { name: x[3] || c.label, kind: `${c.icon} ${c.label}`, type: 'b', note: c.tip }); });
+  ioNear(p, ORG_R, c => c?.g === 'night').forEach(({ x, d }) => out.push({ lat: x[0], lng: x[1], d, name: x[2], kind: `${BY_K[x[3]]?.icon || '⛺'} iOverlander`, type: 'b',
+    note: `Lieu iOverlander${x[4] === 1 ? ' (gros équipement)' : ''} : lire les commentaires récents avant d’y aller.` }));
+  const seen = [];
+  return out.filter(x => !/homeless|encampment|shelter|refuge pour sans/i.test(x.name))
+    .sort((a, b) => (a.d - (a.bonus || 0)) - (b.d - (b.bonus || 0)))
+    .filter(x => { const dup = seen.some(y => y.name === x.name && hav(x, y) < 2); seen.push(x); return !dup; })
+    .slice(0, 6);
+}
+async function proposeNights() {
+  const box = $('orgBox');
+  box.innerHTML = '<div>⏳ Recherche des lieux près des points de coupe…</div>';
+  await Promise.allSettled([loadCamps(), loadChains(), loadCoe(), loadBcr()]);
+  const max = maxKm(), st = trip.steps;
+  const over = drivingDays().filter(d => d.km > max && !d.ok);
+  if (!over.length) { box.innerHTML = `<div>✔ Aucune journée ne dépasse ${fmt(max)} km (limite de ⚙ Paramètres).</div>`; orgState = []; return; }
+  orgState = over.map(d => {
+    const n = Math.ceil(d.km / max), each = d.km / n, cuts = [];
+    for (let k = 1; k < n; k++) { const p = pointAtKm(d.from, d.to, each * k); if (p) cuts.push({ p, km: each * k, cands: orgCandidates(p) }); }
+    return { d, n, each, cuts };
+  });
+  const nm = i => esc(st[i].name.split(',')[0]);
+  let html = `<div class="warn">🌙 ${over.length} journée${over.length > 1 ? 's' : ''} de plus de ${fmt(max)} km. Chaque nuit ajoutée allonge le voyage d’un jour : les dates suivantes reculent.</div>`;
+  orgState.forEach((b, bi) => {
+    html += `<div class="mt"><b>${shortDate(arrival(b.d.to))} · ${nm(b.d.from)} → ${nm(b.d.to)} : ${fmt(b.d.km)} km</b>
+      <div class="src">${b.n} journées d’environ ${fmt(b.each)} km${b.d.pending ? ' · ⏳ trajet encore estimé : points approximatifs' : ''}</div>`;
+    b.cuts.forEach((c, ci) => {
+      html += `<div class="src mt">Nuit ${ci + 1} : vers le km ${fmt(c.km)} de la journée
+        <button class="btn sm" onclick="orgSee(${bi}, ${ci})">Voir</button></div>`;
+      html += c.cands.length ? c.cands.map((x, xi) => `<div class="field"><span>${x.kind} · ${esc(x.name)} <i>(${fmt(x.d)} km)</i></span>
+          <b><button class="btn sm pri" onclick="orgAdd(${bi}, ${ci}, ${xi})">Ajouter</button></b></div>`).join('')
+        : `<div class="src">Aucun lieu connu à moins de ${ORG_R} km.</div>`;
+      html += `<div class="field"><span><i>Ou une nuit à choisir plus tard, au point de coupe</i></span><b><button class="btn sm" onclick="orgAdd(${bi}, ${ci}, -1)">Ajouter</button></b></div>`;
+    });
+    html += '</div>';
+  });
+  html += '<div class="src mt">Vérifiez toujours sur place ou par téléphone : permission de dormir, longueur des emplacements, saison. Les journées acceptées (« Tronçon long accepté ») ne sont pas proposées.</div>';
+  box.innerHTML = html;
+}
+async function regionCode(p) {
+  try {
+    const u = 'https://nominatim.openstreetmap.org/reverse?' + new URLSearchParams({ lat: p.lat, lon: p.lng, format: 'json', zoom: 10, 'accept-language': 'fr' });
+    const a = (await (await fetch(u)).json()).address || {};
+    const code = (a['ISO3166-2-lvl4'] || '').split('-')[1];
+    return { town: a.city || a.town || a.village || a.county || '', code: code || '' };
+  } catch { return { town: '', code: '' }; }
+}
+window.orgAdd = async (bi, ci, xi) => {
+  const b = orgState[bi], c = b?.cuts[ci]; if (!c) return;
+  const x = xi >= 0 ? c.cands[xi] : null;
+  const pos = x ? { lat: x.lat, lng: x.lng } : { lat: c.p.lat, lng: c.p.lng };
+  const st = trip.steps, at = c.p.leg + 1;
+  if (at <= 0 || at >= st.length) return;
+  $('orgBox').innerHTML = '<div>⏳ Ajout de la nuit…</div>';
+  const r = await regionCode(pos);
+  const base = x ? x.name : 'Nuit de passage (à choisir)';
+  const name = `${base}${r.town && !base.includes(r.town) ? ' (' + r.town + ')' : ''}${r.code ? ', ' + r.code : ''}`;
+  const note = x ? `${x.kind} · proposé par « Nuits de passage ». ${x.note || ''}`.trim() : 'Point de coupe d’une longue journée : choisir un endroit pour dormir près d’ici.';
+  const s = newStep({ name, lat: pos.lat, lng: pos.lng, type: x ? x.type : 'b', nights: 1, extra: { note } });
+  st.splice(at, 0, s);
+  refresh(true);
+  undoToast(`Nuit ajoutée : ${base}`);
+  $('orgBox').innerHTML = '<div>✔ Nuit ajoutée. Nouveau calcul dans un instant…</div>';
+  setTimeout(proposeNights, 2500);
+};
+window.orgSee = (bi, ci) => { const c = orgState[bi]?.cuts[ci]; if (c) { openView('map'); map.setView([c.p.lat, c.p.lng], 10); } };
+$('orgNights').onclick = proposeNights;
 
 // v1.63 : fin du démarrage, on retire l'écran de chargement
 { const s = document.getElementById('splash'); if (s) { s.classList.add('gone'); setTimeout(() => s.remove(), 400); } }

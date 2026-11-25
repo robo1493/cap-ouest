@@ -19,6 +19,8 @@ export function loadCamps() {
   return loading ||= fetch('campings.json').then(r => r.json()).then(list => (all = list)).catch(e => { loading = null; throw e; });
 }
 
+export const campsAll = () => all;
+
 // Lieux à moins de 20 km du trajet (null tant que le fichier n'est pas chargé)
 export function campsNear(legs, steps) {
   if (!all || !legs.length) return null;

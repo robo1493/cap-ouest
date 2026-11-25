@@ -24,6 +24,8 @@ export function loadChains() {
   return loading ||= fetch('chaines.json').then(r => r.json()).then(list => (all = list)).catch(e => { loading = null; throw e; });
 }
 
+export const chainsAll = () => all;
+
 // Lieux à moins de 15 km du trajet (null tant que le fichier n'est pas chargé)
 export function chainsNear(legs, steps) {
   if (!all || !legs.length) return null;

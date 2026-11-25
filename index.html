@@ -66,7 +66,7 @@
 </script>
 
 <header>
-  <div class="logo">CapRoute RV <small>v1.65</small></div>
+  <div class="logo">CapRoute RV <small>v1.66</small></div>
   <button class="btn sm pri" id="installBtn" hidden>📲 Installer l'application</button>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
@@ -369,6 +369,15 @@
           <h2>💧 Réservoirs</h2>
           <div class="src" style="margin-bottom:6px">Pour compléter les sondes : touchez le bouton après chaque vidange ou plein d’eau.</div>
           <div id="tkBox"></div>
+        </div>
+        <div class="box real">
+          <h2>🧭 Organiser le voyage</h2>
+          <div class="src" style="margin:6px 0">Deux aides pour un voyage entré en vrac. Rien ne change sans votre accord, et ↶ Annuler défait la dernière modification.</div>
+          <div class="row" style="flex-wrap:wrap;gap:8px">
+            <button class="btn sm pri" id="orgOrder">🔀 Remettre en ordre</button>
+            <button class="btn sm pri" id="orgNights">🌙 Proposer les nuits de passage</button>
+          </div>
+          <div id="orgBox" class="mt"></div>
         </div>
         <div class="box real">
           <div class="row between"><h2 style="margin:0">📏 Journées de route trop longues</h2>
