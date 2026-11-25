@@ -2868,12 +2868,27 @@ ${trk}
 $('gpxWeek').onclick = () => exportGpx(7);
 $('gpxAll').onclick = () => exportGpx(0);
 
-$('exportBtn').onclick = () => {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([exportTrip()], { type: 'application/json' }));
-  a.download = `cap-ouest-itineraire-${toIso(new Date())}.json`;
-  a.click();
-  URL.revokeObjectURL(a.href);
+// v1.68 : export avec choix de l'emplacement (Partager → Drive sur mobile, « Enregistrer sous » sur ordinateur)
+$('exportBtn').onclick = async () => {
+  const name = `cap-ouest-itineraire-${toIso(new Date())}.json`, json = exportTrip(), msg = $('dataMsg');
+  const ok = where => { msg.textContent = `✔ Itinéraire exporté (${trip.steps.length} étapes) : ${name}${where ? ' · ' + where : ''}`; };
+  if (window.showSaveFilePicker) {                       // Chrome / Edge sur ordinateur : choisir le dossier
+    try {
+      const h = await showSaveFilePicker({ suggestedName: name, types: [{ description: 'Itinéraire CapRoute RV', accept: { 'application/json': ['.json'] } }] });
+      const w = await h.createWritable(); await w.write(json); await w.close();
+      return ok('à l’endroit choisi');
+    } catch (e) { if (e.name === 'AbortError') { msg.textContent = 'Export annulé.'; return; } }
+  }
+  const file = new File([json], name, { type: 'application/json' });
+  if (navigator.canShare?.({ files: [file] })) {        // téléphone / tablette : feuille Partager → Drive, Fichiers…
+    try { await navigator.share({ files: [file], title: name }); return ok('envoyé à l’application choisie'); }
+    catch (e) { if (e.name === 'AbortError') { msg.textContent = 'Export annulé.'; return; } }
+  }
+  const a = document.createElement('a');               // autres cas : téléchargement normal
+  a.href = URL.createObjectURL(file); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+  ok('dans le dossier Téléchargements');
 };
 $('importFile').onchange = async e => {
   const file = e.target.files[0];
