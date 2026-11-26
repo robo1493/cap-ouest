@@ -2057,28 +2057,58 @@ function milestoneHtml(i) {
 
 // ---------- Compteurs de séjour (États-Unis, hors Québec) ----------
 const longDate = d => d.toLocaleDateString('fr-CA', { day: 'numeric', month: 'long', year: 'numeric' });
+// v1.70 : limite selon la nationalité. Canadien : ~182 j par 12 mois glissants. Exemption de visa (ESTA) :
+// 90 j par séjour. Visa B-2 : en général 6 mois par séjour, la vraie limite est la date du I-94.
+const usRule = () => {
+  const n = settings.nationality || 'ca';
+  return n === 'vwp' ? { n, per: 'stay', limit: 90 } : n === 'b2' ? { n, per: 'stay', limit: 180 } : { n, per: 'year', limit: US_LIMIT };
+};
+const usMaxOf = days => usRule().per === 'year' ? usRollingMax(days) : Math.max(0, ...usPeriods(days).map(p => p.days));
+const NAT_NOTE = {
+  ca: 'Canadiens : en général jusqu’à 6 mois par séjour, et environ 182 jours par période de 12 mois. L’agent fixe la date à l’entrée (I-94).',
+  vwp: 'Exemption de visa (ESTA) : 90 jours au maximum, sans prolongation. Un aller-retour au Canada ou au Mexique ne remet généralement pas le compteur à zéro.',
+  b2: 'Visa B-2 : en général jusqu’à 6 mois par séjour. La date qui compte est celle inscrite sur votre I-94 (i94.cbp.dhs.gov).'
+};
 function renderDays() {
   const days = dayLog(trip.steps, trip.startIso, actualRegions());
   const periods = usPeriods(days);
   const planned = periods.reduce((t, p) => t + p.days, 0);
-  const max = usRollingMax(days);
+  const rule = usRule(), LIM = rule.limit;
+  const max = usMaxOf(days);
+  $('dNat').value = rule.n;
+  $('dNatNote').textContent = NAT_NOTE[rule.n];
+  $('dI94Row').hidden = rule.n !== 'b2';
+  $('dI94').value = settings.i94 || '';
+  $('dQcCol').hidden = rule.n !== 'ca';
+  $('dUsMaxLbl').textContent = rule.per === 'year' ? 'Maximum sur 12 mois glissants' : 'Plus long séjour continu';
   $('dUsPlanned').textContent = `${planned} j`;
-  $('dUsMax').textContent = `${max} / ${US_LIMIT} j`;
-  $('dUsMax').style.color = max > US_LIMIT ? 'var(--bad)' : '';
+  $('dUsMax').textContent = `${max} / ${LIM} j`;
+  $('dUsMax').style.color = max > LIM ? 'var(--bad)' : '';
   $('dUsPeriods').textContent = periods.length
     ? 'Périodes : ' + periods.map(p => `${shortDate(p.from)} → ${shortDate(p.to)} (${p.days} j)`).join(' · ')
     : 'Aucun jour aux États-Unis dans le trajet planifié.';
-  $('hudDays').textContent = `🇺🇸 ${max}/${US_LIMIT} j`;
-  $('hudDays').className = 'chip ' + (max > US_LIMIT ? 'x' : '');
+  $('hudDays').textContent = `🇺🇸 ${max}/${LIM} j`;
+  $('hudDays').className = 'chip ' + (max > LIM ? 'x' : '');
 
   // Calculateur : date d'entrée de l'automne → dernier jour possible aux États-Unis
   const entryIso = settings.usEntry || `${parseIso(trip.startIso).getFullYear()}-09-15`;
   $('dUsEntry').value = entryIso;
-  const ex = latestUsExit(days, entryIso);
-  $('dUsExit').textContent = ex ? longDate(ex.last) : '—';
-  $('dUsExitNote').textContent = ex
-    ? `Soit ${ex.stay} jours de séjour continu${ex.before ? `, en tenant compte de ${ex.before} jours déjà passés aux États-Unis dans les 12 mois précédents` : ''}.`
-    : '';
+  if (rule.per === 'year') {
+    const ex = latestUsExit(days, entryIso);
+    $('dUsExit').textContent = ex ? longDate(ex.last) : '—';
+    $('dUsExitNote').textContent = ex
+      ? `Soit ${ex.stay} jours de séjour continu${ex.before ? `, en tenant compte de ${ex.before} jours déjà passés aux États-Unis dans les 12 mois précédents` : ''}.`
+      : '';
+  } else if (rule.n === 'b2' && settings.i94) {
+    $('dUsExit').textContent = longDate(parseIso(settings.i94));
+    $('dUsExitNote').textContent = 'Date inscrite sur votre I-94.';
+  } else {
+    const last = addDays(parseIso(entryIso), LIM - 1);
+    $('dUsExit').textContent = longDate(last);
+    $('dUsExitNote').textContent = rule.n === 'vwp'
+      ? `Soit ${LIM} jours au maximum (ESTA). Vérifiez la date de votre I-94.`
+      : 'Estimation : 6 mois environ. Inscrivez la date de votre I-94 ci-dessus dès votre entrée.';
+  }
 
   // RAMQ : année civile du départ
   const year = parseIso(trip.startIso).getFullYear();
@@ -2104,6 +2134,8 @@ function renderDays() {
 }
 $('dQcSept').onchange = e => { settings.septennial = e.target.checked; saveSettings(); renderDays(); };
 $('dUsEntry').onchange = e => { settings.usEntry = e.target.value; saveSettings(); renderDays(); };
+$('dNat').onchange = e => { settings.nationality = e.target.value; saveSettings(); renderDays(); };
+$('dI94').onchange = e => { settings.i94 = e.target.value; saveSettings(); renderDays(); };
 
 // ---------- Rattrapage d'un retard (propositions, aperçu, application) ----------
 const cuChosen = new Set();
@@ -2156,10 +2188,10 @@ function renderCatchup() {
   const late = simulate(steps, from, delay, []);
   const after = simulate(steps, from, delay, chosen);
   const a = milestoneDates(late), b = milestoneDates(after);
-  const usA = usRollingMax(dayLog(late, trip.startIso)), usB = usRollingMax(dayLog(after, trip.startIso));
+  const usA = usMaxOf(dayLog(late, trip.startIso)), usB = usMaxOf(dayLog(after, trip.startIso)), US_LIMIT = usRule().limit;
   $('cuImpact').innerHTML = '<tr><th>Jalon</th><th>Avec le retard</th><th>Avec les coupures</th></tr>' +
     [...a.keys()].map(id => `<tr><td>${esc(a.get(id).name)}</td><td>${msCell(a.get(id))}</td><td>${msCell(b.get(id))}</td></tr>`).join('') +
-    `<tr><td>🇺🇸 Jours aux USA (12 mois)</td><td>${usA} / ${US_LIMIT}</td><td style="color:${usB > US_LIMIT ? 'var(--bad)' : ''}">${usB} / ${US_LIMIT}</td></tr>`;
+    `<tr><td>🇺🇸 Jours aux USA (${usRule().per === "year" ? "12 mois" : "plus long séjour"})</td><td>${usA} / ${US_LIMIT}</td><td style="color:${usB > US_LIMIT ? 'var(--bad)' : ''}">${usB} / ${US_LIMIT}</td></tr>`;
   $('cuApply').disabled = !delay && !chosen.length;
   try { $('cuUndo').hidden = !localStorage.getItem('capouest.trip.precatchup'); } catch {}
 }

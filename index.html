@@ -66,7 +66,7 @@
 </script>
 
 <header>
-  <div class="logo">CapRoute RV <small>v1.69</small></div>
+  <div class="logo">CapRoute RV <small>v1.70</small></div>
   <button class="btn sm pri" id="installBtn" hidden>📲 Installer l'application</button>
   <nav id="tabs">
     <button data-t="map" class="on">🗺 Carte</button>
@@ -279,15 +279,22 @@
         <div class="grid auto">
           <div>
             <h3>🇺🇸 Jours aux États-Unis</h3>
+            <div class="field"><span>Votre nationalité</span><select class="inp" id="dNat" style="width:auto">
+              <option value="ca">Canadienne (sans visa)</option>
+              <option value="vwp">Pays d’exemption de visa (ESTA)</option>
+              <option value="b2">Autre pays (visa B-2)</option>
+            </select></div>
+            <div class="src" id="dNatNote"></div>
+            <div class="field" id="dI94Row" hidden><span>Date de sortie inscrite sur le I-94</span><input class="inp" type="date" id="dI94" style="width:auto"></div>
             <div class="field"><span>Prévus au trajet</span><b id="dUsPlanned">—</b></div>
-            <div class="field"><span>Maximum sur 12 mois glissants</span><b id="dUsMax">—</b></div>
+            <div class="field"><span id="dUsMaxLbl">Maximum sur 12 mois glissants</span><b id="dUsMax">—</b></div>
             <div class="src" id="dUsPeriods"></div>
             <h3 class="mt">Entrée aux États-Unis cet automne</h3>
             <div class="field"><span>Date d'entrée</span><input class="inp" type="date" id="dUsEntry" style="width:auto"></div>
             <div class="field"><span>Rester au plus tard jusqu'au</span><b id="dUsExit">—</b></div>
             <div class="src" id="dUsExitNote"></div>
           </div>
-          <div>
+          <div id="dQcCol">
             <h3>⚜ Jours hors Québec (RAMQ)</h3>
             <div class="field"><span id="dQcYearLbl">Année</span><b id="dQcPlanned">—</b></div>
             <div class="field"><span>Si aucun retour avant le 31 décembre</span><b id="dQcProjected">—</b></div>
