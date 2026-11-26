@@ -125,3 +125,4 @@ Boîte « Alertes » fixe du tableau de bord (Yellowstone, Roosevelt, North Port
 - v1.67 : 🔀 ne réordonne plus tout (2-opt inversait les voyages en boucle, ex. Ouest canadien en premier au lieu de Detroit) : `relocate` déplace une étape à la fois si le gain ≥ `ORDER_MIN_KM` (40 km à vol d'oiseau), jamais les étapes `reserved`/`by`/`from` ; `confirm` liste les déplacements.
 
 - v1.68 : Exporter l’itinéraire laisse choisir l’emplacement (showSaveFilePicker sur ordinateur, navigator.share avec fichier sur mobile → Drive), sinon téléchargement ; message de confirmation dans #dataMsg.
+- v1.69 : avertissement source OpenStreetMap des ponts bas (couche carte + guide) ; site caprouterv.com aussi (carte Ponts bas).
