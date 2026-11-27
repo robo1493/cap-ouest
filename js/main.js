@@ -2455,6 +2455,16 @@ map.on('click', e => {
   if (!adding) { openView('map'); return; }   // clic sur la carte = rentrer le tiroir
   addStepAt({ lat: e.latlng.lat, lng: e.latlng.lng });
 });
+// v1.73 : clic droit (ordinateur) ou appui long (tablette, téléphone) sur la carte → menu « Ajouter une étape ici »
+map.on('contextmenu', e => {
+  const p = { lat: e.latlng.lat, lng: e.latlng.lng }, gps = `${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`;
+  window._ctxP = p;
+  L.popup({ minWidth: 200 }).setLatLng(e.latlng).setContent(`<div class="pop">
+      <button class="btn sm pri" onclick="ctxAdd()">➕ Ajouter une étape ici</button>
+      <div class="src mt">GPS : ${gps} <button class="btn sm" onclick="navigator.clipboard?.writeText('${gps}'); this.textContent='✔ Copié'">Copier</button></div>
+    </div>`).openOn(map);
+});
+window.ctxAdd = () => { map.closePopup(); if (window._ctxP) addStepAt(window._ctxP); };
 // … ou par sa position GPS saisie dans le bandeau
 $('hintGo').onclick = () => {
   const p = parseGps($('hintGps').value);
