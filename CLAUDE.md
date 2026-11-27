@@ -128,3 +128,4 @@ Boîte « Alertes » fixe du tableau de bord (Yellowstone, Roosevelt, North Port
 - v1.69 : avertissement source OpenStreetMap des ponts bas (couche carte + guide) ; site caprouterv.com aussi (carte Ponts bas).
 - v1.70 : choix de nationalité (Jours) : ca 182 j / 12 mois glissants ; vwp (ESTA) 90 j par séjour ; b2 date I-94 (settings.nationality, settings.i94). RAMQ cachée hors ca.
 - v1.71 : importTrip renumérote les étapes (nouveaux uid) si le fichier vient d’un autre voyage (trip.id différent) : partage par fichier + synchro OK. Sa propre sauvegarde garde les id (liens des notes).
+- v1.72 : bandeau « + Étape » avec bouton ✕ Annuler (#hintCancel) ; Échap en phase capture ; addBtn devient « ✕ Annuler » pendant l’ajout.

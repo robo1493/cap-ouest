@@ -151,6 +151,7 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; }
 .hud .chip { font-size: 12px; padding: 3px 10px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
 .hint { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 1000; background: var(--warn); color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 13px; display: none; }
 .hint.on { display: block; }
+.hint-top { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
 .hint-gps { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
 .hint-gps input { flex: 1; min-width: 150px; margin: 0; padding: 4px 6px; font-size: 14px; }
 .pop .gps, .step .gps { display: flex; gap: 6px; align-items: center; margin-top: 4px; font-size: 12px; color: var(--muted, #888); }

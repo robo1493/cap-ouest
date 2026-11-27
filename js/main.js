@@ -2445,9 +2445,11 @@ function setAdding(on) {
   $('map').classList.toggle('adding', on);
   $('hint').classList.toggle('on', on);
   $('addBtn').classList.toggle('on', on);
+  $('addBtn').textContent = on ? '✕ Annuler' : '+ Étape';   // v1.72 : annuler visible (tablette sans Échap)
 }
 $('addBtn').onclick = () => { openView('map'); setAdding(!adding); };
-document.addEventListener('keydown', e => { if (e.key === 'Escape') setAdding(false); });
+$('hintCancel').onclick = e => { e.stopPropagation(); setAdding(false); };
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && adding) { e.preventDefault(); setAdding(false); } }, true);
 
 map.on('click', e => {
   if (!adding) { openView('map'); return; }   // clic sur la carte = rentrer le tiroir
