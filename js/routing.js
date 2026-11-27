@@ -150,7 +150,7 @@ async function ors(a, b, opts, profile = 'driving-hgv') {
 
 // ORS (API publique) ne cherche une route qu'à 350 m autour d'un point. Si une étape est plus loin
 // (au milieu d'un parc, par exemple), on la rattache d'abord à la route la plus proche avec OSRM.
-async function nearestRoad(p) {
+export async function nearestRoad(p) {
   const r = await fetch(`https://router.project-osrm.org/nearest/v1/driving/${p.lng},${p.lat}?number=1`);
   const j = await r.json();
   if (j.code !== 'Ok') return p;

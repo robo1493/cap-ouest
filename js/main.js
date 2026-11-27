@@ -1,7 +1,7 @@
 /* global L */
 import { YELLOWSTONE_BY, PHASE2, FUEL, TYPE_LABEL, DEFAULT_VEHICLE } from './data.js';
 import { trip, settings, saveTrip, saveSettings, resetTrip, newStep, exportTrip, importTrip, undoTrip, canUndo, onUndoChange, profile, setProfile } from './store.js';
-import { FERRY_PORTS, FERRY_ROUTES, cachedOrEstimate, fetchMissing, routeOnce, providerOf, testOrs, clearRouteCache, PROVIDER_LABEL } from './routing.js';
+import { FERRY_PORTS, FERRY_ROUTES, cachedOrEstimate, fetchMissing, routeOnce, providerOf, testOrs, clearRouteCache, PROVIDER_LABEL, nearestRoad } from './routing.js';
 import { hav, pointsAlong, lineKm, fmt, fmtH } from './geo.js';
 import { LEVEL, stationsAlong, fetchMissingStations, stationProgress, clearStationCache } from './stations.js';
 import { initSync, onStatus, onRemoteChange, signIn, verifyCode, signInPassword, setPassword, signOut, syncNow } from './sync.js';
@@ -2476,7 +2476,16 @@ $('hintGo').onclick = () => {
 };
 $('hintGps').onkeydown = e => { if (e.key === 'Enter') $('hintGo').click(); };
 
-function addStepAt(p, nights = 1) {
+// v1.75 : un point placé loin d'une route (> 5 km) empêche le calcul du trajet (pointillés). On le pose
+// sur la route la plus proche quand il en est à plus de 300 m.
+async function snapToRoad(p) {
+  try {
+    const q = await nearestRoad(p), d = hav(p, q);
+    return d > 0.3 && d < 80 ? { p: q, d } : { p, d: 0 };
+  } catch { return { p, d: 0 }; }
+}
+async function addStepAt(p0, nights = 1) {
+  const { p, d } = await snapToRoad(p0);
   const steps = trip.steps;
   let best = 1, bestCost = Infinity;
   for (let i = 1; i < steps.length; i++) {
@@ -2488,6 +2497,7 @@ function addStepAt(p, nights = 1) {
   setAdding(false);
   refresh(true);
   markers.get(s.id).openPopup();
+  if (d) undoToast(`Étape placée sur la route la plus proche (à ${d < 1 ? Math.round(d * 1000) + ' m' : fmt(d) + ' km'} du point touché)`);
 }
 
 // ---------- Retour arrière : ↶ annule la dernière modification du voyage ----------
