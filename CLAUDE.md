@@ -130,3 +130,4 @@ Boîte « Alertes » fixe du tableau de bord (Yellowstone, Roosevelt, North Port
 - v1.71 : importTrip renumérote les étapes (nouveaux uid) si le fichier vient d’un autre voyage (trip.id différent) : partage par fichier + synchro OK. Sa propre sauvegarde garde les id (liens des notes).
 - v1.72 : bandeau « + Étape » avec bouton ✕ Annuler (#hintCancel) ; Échap en phase capture ; addBtn devient « ✕ Annuler » pendant l’ajout.
 - v1.73 : clic droit / appui long sur la carte (map contextmenu) → popup « Ajouter une étape ici » (addStepAt) + GPS à copier.
+- v1.74 : arrêt de visite = étape b avec nights 0 (pas de nouveau type : contrainte SQL). Icône 📍, pas numéroté, act nights min 0, menu clic droit « Arrêt de visite ici », catchup porte les km à travers.

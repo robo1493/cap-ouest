@@ -16,6 +16,7 @@ export function proposals(steps, legs, from, maxKmDay) {
   for (let k = from + 1; k < steps.length - 1; k++) {
     const s = steps[k], before = legs[k - 1], after = legs[k];
     if (!before || !after) { carried = 0; continue; }
+    if (s.nights === 0) { carried += before.km; continue; }   // v1.74 : arrêt de visite, la journée continue
     const transit = s.type === 'b' && s.nights === 1 && !hasMilestone(s)
       && before.provider !== 'ferry' && after.provider !== 'ferry';
     const day = carried + before.km + after.km;

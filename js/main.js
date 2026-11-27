@@ -101,7 +101,7 @@ let clearances = [];
 
 function markerIcon(s, n) {
   const cls = s.type === 'dest' ? 'mk dest' : 'mk ' + s.type;
-  const label = s.type === 'start' ? '⌂' : s.type === 'dest' ? '★' : n;
+  const label = s.type === 'start' ? '⌂' : s.type === 'dest' ? '★' : s.nights === 0 ? '📍' : n;
   const size = s.type === 'dest' ? 32 : 26;
   return L.divIcon({ className: '', html: `<div class="${cls}">${label}</div>`, iconSize: [size, size], iconAnchor: [size / 2, size / 2] });
 }
@@ -195,7 +195,7 @@ function popupHtml(i) {
       Tronçon long accepté (${fmt(leg.km)} km, route facile)</label>` : ''}
     <div>${s.type === 'start' ? 'Départ' : 'Arrivée'} : <input type="date" style="width:auto" value="${toIso(arrival(i))}" onchange="act('date', ${i}, this.value)"></div>
     ${canType ? placeAfterHtml(i) : ''}
-    ${canType ? `<div>Nuits ici : <b>${s.nights}</b>
+    ${canType ? `<div>${s.nights === 0 ? '📍 <b>Arrêt de visite</b> (sans nuit) · ' : ''}Nuits ici : <b>${s.nights}</b>
       <button class="btn sm" onclick="act('nights', ${i}, -1)">−</button>
       <button class="btn sm" onclick="act('nights', ${i}, 1)">+</button></div>` : ''}
     ${s.type !== 'start' ? `<div class="resv"><label><input type="checkbox" ${s.extra?.reserved ? 'checked' : ''} onchange="act('reserve', ${i}, this.checked)">
@@ -230,7 +230,7 @@ function renderMarkers() {
   markers.clear();
   let n = 0;
   trip.steps.forEach((s, i) => {
-    if (isNight(s)) n++;
+    if (isNight(s) && s.nights > 0) n++;
     const m = L.marker([s.lat, s.lng], { icon: markerIcon(s, n), draggable: !settings.lockSteps, title: s.name });
     m.bindPopup(() => popupHtml(trip.steps.indexOf(s)), { minWidth: 230 });
     m.on('drag', e => previewDrag(trip.steps.indexOf(s), e.target.getLatLng()));
@@ -1959,11 +1959,11 @@ function renderList() {
         ? `<div class="leg">↓ ⛴ traversier · ~${fmtH(leg.h)}</div>`
         : `<div class="leg ${long ? 'long' : ''}">↓ ${fmt(leg.km)} km${ftag}${leg.h ? ' · ' + fmtH(leg.h) : ''}${tag}${long ? ` · plus de ${fmt(maxKm())} km` : leg.km > maxKm() && s.extra?.longOk ? ' · long accepté ✔' : ''}</div>`;
     }
-    if (isNight(s)) n++;
+    if (isNight(s) && s.nights > 0) n++;
     const dateInput = `<input type="date" class="dt" value="${toIso(arrival(i))}" onchange="act('date', ${i}, this.value)" title="${s.type === 'start' ? 'Date de départ' : 'Date d\'arrivée'}">`;
-    const nightsInput = isNight(s) ? ` · <input type="number" class="nt" min="1" max="30" value="${s.nights}" onchange="act('setNights', ${i}, +this.value)" title="Nuits"> nuit${s.nights > 1 ? 's' : ''}` : '';
+    const nightsInput = isNight(s) ? ` · <input type="number" class="nt" min="0" max="30" value="${s.nights}" onchange="act('setNights', ${i}, +this.value)" title="Nuits (0 = arrêt de visite)"> ${s.nights === 0 ? 'nuit · 📍 visite' : 'nuit' + (s.nights > 1 ? 's' : '')}` : '';
     html += `<div class="step">
-      <span class="n ${s.type}">${s.type === 'start' ? '⌂' : s.type === 'dest' ? '★' : n}</span>
+      <span class="n ${s.type}">${s.type === 'start' ? '⌂' : s.type === 'dest' ? '★' : s.nights === 0 ? '📍' : n}</span>
       <div class="d"><b onclick="focusStep(${i})">${esc(s.name)}</b>
         <small>${s.type === 'start' ? 'Départ ' : s.type === 'dest' ? 'Arrivée ' : ''}${dateInput}${nightsInput}</small>
         <small class="gps">GPS <input value="${gpsText(s)}" title="${esc(GPS_HELP)}" onchange="act('gps', ${i}, this.value)"></small>
@@ -2339,8 +2339,8 @@ window.act = (what, i, v) => {
   let geometry = false;
   if (what === 'rename') { s.name = v; saveTrip(); renderList(); return; }
   if (what === 'nuit') { openView('nuit', true); showNight(toIso(arrival(i))); return; }
-  if (what === 'nights') s.nights = Math.max(1, s.nights + v);
-  if (what === 'setNights') s.nights = Math.max(1, Math.min(30, v || 1));
+  if (what === 'nights') s.nights = Math.max(0, s.nights + v);   // v1.74 : 0 = arrêt de visite (sans nuit)
+  if (what === 'setNights') s.nights = Math.max(0, Math.min(30, Number.isFinite(v) ? v : 1));
   if (what === 'type') s.type = s.type === 'b' ? 'c' : 'b';
   if (what === 'leaveRig') s.leaveRig = v;
   if (what === 'longOk') s.extra = { ...(s.extra || {}), longOk: v };
@@ -2461,10 +2461,11 @@ map.on('contextmenu', e => {
   window._ctxP = p;
   L.popup({ minWidth: 200 }).setLatLng(e.latlng).setContent(`<div class="pop">
       <button class="btn sm pri" onclick="ctxAdd()">➕ Ajouter une étape ici</button>
+      <button class="btn sm mt" onclick="ctxAdd(0)">📍 Arrêt de visite ici (sans nuit)</button>
       <div class="src mt">GPS : ${gps} <button class="btn sm" onclick="navigator.clipboard?.writeText('${gps}'); this.textContent='✔ Copié'">Copier</button></div>
     </div>`).openOn(map);
 });
-window.ctxAdd = () => { map.closePopup(); if (window._ctxP) addStepAt(window._ctxP); };
+window.ctxAdd = nights => { map.closePopup(); if (window._ctxP) addStepAt(window._ctxP, nights); };
 // … ou par sa position GPS saisie dans le bandeau
 $('hintGo').onclick = () => {
   const p = parseGps($('hintGps').value);
@@ -2475,14 +2476,14 @@ $('hintGo').onclick = () => {
 };
 $('hintGps').onkeydown = e => { if (e.key === 'Enter') $('hintGo').click(); };
 
-function addStepAt(p) {
+function addStepAt(p, nights = 1) {
   const steps = trip.steps;
   let best = 1, bestCost = Infinity;
   for (let i = 1; i < steps.length; i++) {
     const cost = hav(steps[i - 1], p) + hav(p, steps[i]) - hav(steps[i - 1], steps[i]);
     if (cost < bestCost) { bestCost = cost; best = i; }
   }
-  const s = newStep({ name: 'Nouvelle étape', ...p, type: 'b', nights: 1 });
+  const s = newStep({ name: nights ? 'Nouvelle étape' : 'Arrêt de visite', ...p, type: 'b', nights });
   steps.splice(best, 0, s);
   setAdding(false);
   refresh(true);
