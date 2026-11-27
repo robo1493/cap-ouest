@@ -167,8 +167,12 @@ export function importTrip(text) {
   if (!Array.isArray(t.steps) || t.steps.length < 2) throw new Error('Fichier invalide : aucune étape.');
   trip.startIso = t.startIso || DEFAULT_START;
   if (typeof t.name === 'string' && t.name.trim()) trip.name = t.name.trim();
+  // v1.71 : fichier d'un autre voyage (ex. partagé par un ami) → nouveaux numéros d'étapes, sinon la
+  // synchronisation échoue (clé déjà prise par l'autre utilisateur). Sa propre sauvegarde garde ses numéros
+  // (liens des notes vers les étapes).
+  const same = isUuid(t.id) && t.id === trip.id;
   trip.steps = t.steps.map(s => ({
-    id: isUuid(s.id) ? s.id : uid(), name: s.name, lat: +s.lat, lng: +s.lng, type: s.type, nights: +s.nights || 0,
+    id: same && isUuid(s.id) ? s.id : uid(), name: s.name, lat: +s.lat, lng: +s.lng, type: s.type, nights: +s.nights || 0,
     ...(typeof s.leaveRig === 'boolean' ? { leaveRig: s.leaveRig } : {}),
     ...(s.extra && typeof s.extra === 'object' ? { extra: s.extra } : {}),
   }));
