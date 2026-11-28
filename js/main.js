@@ -234,12 +234,23 @@ function renderMarkers() {
     const m = L.marker([s.lat, s.lng], { icon: markerIcon(s, n), draggable: !settings.lockSteps, title: s.name });
     m.bindPopup(() => popupHtml(trip.steps.indexOf(s)), { minWidth: 230 });
     m.on('drag', e => previewDrag(trip.steps.indexOf(s), e.target.getLatLng()));
-    m.on('dragend', e => {
-      const ll = e.target.getLatLng();
-      s.lat = ll.lat; s.lng = ll.lng;
+    m.on('dragend', async e => {
+      // v1.76 : posée sur la route la plus proche, comme une nouvelle étape
+      const { p } = await snapToRoad(e.target.getLatLng());
+      s.lat = p.lat; s.lng = p.lng;
       layers.preview.clearLayers();
-      saveTrip(); recompute();
+      saveTrip(); recompute(); renderMarkers();
       undoToast(`Étape « ${s.name.split(',')[0]} » déplacée`);
+    });
+    // v1.76 : clic droit (ou appui long) sur une étape → Déplacer / Supprimer
+    m.on('contextmenu', e => {
+      L.DomEvent.stop(e);
+      const i = trip.steps.indexOf(s), del = isNight(s);
+      L.popup({ minWidth: 200 }).setLatLng(m.getLatLng()).setContent(`<div class="pop">
+          <div><b>${esc(s.name)}</b></div>
+          <button class="btn sm pri mt" onclick="ctxMove('${s.id}')">✋ Déplacer</button>
+          ${del ? `<button class="btn sm mt" onclick="ctxDel('${s.id}')">🗑 Supprimer</button>` : ''}
+        </div>`).openOn(map);
     });
     m.addTo(isNight(s) ? layers[s.type] : layers.ends);
     markers.set(s.id, m);
@@ -915,12 +926,32 @@ window.favColor = id => {
   if (f) editFav(id, { color: f.color === 'red' ? '' : 'red' });
   map.closePopup();
 };
+const favMarkers = new Map();
+window.favMove = id => {
+  map.closePopup();
+  const m = favMarkers.get(id); if (!m) return;
+  m.dragging.enable();
+  undoToast('✋ Glissez l’étoile à sa nouvelle place', false);
+};
 function renderFavs() {
-  favLayer.clearLayers();
+  favLayer.clearLayers(); favMarkers.clear();
   const list = getFavs(), show = $('favShow')?.checked !== false;
   $('favCount').textContent = list.length ? `(${list.length})` : '';
-  if (show) list.forEach(f => L.marker([f.lat, f.lng], { icon: f.color === 'red' ? favIconRed : favIcon, zIndexOffset: f.color === 'red' ? 1100 : 1000, title: f.name })
-    .bindPopup(() => favPopup(f), { minWidth: 230 }).addTo(favLayer));
+  if (show) list.forEach(f => {
+    const m = L.marker([f.lat, f.lng], { icon: f.color === 'red' ? favIconRed : favIcon, zIndexOffset: f.color === 'red' ? 1100 : 1000, title: f.name })
+      .bindPopup(() => favPopup(f), { minWidth: 230 }).addTo(favLayer);
+    favMarkers.set(f.id, m);
+    m.on('dragend', () => { const ll = m.getLatLng(); editFav(f.id, { lat: ll.lat, lng: ll.lng }); undoToast('⭐ Étoile déplacée', false); });
+    // v1.76 : clic droit sur une étoile → Déplacer / Supprimer
+    m.on('contextmenu', e => {
+      L.DomEvent.stop(e);
+      L.popup({ minWidth: 200 }).setLatLng(m.getLatLng()).setContent(`<div class="pop">
+          <div><b>${favStar(f)} ${esc(f.name)}</b></div>
+          <button class="btn sm pri mt" onclick="favMove('${f.id}')">✋ Déplacer</button>
+          <button class="btn sm mt" onclick="if (confirm('Supprimer cette étoile ?')) favDel('${f.id}')">🗑 Supprimer</button>
+        </div>`).openOn(map);
+    });
+  });
   const ul = $('favList');
   if (ul) ul.innerHTML = list.map(f => `<li><a href="#" onclick="goTo(${f.lat}, ${f.lng}, 12); return false">${favStar(f)} ${esc(f.name)}</a></li>`).join('');
 }
@@ -2462,10 +2493,35 @@ map.on('contextmenu', e => {
   L.popup({ minWidth: 200 }).setLatLng(e.latlng).setContent(`<div class="pop">
       <button class="btn sm pri" onclick="ctxAdd()">➕ Ajouter une étape ici</button>
       <button class="btn sm mt" onclick="ctxAdd(0)">📍 Arrêt de visite ici (sans nuit)</button>
+      <button class="btn sm mt" onclick="ctxStar()">⭐ Marquer d'une étoile</button>
       <div class="src mt">GPS : ${gps} <button class="btn sm" onclick="navigator.clipboard?.writeText('${gps}'); this.textContent='✔ Copié'">Copier</button></div>
     </div>`).openOn(map);
 });
 window.ctxAdd = nights => { map.closePopup(); if (window._ctxP) addStepAt(window._ctxP, nights); };
+// v1.76 : étoile (favori, ne change pas la route)
+window.ctxStar = () => {
+  map.closePopup();
+  const p = window._ctxP; if (!p) return;
+  const name = prompt('Nom de ce point d’intérêt :', 'Point d’intérêt');
+  if (name === null) return;
+  addFav({ name: name.trim() || 'Point d’intérêt', ...p });
+  undoToast('⭐ Étoile ajoutée (Mes favoris)', false);
+};
+// Déplacer une seule étape, même si le cadenas 🔒 est fermé
+window.ctxMove = id => {
+  map.closePopup();
+  const m = markers.get(id); if (!m) return;
+  m.dragging.enable();
+  undoToast('✋ Glissez l’étape à sa nouvelle place', false);
+};
+window.ctxDel = id => {
+  map.closePopup();
+  const i = trip.steps.findIndex(x => x.id === id), s = trip.steps[i];
+  if (!s || !isNight(s)) return;
+  if (!confirm(`Supprimer « ${s.name} » ?`)) return;
+  act('del', i);
+  undoToast(`Étape « ${s.name.split(',')[0]} » supprimée`);
+};
 // … ou par sa position GPS saisie dans le bandeau
 $('hintGo').onclick = () => {
   const p = parseGps($('hintGps').value);

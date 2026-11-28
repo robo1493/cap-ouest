@@ -132,3 +132,4 @@ Boîte « Alertes » fixe du tableau de bord (Yellowstone, Roosevelt, North Port
 - v1.73 : clic droit / appui long sur la carte (map contextmenu) → popup « Ajouter une étape ici » (addStepAt) + GPS à copier.
 - v1.74 : arrêt de visite = étape b avec nights 0 (pas de nouveau type : contrainte SQL). Icône 📍, pas numéroté, act nights min 0, menu clic droit « Arrêt de visite ici », catchup porte les km à travers.
 - v1.75 : addStepAt pose la nouvelle étape sur la route la plus proche (OSRM nearest, si 0,3–80 km) + message ; nearestRoad exporté de routing.js. Pointillés = tronçon non calculé (erreur, réessai auto 65 s) ; ENDS_KM 5 km.
+- v1.76 : menu clic droit : carte → ⭐ étoile (addFav via prompt) ; sur étape → ✋ Déplacer (dragging.enable une fois, dragend → snapToRoad + renderMarkers) / 🗑 Supprimer (confirm, sauf départ/destination) ; sur étoile → Déplacer (editFav lat/lng) / Supprimer (confirm). Apostrophes typographiques ’ dans les chaînes JS entre '…'.
